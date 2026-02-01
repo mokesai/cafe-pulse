@@ -29,7 +29,10 @@ export default async function KDSLayout({
   await requireAdmin()
 
   return (
-    <div className="kds-root">
+    <div
+      className="kds-root"
+      style={{ backgroundColor: '#d4b896' }}
+    >
       {children}
     </div>
   )
