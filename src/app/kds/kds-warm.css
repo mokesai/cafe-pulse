@@ -5,7 +5,7 @@
  */
 
 /* ===== Google Fonts Import ===== */
-@import url('https://fonts.googleapis.com/css2?family=Great+Vibes&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Great+Vibes&family=Nunito:wght@400;500;600;700;800&display=swap');
 
 /* ===== CSS Variables - Warm Theme ===== */
 :root {
@@ -38,7 +38,7 @@
   --kds-divider-strong: rgba(107, 68, 35, 0.35);
 
   /* Typography */
-  --kds-font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --kds-font-body: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --kds-font-script: 'Great Vibes', cursive;
 
   /* Compact spacing */
@@ -62,6 +62,16 @@
   --kds-transition-fast: 150ms ease;
   --kds-transition-normal: 300ms ease;
   --kds-transition-slow: 500ms ease;
+
+  /* Bullet colors for featured and flavor items */
+  --kds-bullet-green: #00704A;  /* Starbucks green */
+  --kds-bullet-yellow: #F5A623;
+  --kds-bullet-orange: #E67E22;
+  --kds-bullet-brown: #8B4513;
+  --kds-bullet-pink: #FF69B4;
+  --kds-bullet-blue: #3498DB;
+  --kds-bullet-red: #E74C3C;
+  --kds-bullet-teal: #1ABC9C;
 }
 
 /* ===== Base Layout ===== */
@@ -821,8 +831,10 @@
 /* Main row: [left image] | [center text] | [right image] */
 .kds-panel-header-main {
   display: flex;
-  align-items: stretch;
-  height: 50px;
+  align-items: center;
+  justify-content: center;
+  min-height: 70px;
+  padding: 0.5rem 0;
 }
 
 /* Product images on sides */
@@ -869,34 +881,47 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 0.15rem 0.5rem;
+  padding: 0.25rem 0.5rem;
   text-align: center;
+  gap: 0.25rem;
 }
 
 .kds-panel-logo {
   font-family: var(--kds-font-script);
-  font-size: 1.6rem;
+  font-size: 2rem;
   font-weight: 700;
   color: #3d2314;
-  line-height: 1;
+  line-height: 1.2;
   margin: 0;
   text-shadow: 1px 1px 1px rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+/* Standard header title icons (flanking cafe name) */
+.kds-standard-title-icon {
+  height: 2.5rem;
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .kds-panel-subtitle {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.25rem;
-  font-size: 0.45rem;
-  font-weight: 500;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
   color: var(--kds-text-secondary);
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
   margin: 0;
 }
 
 .kds-panel-subtitle-logo {
-  height: 0.9em;
+  height: 2.5rem;
   width: auto;
   vertical-align: middle;
 }
@@ -983,14 +1008,13 @@
 /* Compact Size Header */
 .kds-compact-size-header {
   display: grid;
-  grid-template-columns: 1fr repeat(3, 2.25rem);
-  gap: 0.125rem;
-  font-size: 0.45rem;
+  gap: 0.25rem;
+  font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
   color: var(--kds-text-muted);
   text-align: center;
-  margin-bottom: 0.1rem;
+  margin-bottom: 0.15rem;
 }
 
 .kds-compact-size-header span:first-child {
@@ -1008,12 +1032,12 @@
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  padding: 0.1rem 0;
+  padding: 0.15rem 0;
   gap: 0.25rem;
 }
 
 .kds-compact-item-name {
-  font-size: 0.55rem;
+  font-size: 0.85rem;
   font-weight: 400;
   color: var(--kds-text);
   white-space: nowrap;
@@ -1023,7 +1047,7 @@
 }
 
 .kds-compact-item-price {
-  font-size: 0.55rem;
+  font-size: 0.85rem;
   font-weight: 600;
   color: var(--kds-price);
   white-space: nowrap;
@@ -1032,22 +1056,196 @@
 /* Compact Sized Item (with Tall/Grande/Venti) */
 .kds-compact-sized-item {
   display: grid;
-  grid-template-columns: 1fr repeat(3, 2.25rem);
-  gap: 0.125rem;
+  gap: 0.25rem;
   align-items: baseline;
-  padding: 0.1rem 0;
+  padding: 0.15rem 0;
 }
 
 .kds-compact-sized-item .kds-compact-item-name {
-  font-size: 0.55rem;
+  font-size: 0.85rem;
 }
 
 .kds-compact-price {
-  font-size: 0.5rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: var(--kds-price);
   text-align: center;
   white-space: nowrap;
+}
+
+/* ===== Display Type: Bullets ===== */
+.kds-bullet {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.kds-bullet-green { background: var(--kds-bullet-green); }
+.kds-bullet-yellow { background: var(--kds-bullet-yellow); }
+.kds-bullet-orange { background: var(--kds-bullet-orange); }
+.kds-bullet-brown { background: var(--kds-bullet-brown); }
+.kds-bullet-pink { background: var(--kds-bullet-pink); }
+.kds-bullet-blue { background: var(--kds-bullet-blue); }
+.kds-bullet-red { background: var(--kds-bullet-red); }
+.kds-bullet-teal { background: var(--kds-bullet-teal); }
+
+/* ===== Display Type: Featured List ===== */
+.kds-featured-category {
+  position: relative;
+  background-image: url('/images/kds/bg-coffee-watercolor.png');
+  background-size: cover;
+  background-position: center;
+  background-blend-mode: soft-light;
+}
+
+.kds-featured-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.15rem 0;
+}
+
+.kds-star-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.kds-featured-item-name {
+  font-size: 0.6rem;
+  font-weight: 500;
+  color: var(--kds-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ===== Display Type: Flavor Grid ===== */
+.kds-flavor-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25rem 1rem;
+}
+
+.kds-flavor-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.kds-flavor-item-name {
+  font-size: 0.55rem;
+  font-weight: 400;
+  color: var(--kds-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ===== Display Type: Simple List ===== */
+.kds-simple-item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  padding: 0.1rem 0;
+}
+
+.kds-simple-item-name {
+  font-size: 0.55rem;
+  font-weight: 400;
+  color: var(--kds-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kds-simple-item-dots {
+  flex: 1;
+  border-bottom: 1px dotted var(--kds-divider-strong);
+  min-width: 10px;
+  margin: 0 0.25rem;
+  position: relative;
+  top: -3px;
+}
+
+.kds-simple-item-price {
+  font-size: 0.55rem;
+  font-weight: 600;
+  color: var(--kds-price);
+  white-space: nowrap;
+}
+
+/* ===== Display Type: Single Price (category header price) ===== */
+.kds-single-price-header {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--kds-price);
+  margin-left: auto;
+}
+
+/* ===== Banner Header Style ===== */
+.kds-panel-header-banner {
+  background: linear-gradient(180deg, #5c3d2e 0%, #4a3120 100%);
+  border-bottom: 2px solid var(--kds-divider-strong);
+  box-shadow: var(--kds-shadow-md);
+}
+
+.kds-panel-header-banner .kds-panel-header-main {
+  height: 50px;
+  justify-content: center;
+}
+
+.kds-panel-header-banner .kds-panel-header-center {
+  flex: none;
+}
+
+.kds-panel-header-banner .kds-panel-logo {
+  font-family: var(--kds-font-body);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #ffffff;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+/* Banner title icons (flanking the title text) */
+.kds-banner-title-icon {
+  height: 2.5rem;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+.kds-banner-title-icon-left {
+  margin-right: 0.25rem;
+}
+
+.kds-banner-title-icon-right {
+  margin-left: 0.25rem;
+}
+
+.kds-panel-header-banner .kds-panel-subtitle {
+  display: none;
+}
+
+.kds-panel-header-banner .kds-panel-header-image {
+  display: none;
+}
+
+.kds-panel-header-banner .kds-panel-header-bottom {
+  background: rgba(0, 0, 0, 0.15);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.kds-panel-header-banner .kds-panel-location,
+.kds-panel-header-banner .kds-panel-hours {
+  color: rgba(255, 255, 255, 0.85);
 }
 
 /* Photo Strip */
@@ -1080,6 +1278,54 @@
 
 /* ===== Dual-Panel Responsive: HD (1920x1080) ===== */
 @media (min-width: 1920px) and (max-width: 2559px) {
+  .kds-bullet {
+    width: 12px;
+    height: 12px;
+  }
+
+  .kds-featured-item {
+    gap: 0.6rem;
+    padding: 0.2rem 0;
+  }
+
+  .kds-star-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .kds-featured-item-name {
+    font-size: 0.8rem;
+  }
+
+  .kds-flavor-grid {
+    gap: 0.35rem 1.25rem;
+  }
+
+  .kds-flavor-item {
+    gap: 0.4rem;
+  }
+
+  .kds-flavor-item-name {
+    font-size: 0.7rem;
+  }
+
+  .kds-simple-item-name,
+  .kds-simple-item-price {
+    font-size: 0.7rem;
+  }
+
+  .kds-simple-item-dots {
+    top: -4px;
+  }
+
+  .kds-panel-header-banner .kds-panel-logo {
+    font-size: 1.8rem;
+  }
+
+  .kds-panel-header-banner .kds-panel-header-main {
+    height: 65px;
+  }
+
   .kds-panel-header-main {
     height: 65px;
   }
@@ -1152,6 +1398,54 @@
 
 /* ===== Dual-Panel Responsive: 4K ===== */
 @media (min-width: 2560px) {
+  .kds-bullet {
+    width: 14px;
+    height: 14px;
+  }
+
+  .kds-featured-item {
+    gap: 0.75rem;
+    padding: 0.25rem 0;
+  }
+
+  .kds-star-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  .kds-featured-item-name {
+    font-size: 1rem;
+  }
+
+  .kds-flavor-grid {
+    gap: 0.5rem 1.5rem;
+  }
+
+  .kds-flavor-item {
+    gap: 0.5rem;
+  }
+
+  .kds-flavor-item-name {
+    font-size: 0.9rem;
+  }
+
+  .kds-simple-item-name,
+  .kds-simple-item-price {
+    font-size: 0.9rem;
+  }
+
+  .kds-simple-item-dots {
+    top: -5px;
+  }
+
+  .kds-panel-header-banner .kds-panel-logo {
+    font-size: 2.2rem;
+  }
+
+  .kds-panel-header-banner .kds-panel-header-main {
+    height: 85px;
+  }
+
   .kds-panel-header-main {
     height: 85px;
   }
@@ -1236,6 +1530,652 @@
   .kds-compact-icon {
     width: 24px;
     height: 24px;
+  }
+}
+
+/* ===== MAGAZINE LAYOUT (Food Screen) ===== */
+
+/* Magazine Grid Layout for Food Screen - 3 equal columns */
+.kds-magazine-content {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.6rem;
+  padding: 0.75rem;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* 4-column layout for Drinks screen with photo strip */
+.kds-magazine-content-4col {
+  grid-template-columns: 1.2fr 1fr 0.6fr 1fr;
+}
+
+/* Photo strip column - stacked images with dividers */
+.kds-drinks-photo-strip {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+}
+
+.kds-photo-strip-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.kds-photo-strip-divider {
+  width: 90%;
+  height: 3px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    #8b6914 15%,
+    var(--kds-accent-gold) 50%,
+    #8b6914 85%,
+    transparent 100%
+  );
+  margin-bottom: 0.75rem;
+  border-radius: 2px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Elegant image divider for photo strip */
+.kds-photo-strip-divider-img {
+  width: 100%;
+  max-width: 120px;
+  height: auto;
+  margin-bottom: 0.5rem;
+  object-fit: contain;
+}
+
+.kds-photo-strip-image {
+  width: 100%;
+  height: auto;
+  max-height: 100px;
+  object-fit: contain;
+  border-radius: var(--kds-radius-sm);
+  box-shadow: var(--kds-shadow-sm);
+}
+
+/* Each column is a flex container for vertical stacking */
+.kds-magazine-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Inline image that blends with content */
+.kds-inline-image {
+  border-radius: var(--kds-radius-md);
+  overflow: hidden;
+  box-shadow: var(--kds-shadow-sm);
+  flex-shrink: 0;
+}
+
+.kds-inline-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--kds-radius-md);
+}
+
+/* Small inline image (beside category header) */
+.kds-inline-image-sm {
+  height: 70px;
+}
+
+/* Medium inline image */
+.kds-inline-image-md {
+  height: 90px;
+}
+
+/* Large inline image */
+.kds-inline-image-lg {
+  height: 110px;
+}
+
+/* Category with image beside it (side-by-side layout) */
+.kds-category-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.kds-category-row .kds-magazine-category,
+.kds-category-row .kds-lotus-section {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Most Popular section should not expand */
+.kds-category-row .kds-most-popular {
+  flex: 0 0 auto;
+}
+
+.kds-category-row .kds-inline-image {
+  flex: 1;
+  min-width: 120px;
+  height: auto;
+  align-self: flex-start;
+}
+
+/* Food Pairings Header with Icon */
+.kds-food-pairings-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 2px solid var(--kds-accent);
+  flex-shrink: 0;
+}
+
+.kds-food-pairings-icon {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+}
+
+/* Grande size highlighting - makes Grande stand out */
+.kds-size-grande {
+  font-weight: 700 !important;
+  color: var(--kds-accent-dark) !important;
+}
+
+.kds-price-grande {
+  font-weight: 700 !important;
+}
+
+/* Tight Item Spacing (for food pairings list) */
+.kds-tight-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.15rem 0;
+}
+
+.kds-tight-item-name {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--kds-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kds-tight-item-price {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--kds-price);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Category with Thumbnail */
+.kds-category-with-thumb {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.kds-category-thumb {
+  width: 50px;
+  height: 50px;
+  flex-shrink: 0;
+  border-radius: var(--kds-radius-sm);
+  overflow: hidden;
+}
+
+.kds-category-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.kds-category-thumb-content {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Magazine Category Box */
+.kds-magazine-category {
+  background: var(--kds-bg-category);
+  border-radius: var(--kds-radius-sm);
+  padding: 0.35rem 0.5rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.kds-magazine-header {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.3rem;
+  padding-bottom: 0.2rem;
+  border-bottom: 1px solid var(--kds-divider);
+}
+
+.kds-magazine-icon {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.kds-magazine-title {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--kds-category-title);
+}
+
+.kds-magazine-price {
+  margin-left: auto;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--kds-price);
+}
+
+.kds-magazine-items {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Food Pairings Box (larger right column) */
+.kds-food-pairings {
+  background: var(--kds-bg-category);
+  border-radius: var(--kds-radius-sm);
+  padding: 0.4rem 0.6rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.kds-food-pairings-header {
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--kds-accent-dark);
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.kds-food-pairings-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* Lotus Energy Combined Section */
+.kds-lotus-section {
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.15) 0%, rgba(0, 0, 0, 0.08) 100%);
+  border: 2px solid var(--kds-accent-gold);
+  border-radius: var(--kds-radius-sm);
+  padding: 0.35rem 0.5rem;
+  overflow: hidden;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.kds-lotus-header {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.25rem;
+  padding-bottom: 0.2rem;
+  border-bottom: 1px solid var(--kds-divider);
+  flex-wrap: nowrap;
+}
+
+.kds-lotus-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.kds-lotus-title {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--kds-category-title);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.kds-lotus-price {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--kds-price);
+  white-space: nowrap;
+  margin-bottom: 0.25rem;
+}
+
+.kds-lotus-subtitle {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--kds-text-secondary);
+  margin-bottom: 0.2rem;
+}
+
+.kds-lotus-flavors {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.15rem 0.5rem;
+  flex: 1;
+  align-content: start;
+  overflow-y: auto;
+}
+
+.kds-lotus-flavor {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.kds-lotus-flavor-name {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--kds-text);
+}
+
+/* Most Popular Section with Yellow Stars */
+.kds-most-popular {
+  background: linear-gradient(135deg, #5d4037 0%, #6d4c41 100%);
+  border: 2px solid #f0c14b;
+}
+
+.kds-most-popular-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 2px solid #f0c14b;
+}
+
+.kds-most-popular-star {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+.kds-most-popular-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #ffd54f;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.kds-star-bullet {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3));
+}
+
+.kds-featured-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.kds-featured-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.05rem 0;
+}
+
+.kds-featured-item-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+/* ===== Magazine Responsive: HD (1920x1080) ===== */
+@media (min-width: 1920px) and (max-width: 2559px) {
+  .kds-magazine-content {
+    gap: 0.65rem;
+    padding: 0.85rem;
+  }
+
+  .kds-tight-item-name,
+  .kds-tight-item-price {
+    font-size: 0.95rem;
+  }
+
+  .kds-tight-item {
+    padding: 0.2rem 0;
+  }
+
+  .kds-category-thumb {
+    width: 75px;
+    height: 75px;
+  }
+
+  .kds-magazine-category {
+    padding: 0.55rem 0.75rem;
+  }
+
+  .kds-magazine-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  .kds-magazine-title {
+    font-size: 1.05rem;
+  }
+
+  .kds-magazine-price {
+    font-size: 1rem;
+  }
+
+  .kds-food-pairings {
+    padding: 0.6rem 0.85rem;
+  }
+
+  .kds-food-pairings-header {
+    font-size: 0.9rem;
+  }
+
+  .kds-lotus-section {
+    padding: 0.55rem 0.75rem;
+  }
+
+  .kds-lotus-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .kds-lotus-title {
+    font-size: 1.05rem;
+  }
+
+  .kds-lotus-price {
+    font-size: 0.95rem;
+  }
+
+  .kds-lotus-subtitle {
+    font-size: 0.8rem;
+  }
+
+  .kds-lotus-flavor-name {
+    font-size: 0.85rem;
+  }
+
+  .kds-lotus-flavors {
+    gap: 0.25rem 0.75rem;
+  }
+
+  .kds-bullet {
+    width: 12px;
+    height: 12px;
+  }
+
+  /* Magazine column layout for HD */
+  .kds-magazine-content {
+    gap: 0.75rem;
+    padding: 0.85rem;
+  }
+
+  .kds-magazine-column {
+    gap: 0.5rem;
+  }
+
+  .kds-inline-image-sm {
+    height: 85px;
+  }
+
+  .kds-inline-image-md {
+    height: 110px;
+  }
+
+  .kds-inline-image-lg {
+    height: 140px;
+  }
+
+  .kds-category-row .kds-inline-image {
+    width: 110px;
+  }
+
+  .kds-food-pairings-icon {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+/* ===== Magazine Responsive: 4K ===== */
+@media (min-width: 2560px) {
+  .kds-magazine-content {
+    gap: 1rem;
+    padding: 1.25rem;
+  }
+
+  .kds-tight-item-name,
+  .kds-tight-item-price {
+    font-size: 1.2rem;
+  }
+
+  .kds-tight-item {
+    padding: 0.3rem 0;
+  }
+
+  .kds-category-thumb {
+    width: 100px;
+    height: 100px;
+  }
+
+  .kds-magazine-category {
+    padding: 0.75rem 1rem;
+  }
+
+  .kds-magazine-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .kds-magazine-title {
+    font-size: 1.3rem;
+  }
+
+  .kds-magazine-price {
+    font-size: 1.2rem;
+  }
+
+  .kds-food-pairings {
+    padding: 0.8rem 1.1rem;
+  }
+
+  .kds-food-pairings-header {
+    font-size: 1.1rem;
+  }
+
+  .kds-lotus-section {
+    padding: 0.75rem 1rem;
+  }
+
+  .kds-lotus-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .kds-lotus-title {
+    font-size: 1.3rem;
+  }
+
+  .kds-lotus-price {
+    font-size: 1.15rem;
+  }
+
+  .kds-lotus-subtitle {
+    font-size: 1rem;
+  }
+
+  .kds-lotus-flavor-name {
+    font-size: 1.05rem;
+  }
+
+  .kds-lotus-flavors {
+    gap: 0.35rem 1rem;
+  }
+
+  .kds-bullet {
+    width: 14px;
+    height: 14px;
+  }
+
+  /* Magazine column layout for 4K */
+  .kds-magazine-content {
+    gap: 1.25rem;
+    padding: 1.25rem;
+  }
+
+  .kds-magazine-column {
+    gap: 0.75rem;
+  }
+
+  .kds-inline-image-sm {
+    height: 110px;
+  }
+
+  .kds-inline-image-md {
+    height: 140px;
+  }
+
+  .kds-inline-image-lg {
+    height: 180px;
+  }
+
+  .kds-category-row .kds-inline-image {
+    width: 140px;
+  }
+
+  .kds-food-pairings-icon {
+    width: 28px;
+    height: 28px;
   }
 }
 

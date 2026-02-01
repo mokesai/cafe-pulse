@@ -6,6 +6,12 @@
 // Screen identifier for the two TV displays
 export type KDSScreen = 'drinks' | 'food'
 
+// Display type for categories and items
+export type KDSDisplayType = 'featured' | 'price-grid' | 'simple-list' | 'single-price' | 'flavor-options'
+
+// Bullet color for featured and flavor items
+export type KDSBulletColor = 'green' | 'yellow' | 'orange' | 'brown' | 'pink' | 'blue' | 'red' | 'teal'
+
 // Position of category quadrant on screen (legacy, now optional)
 export type KDSPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
 
@@ -37,6 +43,10 @@ export interface KDSCategory {
   sortOrder: number
   color?: string         // optional accent color
   icon?: KDSCategoryIcon // icon name for category header
+  displayType?: KDSDisplayType // display style for this category
+  showSizeHeader?: boolean     // whether to show size column headers
+  headerText?: string          // custom header text for single-price categories
+  sizeLabels?: string[]        // custom size labels (e.g., ["Tall", "Grande", "Venti"])
   createdAt: string
   updatedAt: string
 }
@@ -53,6 +63,10 @@ export interface KDSCategoryRow {
   sort_order: number
   color: string | null
   icon: string | null
+  display_type: string | null
+  show_size_header: boolean | null
+  header_text: string | null
+  size_labels: string | null
   created_at: string
   updated_at: string
 }
@@ -72,6 +86,10 @@ export interface KDSMenuItem {
   categoryId: string
   sortOrder: number
   isVisible: boolean
+  displayType?: KDSDisplayType // override display type for this item
+  featured?: boolean           // appears in featured section
+  bulletColor?: KDSBulletColor // bullet color for featured/flavor items
+  parentItem?: string          // parent item name for flavor grouping
   createdAt: string
   updatedAt: string
 }
@@ -91,6 +109,10 @@ export interface KDSMenuItemRow {
   category_id: string | null
   sort_order: number
   is_visible: boolean
+  display_type: string | null
+  featured: boolean | null
+  bullet_color: string | null
+  parent_item: string | null
   created_at: string
   updated_at: string
 }
@@ -129,6 +151,8 @@ export interface KDSSettingsMap {
   header_location: string
   cafe_name: string                // "Little Café"
   theme: 'dark' | 'warm'           // theme selection
+  food_header: string              // banner header text for food screen
+  drinks_show_starbucks_logo: boolean // show Starbucks logo in drinks subtitle
 }
 
 /**
@@ -198,6 +222,10 @@ export interface KDSImportItem {
   category: string          // category slug
   sort_order?: number | string
   is_visible?: boolean | string
+  display_type?: KDSDisplayType
+  featured?: boolean | string
+  bullet_color?: KDSBulletColor
+  parent_item?: string
 }
 
 export interface KDSImportCategory {
@@ -208,6 +236,10 @@ export interface KDSImportCategory {
   sort_order?: number
   color?: string
   icon?: string            // icon name
+  display_type?: KDSDisplayType
+  show_size_header?: boolean
+  header_text?: string
+  size_labels?: string     // pipe-separated (e.g., "Tall|Grande|Venti")
 }
 
 export interface KDSImportImage {

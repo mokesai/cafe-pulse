@@ -26,6 +26,9 @@ interface KDSDualPanelScreenProps {
  * Single panel of the dual-panel menu board layout.
  * Designed to be displayed on one TV, with another TV showing the other panel.
  * Together they form the complete menu board like the example.
+ *
+ * Left panel (drinks): Standard header with Starbucks logo
+ * Right panel (food): Banner header with custom title (e.g., "LOTUS ENERGY DRINKS")
  */
 export default function KDSDualPanelScreen({
   data,
@@ -46,6 +49,14 @@ export default function KDSDualPanelScreen({
     ? (settings.drinks_subtitle as string) || 'We proudly serve Starbucks® coffee'
     : (settings.food_subtitle as string) || 'FOOD & SPECIALTY DRINKS'
 
+  // Header style based on panel
+  const headerStyle = panel === 'left' ? 'standard' : 'banner'
+
+  // For banner (food) panel, use custom header text from settings
+  const headerTitle = panel === 'right'
+    ? (settings.food_header as string) || cafeName
+    : cafeName
+
   // Header images
   const { left: leftImage, right: rightImage, subtitleLogo } = headerImages
 
@@ -58,13 +69,14 @@ export default function KDSDualPanelScreen({
     <div className="kds-panel">
       {/* Panel Header */}
       <KDSPanelHeader
-        cafeName={cafeName}
+        cafeName={headerTitle}
         subtitle={subtitle}
         subtitleLogo={subtitleLogo}
         leftImage={leftImage}
         rightImage={rightImage}
         location={location}
         hours={hours}
+        headerStyle={headerStyle}
       />
 
       {/* Categories Grid - 2 columns */}
@@ -76,6 +88,10 @@ export default function KDSDualPanelScreen({
               name={category.name}
               items={category.items}
               icon={category.icon}
+              displayType={category.displayType}
+              headerText={category.headerText}
+              sizeLabels={category.sizeLabels}
+              showSizeHeader={category.showSizeHeader}
             />
           ))}
         </div>
@@ -86,6 +102,10 @@ export default function KDSDualPanelScreen({
               name={category.name}
               items={category.items}
               icon={category.icon}
+              displayType={category.displayType}
+              headerText={category.headerText}
+              sizeLabels={category.sizeLabels}
+              showSizeHeader={category.showSizeHeader}
             />
           ))}
         </div>

@@ -1,0 +1,28 @@
+slug,name,screen,position,sort_order,color,icon,display_type,show_size_header,header_text
+# ==========================================
+# SCREEN 1: DRINKS (Left Panel - "LITTLE CAFÉ")
+# Header: "Little Café" with Starbucks Siren + "We Proudly Serve Starbucks"
+# 3-Column Layout:
+# Column 1: Most Popular + Iced Favorites
+# Column 2: Espresso & Coffee
+# Column 3: Frappuccinos
+# ==========================================
+most-popular,MOST POPULAR,drinks,column-1,1,,star,featured,false,
+iced-favorites,ICED FAVORITES,drinks,column-1,2,,snowflake,price-grid,true,Tall|GRANDE|Venti
+espresso-coffee,ESPRESSO & COFFEE,drinks,column-2,3,,coffee,price-grid,true,Tall|GRANDE|Venti
+frappuccinos,FRAPPUCCINO® BLENDED BEVERAGES,drinks,column-3,4,,frappuccino,price-grid,true,Tall|GRANDE|Venti
+
+# ==========================================
+# SCREEN 2: FOOD (Right Panel - "FOOD & SPECIALTY DRINKS")
+# Banner: "FOOD & SPECIALTY DRINKS"
+# Column 1: Lotus Energy, Smoothies, Other Favorites
+# Column 2: Teas, Fresh Pastries
+# Column 3: Perfect with Grande Coffee + food image
+# ==========================================
+lotus-energy,LOTUS ENERGY DRINKS,food,column-1,1,,bolt,single-price,false,Regular (Most Popular) - $6.45
+lotus-flavors,Most Popular Flavors,food,column-1,2,,palette,flavor-options,false,
+smoothies,SMOOTHIES,food,column-1,3,,blender,price-grid,true,Tall|Venti
+other-favorites,OTHER FAVORITES,food,column-1,4,,heart,price-grid,true,Serene|Venti
+teas,TEAS,food,column-2,5,,tea,price-grid,true,Tall|Grande|Venti
+fresh-pastries,FRESH PASTRIES,food,column-2,6,,croissant,simple-list,false,
+coffee-pairings,PERFECT WITH YOUR GRANDE COFFEE,food,column-3,7,,utensils,simple-list,false,

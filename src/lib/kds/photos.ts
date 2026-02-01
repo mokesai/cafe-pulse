@@ -40,11 +40,37 @@ function scanCategory(category: string): string[] {
 }
 
 /**
- * Get all available photos from all categories
+ * Scan root directory for photos (not in subdirectories)
+ */
+function scanRootPhotos(): string[] {
+  if (!fs.existsSync(PHOTOS_BASE_DIR)) {
+    return []
+  }
+
+  try {
+    const files = fs.readdirSync(PHOTOS_BASE_DIR)
+    return files
+      .filter(file => {
+        const ext = path.extname(file).toLowerCase()
+        const fullPath = path.join(PHOTOS_BASE_DIR, file)
+        // Only include files (not directories) with valid image extensions
+        return IMAGE_EXTENSIONS.includes(ext) && fs.statSync(fullPath).isFile()
+      })
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Get all available photos from all categories plus root directory
  */
 export function getAllPhotos(): string[] {
   const photos: string[] = []
 
+  // Include root-level photos
+  photos.push(...scanRootPhotos())
+
+  // Include category photos
   for (const category of ALL_CATEGORIES) {
     photos.push(...scanCategory(category))
   }

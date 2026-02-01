@@ -17,3 +17,7 @@ export { default as KDSDualPanelScreen } from './KDSDualPanelScreen'
 export { default as KDSPanelHeader } from './KDSPanelHeader'
 export { default as KDSCategoryCompact } from './KDSCategoryCompact'
 export { default as KDSPhotoStrip } from './KDSPhotoStrip'
+// Magazine-style layout for food screen
+export { default as KDSFoodMagazine } from './KDSFoodMagazine'
+// Magazine-style layout for drinks screen
+export { default as KDSDrinksMagazine } from './KDSDrinksMagazine'

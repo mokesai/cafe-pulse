@@ -5,9 +5,11 @@
 
 import { createServiceClient } from '@/lib/supabase/server'
 import type {
+  KDSBulletColor,
   KDSCategory,
   KDSCategoryRow,
   KDSCategoryWithItems,
+  KDSDisplayType,
   KDSImage,
   KDSImageRow,
   KDSMenuItem,
@@ -30,6 +32,10 @@ function mapCategoryRow(row: KDSCategoryRow): KDSCategory {
     sortOrder: row.sort_order,
     color: row.color ?? undefined,
     icon: row.icon as KDSCategory['icon'] | undefined,
+    displayType: row.display_type as KDSDisplayType | undefined,
+    showSizeHeader: row.show_size_header ?? true,
+    headerText: row.header_text ?? undefined,
+    sizeLabels: row.size_labels?.split('|') ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -48,6 +54,10 @@ function mapMenuItemRow(row: KDSMenuItemRow): KDSMenuItem {
     categoryId: row.category_id ?? '',
     sortOrder: row.sort_order,
     isVisible: row.is_visible,
+    displayType: row.display_type as KDSDisplayType | undefined,
+    featured: row.featured ?? false,
+    bulletColor: row.bullet_color as KDSBulletColor | undefined,
+    parentItem: row.parent_item ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -269,6 +279,10 @@ export async function upsertCategory(category: Omit<KDSCategory, 'id' | 'created
       sort_order: category.sortOrder,
       color: category.color ?? null,
       icon: category.icon ?? null,
+      display_type: category.displayType ?? null,
+      show_size_header: category.showSizeHeader ?? true,
+      header_text: category.headerText ?? null,
+      size_labels: category.sizeLabels?.join('|') ?? null,
     }, {
       onConflict: 'slug',
     })
@@ -308,6 +322,10 @@ export async function upsertMenuItem(
       category_id: category.id,
       sort_order: item.sortOrder,
       is_visible: item.isVisible,
+      display_type: item.displayType ?? null,
+      featured: item.featured ?? false,
+      bullet_color: item.bulletColor ?? null,
+      parent_item: item.parentItem ?? null,
     }, {
       onConflict: 'square_variation_id',
       ignoreDuplicates: false,

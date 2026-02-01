@@ -124,7 +124,14 @@ function parseCSV(csvText) {
   const rows = []
 
   for (let i = 1; i < lines.length; i++) {
-    const values = parseCSVLine(lines[i])
+    const line = lines[i].trim()
+
+    // Skip empty lines and comment lines (starting with #)
+    if (!line || line.startsWith('#')) {
+      continue
+    }
+
+    const values = parseCSVLine(line)
     if (values.length !== headers.length) {
       console.warn(`⚠️  Row ${i + 1} has ${values.length} columns, expected ${headers.length}`)
       continue
@@ -207,6 +214,12 @@ async function getCSVData(envVar, localPath, useLocal) {
 // Data transformation functions
 
 function transformCategory(row) {
+  // Parse boolean for show_size_header (default to true if not specified)
+  let showSizeHeader = true
+  if (row.show_size_header !== undefined && row.show_size_header !== '') {
+    showSizeHeader = row.show_size_header === 'true' || row.show_size_header === 'TRUE' || row.show_size_header === '1' || row.show_size_header === true
+  }
+
   return {
     slug: row.slug,
     name: row.name,
@@ -215,6 +228,10 @@ function transformCategory(row) {
     sort_order: parseInt(row.sort_order, 10) || 0,
     color: row.color || null,
     icon: row.icon || null,
+    display_type: row.display_type || null,
+    show_size_header: showSizeHeader,
+    header_text: row.header_text || null,
+    size_labels: row.size_labels || null,
   }
 }
 
@@ -235,8 +252,9 @@ function transformMenuItem(row, categoryMap) {
     priceCents = Math.round(priceFloat * 100)
   }
 
-  // Parse boolean
+  // Parse booleans
   const isVisible = row.is_visible === 'true' || row.is_visible === 'TRUE' || row.is_visible === '1' || row.is_visible === true
+  const featured = row.featured === 'true' || row.featured === 'TRUE' || row.featured === '1' || row.featured === true
 
   return {
     square_item_id: row.square_item_id || null,
@@ -249,6 +267,10 @@ function transformMenuItem(row, categoryMap) {
     category_id: categoryId || null,
     sort_order: parseInt(row.sort_order, 10) || 0,
     is_visible: isVisible,
+    display_type: row.display_type || null,
+    featured: featured,
+    bullet_color: row.bullet_color || null,
+    parent_item: row.parent_item || null,
   }
 }
 

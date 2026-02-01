@@ -1,27 +1,34 @@
 import { getScreenData } from '@/lib/kds/queries'
-import { getAllPhotos } from '@/lib/kds/photos'
-import { KDSDualPanelScreen } from '@/app/kds/components'
+import { KDSDrinksMagazine } from '@/app/kds/components'
 
 // Revalidate every 5 minutes
 export const revalidate = 300
 
-// Header images for drinks panel (matching cafe-menu-example)
+// Header images for drinks panel
 const HEADER_IMAGES = {
-  left: '/images/kds/header/espresso.jpeg',
-  right: '/images/kds/header/croissant.jpg',
-  subtitleLogo: '/images/kds/header/starbucks-logo.png',
+  leftTitleIcon: '/images/kds/header/coffee-steam-icon.png',
+  rightTitleIcon: '/images/kds/header/wps-starbucks-logo.png',
 }
+
+// Inline images
+const MOST_POPULAR_IMAGE = '/images/kds/photos/wps-frappuccinos.png'
+
+// Photo strip images (stacked vertically with dividers)
+const PHOTO_STRIP_IMAGES = [
+  '/images/kds/photos/iced-coffee-wps.png',
+  '/images/kds/photos/smoothies-wps.png',
+  '/images/kds/photos/refreshers-wps.png',
+]
 
 export default async function DrinksDisplayPage() {
   const data = await getScreenData('drinks')
-  const photos = getAllPhotos()
 
   return (
-    <KDSDualPanelScreen
+    <KDSDrinksMagazine
       data={data}
-      panel="left"
-      photos={photos}
       headerImages={HEADER_IMAGES}
+      mostPopularImage={MOST_POPULAR_IMAGE}
+      photoStripImages={PHOTO_STRIP_IMAGES}
     />
   )
 }

@@ -7,16 +7,19 @@ import { getSizeColumns } from '@/lib/kds/group-items'
 
 interface KDSSizeHeaderProps {
   animate?: boolean
+  /** Custom size labels (default: ["Tall", "Grande", "Venti"]) */
+  labels?: string[]
 }
 
-export default function KDSSizeHeader({ animate = true }: KDSSizeHeaderProps) {
-  const sizes = getSizeColumns()
+export default function KDSSizeHeader({ animate = true, labels }: KDSSizeHeaderProps) {
+  // Use custom labels if provided, otherwise fall back to default size columns
+  const sizeLabels = labels || getSizeColumns()
 
   return (
     <div className={`kds-size-header ${animate ? 'kds-item-animate' : ''}`}>
       <span className="kds-size-header-spacer" />
-      {sizes.map((size) => (
-        <span key={size} className="kds-size-header-label">
+      {sizeLabels.map((size, index) => (
+        <span key={index} className="kds-size-header-label">
           {size}
         </span>
       ))}
