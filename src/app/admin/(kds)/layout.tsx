@@ -31,7 +31,7 @@ export default async function KDSLayout({
   return (
     <div
       className="kds-root"
-      style={{ backgroundColor: '#b8956a' }}
+      style={{ backgroundColor: '#8b6847' }}
     >
       {children}
     </div>
