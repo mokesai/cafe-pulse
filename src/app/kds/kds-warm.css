@@ -76,9 +76,10 @@
 
 /* ===== Override global body background for KDS pages ===== */
 html, body {
-  background-color: var(--kds-bg) !important;
-  margin: 0;
-  padding: 0;
+  background-color: #d4b896 !important;
+  background: #d4b896 !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 /* ===== Base Layout ===== */
@@ -88,7 +89,8 @@ html, body {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background-color: var(--kds-bg);
+  background: #d4b896 !important;
+  background-color: #d4b896 !important;
   background-image: var(--kds-bg-texture);
   background-size: 300px 300px;
   background-repeat: repeat;
