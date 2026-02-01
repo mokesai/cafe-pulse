@@ -818,7 +818,7 @@ html, body {
   content: '';
   position: absolute;
   inset: 0;
-  background: var(--kds-bg-overlay);
+  background: rgba(212, 184, 150, 0.85);
   pointer-events: none;
   z-index: 0;
 }
