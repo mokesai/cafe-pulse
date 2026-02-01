@@ -10,9 +10,9 @@
 /* ===== CSS Variables - Warm Theme ===== */
 :root {
   /* Warm color palette */
-  --kds-bg: #c4a476;
+  --kds-bg: #b8956a;
   --kds-bg-texture: url('/images/kds/bg-wood-texture.svg');
-  --kds-bg-overlay: rgba(196, 164, 118, 0.85);
+  --kds-bg-overlay: rgba(184, 149, 106, 0.85);
   --kds-bg-header: #c4a87c;
   --kds-bg-footer: #b8976a;
   --kds-bg-category: rgba(255, 255, 255, 0.08);
@@ -76,8 +76,8 @@
 
 /* ===== Override global body background for KDS pages ===== */
 html, body {
-  background-color: #c4a476 !important;
-  background: #c4a476 !important;
+  background-color: #b8956a !important;
+  background: #b8956a !important;
   margin: 0 !important;
   padding: 0 !important;
 }
@@ -89,8 +89,8 @@ html, body {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background: #c4a476 !important;
-  background-color: #c4a476 !important;
+  background: #b8956a !important;
+  background-color: #b8956a !important;
   background-image: var(--kds-bg-texture);
   background-size: 300px 300px;
   background-repeat: repeat;
@@ -805,7 +805,7 @@ html, body {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background-color: #c4a476 !important;
+  background-color: #b8956a !important;
   background-image: var(--kds-bg-texture);
   background-size: 200px 200px;
   background-repeat: repeat;
@@ -818,7 +818,7 @@ html, body {
   content: '';
   position: absolute;
   inset: 0;
-  background: rgba(196, 164, 118, 0.85);
+  background: rgba(184, 149, 106, 0.85);
   pointer-events: none;
   z-index: 0;
 }
