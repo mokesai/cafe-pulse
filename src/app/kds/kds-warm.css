@@ -805,7 +805,7 @@ html, body {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background-color: var(--kds-bg);
+  background-color: #d4b896 !important;
   background-image: var(--kds-bg-texture);
   background-size: 200px 200px;
   background-repeat: repeat;
