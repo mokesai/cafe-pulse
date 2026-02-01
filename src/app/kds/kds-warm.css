@@ -74,6 +74,13 @@
   --kds-bullet-teal: #1ABC9C;
 }
 
+/* ===== Override global body background for KDS pages ===== */
+html, body {
+  background-color: var(--kds-bg) !important;
+  margin: 0;
+  padding: 0;
+}
+
 /* ===== Base Layout ===== */
 .kds-root {
   width: 100vw;
