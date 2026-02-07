@@ -12,10 +12,13 @@ const SQUARE_VERSION = '2024-12-18'
 
 interface SquareCatalogObject {
   id: string
+  is_deleted?: boolean
   item_data?: {
     name?: string
+    is_archived?: boolean
     variations?: Array<{
       id: string
+      is_deleted?: boolean
       item_variation_data?: {
         name?: string
         sku?: string
@@ -50,10 +53,13 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const limit = Math.min(
-      Math.max(parseInt(request.nextUrl.searchParams.get('limit') || '5', 10), 1),
-      25
+    const displayLimit = Math.min(
+      Math.max(parseInt(request.nextUrl.searchParams.get('limit') || '20', 10), 1),
+      100
     )
+
+    // Fetch a larger batch from Square so we can filter and rank locally
+    const fetchLimit = Math.min(displayLimit * 4, 100)
 
     const response = await fetch(`${SQUARE_BASE_URL}/v2/catalog/search`, {
       method: 'POST',
@@ -70,7 +76,7 @@ export async function GET(request: NextRequest) {
           }
         },
         include_related_objects: false,
-        limit
+        limit: fetchLimit
       })
     })
 
@@ -86,9 +92,26 @@ export async function GET(request: NextRequest) {
     const payload = await response.json()
     const objects: SquareCatalogObject[] = payload.objects || []
 
-    const results = objects.flatMap((item) => {
+    // Filter out archived and deleted items
+    const activeObjects = objects.filter(
+      (item) => !item.is_deleted && !item.item_data?.is_archived
+    )
+
+    // Sort by relevance: exact match first, then starts-with, then contains
+    const queryLower = query.toLowerCase()
+    const scored = activeObjects.map((item) => {
+      const name = (item.item_data?.name || '').toLowerCase()
+      let score = 0
+      if (name === queryLower) score = 3           // exact match
+      else if (name.startsWith(queryLower)) score = 2  // starts with query
+      else if (name.includes(queryLower)) score = 1    // contains query
+      return { item, score }
+    })
+    scored.sort((a, b) => b.score - a.score)
+
+    const results = scored.flatMap(({ item }) => {
       const itemName = item.item_data?.name || 'Unnamed Item'
-      const variations = item.item_data?.variations || []
+      const variations = (item.item_data?.variations || []).filter((v) => !v.is_deleted)
       if (variations.length === 0) {
         return [
           {
@@ -119,7 +142,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      results
+      results: results.slice(0, displayLimit)
     })
   } catch (error) {
     console.error('Square catalog search failed:', error)
