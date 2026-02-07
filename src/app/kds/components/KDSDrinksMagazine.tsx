@@ -153,8 +153,21 @@ export default function KDSDrinksMagazine({
 }
 
 /**
+ * Parse item name into main name and optional description
+ * e.g., "Cold Brew (w/ Vanilla Sweet Cream)" -> { main: "Cold Brew", desc: "w/ Vanilla Sweet Cream" }
+ */
+function parseItemName(name: string): { main: string; desc?: string } {
+  const match = name.match(/^(.+?)\s*\(([^)]+)\)$/)
+  if (match) {
+    return { main: match[1].trim(), desc: match[2].trim() }
+  }
+  return { main: name }
+}
+
+/**
  * Most Popular section with yellow star bullets and stars flanking the title
  * Deduplicates items by base name (ignores size variations)
+ * Supports "Name (description)" format for long names
  */
 function MostPopularSection({ category }: { category: KDSCategoryWithItems }) {
   // Deduplicate by base name - only show each drink once
@@ -186,17 +199,23 @@ function MostPopularSection({ category }: { category: KDSCategoryWithItems }) {
       </div>
 
       <div className="kds-featured-items">
-        {uniqueItems.map((name, idx) => (
-          <div key={idx} className="kds-featured-item">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/images/kds/icons/star-yellow.png"
-              alt=""
-              className="kds-star-bullet"
-            />
-            <span className="kds-featured-item-name">{name}</span>
-          </div>
-        ))}
+        {uniqueItems.map((name, idx) => {
+          const { main, desc } = parseItemName(name)
+          return (
+            <div key={idx} className="kds-featured-item">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/images/kds/icons/star-yellow.png"
+                alt=""
+                className="kds-star-bullet"
+              />
+              <span className="kds-featured-item-name">
+                {main}
+                {desc && <span className="kds-featured-item-desc"> {desc}</span>}
+              </span>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

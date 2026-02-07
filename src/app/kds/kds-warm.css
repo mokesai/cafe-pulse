@@ -1125,9 +1125,13 @@ html, body {
   font-size: 0.6rem;
   font-weight: 500;
   color: var(--kds-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.kds-featured-item-desc {
+  font-size: 0.55rem;
+  font-weight: 400;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 /* ===== Display Type: Flavor Grid ===== */
@@ -1306,6 +1310,10 @@ html, body {
     font-size: 0.8rem;
   }
 
+  .kds-featured-item-desc {
+    font-size: 0.65rem;
+  }
+
   .kds-flavor-grid {
     gap: 0.35rem 1.25rem;
   }
@@ -1424,6 +1432,10 @@ html, body {
 
   .kds-featured-item-name {
     font-size: 1rem;
+  }
+
+  .kds-featured-item-desc {
+    font-size: 0.8rem;
   }
 
   .kds-flavor-grid {
