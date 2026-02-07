@@ -85,8 +85,8 @@ export default function KDSDrinksMagazine({
         headerStyle="standard"
       />
 
-      {/* Magazine Grid Layout - 4 columns with photo strip */}
-      <div className="kds-magazine-content kds-magazine-content-4col">
+      {/* Magazine Grid Layout - 3 columns */}
+      <div className="kds-magazine-content">
 
         {/* Column 1: Most Popular + Iced Favorites */}
         <div className="kds-magazine-column">
@@ -119,35 +119,28 @@ export default function KDSDrinksMagazine({
           )}
         </div>
 
-        {/* Photo Strip: Stacked images with elegant dividers */}
-        <div className="kds-drinks-photo-strip">
-          {photoStripImages.map((src, idx) => (
-            <div key={idx} className="kds-photo-strip-item">
-              {idx > 0 && (
-                <div className="kds-photo-strip-divider-css">
-                  <span className="kds-divider-line" />
-                  <span className="kds-divider-diamond" />
-                  <span className="kds-divider-line" />
-                </div>
-              )}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={src}
-                alt=""
-                className="kds-photo-strip-image"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = '/images/kds/placeholder.svg'
-                }}
-              />
-            </div>
-          ))}
-        </div>
-
-        {/* Column 3: Frappuccinos */}
+        {/* Column 3: Frappuccinos + horizontal photo strip */}
         <div className="kds-magazine-column">
           {frappuccinosCategory && (
             <SizedCategorySection category={frappuccinosCategory} />
           )}
+
+          {/* Horizontal Photo Strip below Frappuccinos */}
+          <div className="kds-drinks-photo-strip-horizontal">
+            {photoStripImages.map((src, idx) => (
+              <div key={idx} className="kds-photo-strip-item-horizontal">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={src}
+                  alt=""
+                  className="kds-photo-strip-image-horizontal"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/images/kds/placeholder.svg'
+                  }}
+                />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -161,8 +154,19 @@ export default function KDSDrinksMagazine({
 
 /**
  * Most Popular section with yellow star bullets and stars flanking the title
+ * Deduplicates items by base name (ignores size variations)
  */
 function MostPopularSection({ category }: { category: KDSCategoryWithItems }) {
+  // Deduplicate by base name - only show each drink once
+  const uniqueItems: string[] = []
+  const seen = new Set<string>()
+  for (const item of category.items) {
+    if (!seen.has(item.name)) {
+      seen.add(item.name)
+      uniqueItems.push(item.name)
+    }
+  }
+
   return (
     <div className="kds-magazine-category kds-most-popular">
       <div className="kds-most-popular-header">
@@ -182,17 +186,15 @@ function MostPopularSection({ category }: { category: KDSCategoryWithItems }) {
       </div>
 
       <div className="kds-featured-items">
-        {category.items.map((item) => (
-          <div key={item.id} className="kds-featured-item">
+        {uniqueItems.map((name, idx) => (
+          <div key={idx} className="kds-featured-item">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/images/kds/icons/star-yellow.png"
               alt=""
               className="kds-star-bullet"
             />
-            <span className="kds-featured-item-name">
-              {item.displayName || item.name}
-            </span>
+            <span className="kds-featured-item-name">{name}</span>
           </div>
         ))}
       </div>

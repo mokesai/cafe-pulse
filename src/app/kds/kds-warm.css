@@ -1631,6 +1631,31 @@ html, body {
   box-shadow: var(--kds-shadow-sm);
 }
 
+/* Horizontal photo strip (for drinks screen below Frappuccinos) */
+.kds-drinks-photo-strip-horizontal {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  margin-top: auto;
+}
+
+.kds-photo-strip-item-horizontal {
+  flex: 1;
+  max-width: 120px;
+}
+
+.kds-photo-strip-image-horizontal {
+  width: 100%;
+  height: auto;
+  max-height: 90px;
+  object-fit: contain;
+  border-radius: var(--kds-radius-sm);
+  box-shadow: var(--kds-shadow-sm);
+}
+
 /* Each column is a flex container for vertical stacking */
 .kds-magazine-column {
   display: flex;
