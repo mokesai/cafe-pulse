@@ -295,9 +295,12 @@ function TeasSection({ category }: { category: KDSCategoryWithItems }) {
 }
 
 /**
- * Fresh Pastries section (simple list)
+ * Fresh Pastries section - grouped by type with inline flavors
  */
 function PastriesSection({ category }: { category: KDSCategoryWithItems }) {
+  // Group items by base name and collect flavors
+  const grouped = groupPastryItems(category.items)
+
   return (
     <div className="kds-magazine-category">
       <div className="kds-magazine-header">
@@ -310,20 +313,108 @@ function PastriesSection({ category }: { category: KDSCategoryWithItems }) {
         <span className="kds-magazine-title">{category.name}</span>
       </div>
 
-      <div className="kds-magazine-items">
-        {category.items.map((item) => (
-          <div key={item.id} className="kds-tight-item">
-            <span className="kds-tight-item-name">
-              {item.displayName || item.name}
-            </span>
-            <span className="kds-tight-item-price">
-              {item.displayPrice || `$${(item.priceCents / 100).toFixed(2)}`}
-            </span>
+      <div className="kds-pastries-grouped">
+        {grouped.map((group, idx) => (
+          <div key={idx} className="kds-pastry-group">
+            <div className="kds-pastry-header">
+              <span className="kds-pastry-name">{group.name}</span>
+              <span className="kds-pastry-price">{group.price}</span>
+            </div>
+            {group.flavors.length > 0 && (
+              <div className="kds-pastry-flavors">
+                {group.flavors.join(' · ')}
+                {group.priceException && (
+                  <span className="kds-pastry-exception"> · {group.priceException}</span>
+                )}
+              </div>
+            )}
           </div>
         ))}
       </div>
     </div>
   )
+}
+
+/**
+ * Group pastry items by base name and extract flavors
+ */
+function groupPastryItems(items: KDSMenuItem[]): {
+  name: string
+  price: string
+  flavors: string[]
+  priceException?: string
+}[] {
+  const groups = new Map<string, {
+    price: number
+    priceStr: string
+    flavors: string[]
+    exceptions: { flavor: string; price: string }[]
+  }>()
+
+  for (const item of items) {
+    const baseName = item.name
+    const displayName = item.displayName || item.name
+
+    // Extract flavor from displayName by removing base name
+    // e.g., "Danish (Apple)" -> "Apple", "Muffin (Lemon Poppy Seed)" -> "Lemon Poppy Seed"
+    let flavor = ''
+    const match = displayName.match(/\(([^)]+)\)$/)
+    if (match && match[1] !== 'mini') {
+      flavor = match[1]
+    }
+
+    if (!groups.has(baseName)) {
+      groups.set(baseName, {
+        price: item.priceCents,
+        priceStr: item.displayPrice || `$${(item.priceCents / 100).toFixed(2)}`,
+        flavors: [],
+        exceptions: []
+      })
+    }
+
+    const group = groups.get(baseName)!
+
+    // Skip if no flavor or flavor already exists
+    if (flavor && !group.flavors.includes(flavor)) {
+      // Check if this flavor has a different price
+      if (item.priceCents !== group.price) {
+        group.exceptions.push({
+          flavor,
+          price: item.displayPrice || `$${(item.priceCents / 100).toFixed(2)}`
+        })
+      } else {
+        group.flavors.push(flavor)
+      }
+    }
+  }
+
+  // Convert to array, preserving order
+  const seen = new Set<string>()
+  const result: { name: string; price: string; flavors: string[]; priceException?: string }[] = []
+
+  for (const item of items) {
+    if (!seen.has(item.name)) {
+      seen.add(item.name)
+      const group = groups.get(item.name)!
+
+      // Format exception (e.g., "Chocolate ($5.95)")
+      let priceException: string | undefined
+      if (group.exceptions.length > 0) {
+        priceException = group.exceptions
+          .map(e => `${e.flavor} (${e.price})`)
+          .join(' · ')
+      }
+
+      result.push({
+        name: item.name,
+        price: group.priceStr,
+        flavors: group.flavors,
+        priceException
+      })
+    }
+  }
+
+  return result
 }
 
 /**
@@ -333,16 +424,18 @@ function consolidateItems(items: KDSMenuItem[], sizeLabels: string[]): { name: s
   const itemMap = new Map<string, (string | null)[]>()
 
   // Build a map of item names to their prices by size
+  // Group by base name (item.name) which doesn't include size suffix,
+  // not displayName which may contain "(Tall)", "(Grande)", etc.
   for (const item of items) {
-    const name = item.displayName || item.name
+    const groupKey = item.name
     const variationName = item.variationName?.toLowerCase() || ''
 
-    if (!itemMap.has(name)) {
+    if (!itemMap.has(groupKey)) {
       // Initialize with nulls for each size
-      itemMap.set(name, Array(sizeLabels.length).fill(null))
+      itemMap.set(groupKey, Array(sizeLabels.length).fill(null))
     }
 
-    const prices = itemMap.get(name)!
+    const prices = itemMap.get(groupKey)!
 
     // Find which size column this variation belongs to
     for (let i = 0; i < sizeLabels.length; i++) {
@@ -364,10 +457,10 @@ function consolidateItems(items: KDSMenuItem[], sizeLabels: string[]): { name: s
   const result: { name: string; prices: (string | null)[] }[] = []
 
   for (const item of items) {
-    const name = item.displayName || item.name
-    if (!seen.has(name)) {
-      seen.add(name)
-      result.push({ name, prices: itemMap.get(name)! })
+    const groupKey = item.name
+    if (!seen.has(groupKey)) {
+      seen.add(groupKey)
+      result.push({ name: groupKey, prices: itemMap.get(groupKey)! })
     }
   }
 

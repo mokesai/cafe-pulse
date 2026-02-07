@@ -124,12 +124,11 @@ export default function KDSDrinksMagazine({
           {photoStripImages.map((src, idx) => (
             <div key={idx} className="kds-photo-strip-item">
               {idx > 0 && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src="/images/kds/icons/divider-gold-flourish.png"
-                  alt=""
-                  className="kds-photo-strip-divider-img"
-                />
+                <div className="kds-photo-strip-divider-css">
+                  <span className="kds-divider-line" />
+                  <span className="kds-divider-diamond" />
+                  <span className="kds-divider-line" />
+                </div>
               )}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -245,16 +244,19 @@ function consolidateItems(items: KDSMenuItem[], sizeLabels: string[]): { name: s
   const itemMap = new Map<string, (string | null)[]>()
 
   // Build a map of item names to their prices by size
+  // Group by base name (item.name) which doesn't include size suffix,
+  // but display using displayName if it doesn't contain size info
   for (const item of items) {
-    const name = item.displayName || item.name
+    // Use base name for grouping (e.g., "Americano" not "Americano (Tall)")
+    const groupKey = item.name
     const variationName = item.variationName?.toLowerCase() || ''
 
-    if (!itemMap.has(name)) {
+    if (!itemMap.has(groupKey)) {
       // Initialize with nulls for each size
-      itemMap.set(name, Array(sizeLabels.length).fill(null))
+      itemMap.set(groupKey, Array(sizeLabels.length).fill(null))
     }
 
-    const prices = itemMap.get(name)!
+    const prices = itemMap.get(groupKey)!
 
     // Find which size column this variation belongs to
     for (let i = 0; i < sizeLabels.length; i++) {
@@ -276,10 +278,10 @@ function consolidateItems(items: KDSMenuItem[], sizeLabels: string[]): { name: s
   const result: { name: string; prices: (string | null)[] }[] = []
 
   for (const item of items) {
-    const name = item.displayName || item.name
-    if (!seen.has(name)) {
-      seen.add(name)
-      result.push({ name, prices: itemMap.get(name)! })
+    const groupKey = item.name
+    if (!seen.has(groupKey)) {
+      seen.add(groupKey)
+      result.push({ name: groupKey, prices: itemMap.get(groupKey)! })
     }
   }
 
