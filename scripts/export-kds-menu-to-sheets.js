@@ -147,6 +147,9 @@ function extractMenuData(catalogObjects) {
     if (obj.type !== 'ITEM' || !obj.itemData) continue
 
     const itemData = obj.itemData
+
+    // Skip archived items
+    if (itemData.isArchived) continue
     const categoryId = itemData.categoryId
     const category = categories.get(categoryId)
     const categoryName = category?.name || 'Uncategorized'

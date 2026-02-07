@@ -501,9 +501,12 @@ function ConsolidatedSizedItems({ items, sizeLabels }: { items: KDSMenuItem[]; s
 }
 
 /**
- * Food Pairings section with tight spacing and icon in header
+ * Food Pairings section - grouped by type with inline variations
  */
 function FoodPairingsSection({ category }: { category: KDSCategoryWithItems }) {
+  // Group items by base name and collect variations
+  const grouped = groupPastryItems(category.items)
+
   return (
     <div className="kds-food-pairings">
       <div className="kds-food-pairings-header-row">
@@ -529,15 +532,21 @@ function FoodPairingsSection({ category }: { category: KDSCategoryWithItems }) {
           }}
         />
       </div>
-      <div className="kds-food-pairings-items">
-        {category.items.map((item) => (
-          <div key={item.id} className="kds-tight-item">
-            <span className="kds-tight-item-name">
-              {item.displayName || item.name}
-            </span>
-            <span className="kds-tight-item-price">
-              {item.displayPrice || `$${(item.priceCents / 100).toFixed(2)}`}
-            </span>
+      <div className="kds-pastries-grouped">
+        {grouped.map((group, idx) => (
+          <div key={idx} className="kds-pastry-group">
+            <div className="kds-pastry-header">
+              <span className="kds-pastry-name">{group.name}</span>
+              <span className="kds-pastry-price">{group.price}</span>
+            </div>
+            {group.flavors.length > 0 && (
+              <div className="kds-pastry-flavors">
+                {group.flavors.join(' · ')}
+                {group.priceException && (
+                  <span className="kds-pastry-exception"> · {group.priceException}</span>
+                )}
+              </div>
+            )}
           </div>
         ))}
       </div>
