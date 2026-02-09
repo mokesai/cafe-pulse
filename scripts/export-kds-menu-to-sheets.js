@@ -129,14 +129,15 @@ async function fetchCatalog() {
 }
 
 function extractMenuData(catalogObjects) {
-  // Build category map
+  // Build category map (including parent category reference)
   const categories = new Map()
   for (const obj of catalogObjects) {
     if (obj.type === 'CATEGORY' && obj.categoryData) {
       categories.set(obj.id, {
         id: obj.id,
         name: obj.categoryData.name || 'Uncategorized',
-        ordinal: obj.categoryData.ordinal || 0
+        ordinal: obj.categoryData.ordinal || 0,
+        parentId: obj.categoryData.parentCategory?.id || null
       })
     }
   }
@@ -150,9 +151,14 @@ function extractMenuData(catalogObjects) {
 
     // Skip archived items
     if (itemData.isArchived) continue
-    const categoryId = itemData.categoryId
+    // Use new categories array (Square API 2024+), fall back to deprecated categoryId
+    const categoryId = itemData.categories?.[0]?.id || itemData.categoryId
     const category = categories.get(categoryId)
     const categoryName = category?.name || 'Uncategorized'
+
+    // Resolve parent category name for subcategories (e.g., COFFEE/CREME under FRAPPUCCINO®)
+    const parentCategory = category?.parentId ? categories.get(category.parentId) : null
+    const parentName = parentCategory?.name || null
 
     // Each variation becomes a row
     for (const variation of itemData.variations || []) {
@@ -182,7 +188,7 @@ function extractMenuData(catalogObjects) {
         square_category: categoryName,
         square_category_id: categoryId || '',
         // KDS fields for user to fill in
-        kds_category: suggestKDSCategory(categoryName),
+        kds_category: suggestKDSCategory(categoryName, parentName),
         sort_order: 0,
         is_visible: true,
       })
@@ -201,32 +207,66 @@ function extractMenuData(catalogObjects) {
 }
 
 /**
- * Suggest a KDS category slug based on Square category name
+ * Suggest a KDS category slug based on Square category name and optional parent category.
+ * Parent category is used for subcategories (e.g., COFFEE/CREME under FRAPPUCCINO® BLENDED BEVERAGES).
  */
-function suggestKDSCategory(categoryName) {
+function suggestKDSCategory(categoryName, parentName) {
   const name = categoryName.toLowerCase()
 
-  // Drinks screen categories
+  // If this is a subcategory, check the parent first
+  // e.g., COFFEE and CREME under FRAPPUCCINO® BLENDED BEVERAGES
+  if (parentName) {
+    const parent = parentName.toLowerCase()
+    if (parent.includes('frappuccino') || parent.includes('blended')) {
+      if (name.includes('creme') || name.includes('crème')) {
+        return 'frappuccinos-creme'
+      }
+      if (name.includes('coffee')) {
+        return 'frappuccinos-coffee'
+      }
+      return 'blended'
+    }
+  }
+
+  // Drinks screen categories (specific matches before general)
   if (name.includes('hot') && (name.includes('drink') || name.includes('beverage'))) {
     return 'hot-drinks'
   }
   if (name.includes('espresso') || name.includes('latte') || name.includes('cappuccino')) {
     return 'espressos'
   }
-  if (name.includes('cold') || name.includes('iced')) {
-    return 'cold-drinks'
-  }
   if (name.includes('frappuccino') || name.includes('frappe') || name.includes('blended')) {
     return 'blended'
   }
-  if (name.includes('smoothie')) {
+  if (name.includes('creme') || name.includes('crème')) {
     return 'blended'
   }
   if (name.includes('refresher')) {
-    return 'blended'
+    return 'refreshers'
+  }
+  if (name.includes('smoothie')) {
+    return 'smoothies'
+  }
+  if (name.includes('energy')) {
+    return 'energy-drinks'
+  }
+  if (name.includes('cold') || name.includes('iced')) {
+    return 'cold-drinks'
   }
   if (name.includes('coffee') || name.includes('tea')) {
     return 'hot-drinks'
+  }
+  if (name.includes('pre-packed') || name.includes('bottled')) {
+    return 'drinks-pre-packed'
+  }
+  if (name.includes('ice cream')) {
+    return 'ice-cream'
+  }
+  if (name.includes('seasonal')) {
+    return 'seasonal'
+  }
+  if (name.includes('favorite')) {
+    return 'other-favorites'
   }
 
   // Food screen categories
@@ -249,7 +289,7 @@ function suggestKDSCategory(categoryName) {
     return 'snacks'
   }
 
-  // Default based on common patterns
+  // Default
   return 'uncategorized'
 }
 
@@ -302,6 +342,9 @@ function generateCategoriesCSV() {
     { slug: 'espressos', name: 'Espressos', screen: 'drinks', position: 'top-right', sort_order: 2, color: '' },
     { slug: 'cold-drinks', name: 'Cold Drinks', screen: 'drinks', position: 'bottom-left', sort_order: 3, color: '' },
     { slug: 'blended', name: 'Blended', screen: 'drinks', position: 'bottom-right', sort_order: 4, color: '' },
+    { slug: 'frappuccinos-coffee', name: 'Frappuccinos - Coffee', screen: 'drinks', position: 'right', sort_order: 5, color: '' },
+    { slug: 'frappuccinos-creme', name: 'Frappuccinos - Crème (Coffee-Free)', screen: 'drinks', position: 'right', sort_order: 6, color: '' },
+    { slug: 'refreshers', name: 'Refreshers', screen: 'drinks', position: 'middle-right', sort_order: 7, color: '' },
     // Food screen
     { slug: 'breakfast', name: 'Breakfast', screen: 'food', position: 'top-left', sort_order: 1, color: '' },
     { slug: 'pastries', name: 'Pastries', screen: 'food', position: 'top-right', sort_order: 2, color: '' },

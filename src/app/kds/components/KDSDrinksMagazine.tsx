@@ -28,9 +28,9 @@ interface KDSDrinksMagazineProps {
  * Magazine-style layout for the Drinks screen (Screen 1).
  * 4-column layout:
  * - Column 1: Most Popular + Iced Favorites
- * - Column 2: Espresso & Coffee
+ * - Column 2: Espresso & Coffee + Refreshers
  * - Photo Strip: Stacked drink images with dividers
- * - Column 3: Frappuccinos
+ * - Column 3: Frappuccinos (Coffee + Crème subcategories)
  */
 export default function KDSDrinksMagazine({
   data,
@@ -65,9 +65,12 @@ export default function KDSDrinksMagazine({
 
   // Column 2 categories
   const espressoCategory = getCategoryBySlug('espresso-coffee')
+  const refreshersCategory = getCategoryBySlug('refreshers')
 
-  // Column 3 categories
+  // Column 3 categories (Frappuccinos split by Coffee/Crème subcategories)
   const frappuccinosCategory = getCategoryBySlug('frappuccinos')
+  const frappCoffeeCategory = getCategoryBySlug('frappuccinos-coffee')
+  const frappCremeCategory = getCategoryBySlug('frappuccinos-creme')
 
   return (
     <div className="kds-panel">
@@ -112,17 +115,34 @@ export default function KDSDrinksMagazine({
           )}
         </div>
 
-        {/* Column 2: Espresso & Coffee */}
+        {/* Column 2: Espresso & Coffee + Refreshers */}
         <div className="kds-magazine-column">
-          {espressoCategory && (
-            <SizedCategorySection category={espressoCategory} />
-          )}
+          <div className="kds-col2-espresso">
+            {espressoCategory && (
+              <SizedCategorySection category={espressoCategory} />
+            )}
+          </div>
+          <div className="kds-col2-refreshers">
+            {refreshersCategory && (
+              <SizedCategorySection category={refreshersCategory} />
+            )}
+          </div>
         </div>
 
-        {/* Column 3: Frappuccinos + horizontal photo strip */}
+        {/* Column 3: Frappuccinos (Coffee + Crème subcategories) + horizontal photo strip */}
         <div className="kds-magazine-column">
-          {frappuccinosCategory && (
+          {frappuccinosCategory && !frappCoffeeCategory && !frappCremeCategory && (
             <SizedCategorySection category={frappuccinosCategory} />
+          )}
+          {(frappCoffeeCategory || frappCremeCategory) && (
+            <SizedCategoryWithSubsections
+              title="Frappuccino® Blended Beverages"
+              icon="coffee"
+              subcategories={[
+                frappCoffeeCategory ? { label: 'Contains Coffee', icon: '/images/kds/icons/coffee.svg', category: frappCoffeeCategory } : null,
+                frappCremeCategory ? { label: 'Crème (Coffee-Free)', icon: '/images/kds/icons/snowflake.svg', category: frappCremeCategory } : null,
+              ].filter(Boolean) as { label: string; icon: string; category: KDSCategoryWithItems }[]}
+            />
           )}
 
           {/* Horizontal Photo Strip below Frappuccinos */}
@@ -255,6 +275,90 @@ function SizedCategorySection({ category }: { category: KDSCategoryWithItems }) 
         <ConsolidatedSizedItems items={category.items} sizeLabels={sizeLabels} />
       </div>
     </div>
+  )
+}
+
+/**
+ * Single section with one header and shared size columns, but items grouped
+ * under labeled subsections (e.g., "Contains Coffee" / "Crème (Coffee-Free)")
+ */
+function SizedCategoryWithSubsections({
+  title,
+  icon,
+  subcategories,
+}: {
+  title: string
+  icon?: string
+  subcategories: { label: string; icon: string; category: KDSCategoryWithItems }[]
+}) {
+  // Use size labels from the first subcategory
+  const sizeLabels = subcategories[0]?.category.sizeLabels || ['Tall', 'Grande', 'Venti']
+
+  return (
+    <div className="kds-magazine-category">
+      <div className="kds-magazine-header">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`/images/kds/icons/${icon || 'coffee'}.svg`}
+          alt=""
+          className="kds-magazine-icon"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = '/images/kds/icons/coffee.svg'
+          }}
+        />
+        <span className="kds-magazine-title">{title}</span>
+      </div>
+
+      {/* Size header - Grande is highlighted */}
+      <div className="kds-compact-size-header" style={{ gridTemplateColumns: `1fr repeat(${sizeLabels.length}, 3.5rem)` }}>
+        <span></span>
+        {sizeLabels.map((label, i) => (
+          <span key={i} className={isGrande(label) ? 'kds-size-grande' : ''}>{label}</span>
+        ))}
+      </div>
+
+      <div className="kds-magazine-items">
+        {subcategories.map((sub, idx) => (
+          <div key={idx}>
+            <div className="kds-subsection-label">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={sub.icon} alt="" className="kds-subsection-icon" />
+              {sub.label}
+            </div>
+            <ConsolidatedSizedItemsWithBullet items={sub.category.items} sizeLabels={sizeLabels} bulletIcon={sub.icon} />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Consolidated sized items with a small bullet icon on each row
+ */
+function ConsolidatedSizedItemsWithBullet({ items, sizeLabels, bulletIcon }: { items: KDSMenuItem[]; sizeLabels: string[]; bulletIcon: string }) {
+  const consolidated = consolidateItems(items, sizeLabels)
+
+  return (
+    <>
+      {consolidated.map((item, idx) => (
+        <div key={idx} className="kds-compact-sized-item" style={{ gridTemplateColumns: `1fr repeat(${sizeLabels.length}, 3.5rem)` }}>
+          <span className="kds-compact-item-name">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={bulletIcon} alt="" className="kds-item-bullet" />
+            {item.name}
+          </span>
+          {item.prices.map((price, i) => (
+            <span
+              key={i}
+              className={`kds-compact-price ${isGrande(sizeLabels[i]) ? 'kds-price-grande' : ''}`}
+            >
+              {price || '—'}
+            </span>
+          ))}
+        </div>
+      ))}
+    </>
   )
 }
 
