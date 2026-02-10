@@ -228,7 +228,7 @@ function LotusSection({
  * Smoothies section with size columns (consolidated)
  */
 function SmoothiesSection({ category }: { category: KDSCategoryWithItems }) {
-  const sizeLabels = category.sizeLabels || ['Tall', 'Venti']
+  const sizeLabels = category.sizeLabels || ['Tall', 'Grande', 'Venti']
 
   return (
     <div className="kds-magazine-category">
@@ -245,11 +245,11 @@ function SmoothiesSection({ category }: { category: KDSCategoryWithItems }) {
         <span className="kds-magazine-title">{category.name}</span>
       </div>
 
-      {/* Size header */}
+      {/* Size header - Grande is highlighted */}
       <div className="kds-compact-size-header" style={{ gridTemplateColumns: `1fr repeat(${sizeLabels.length}, 3.5rem)` }}>
         <span></span>
         {sizeLabels.map((label, i) => (
-          <span key={i}>{label}</span>
+          <span key={i} className={isGrande(label) ? 'kds-size-grande' : ''}>{label}</span>
         ))}
       </div>
 
@@ -558,7 +558,7 @@ function FoodPairingsSection({ category }: { category: KDSCategoryWithItems }) {
  * Other Favorites section (consolidated, no thumbnail)
  */
 function FavoritesSection({ category }: { category: KDSCategoryWithItems }) {
-  const sizeLabels = category.sizeLabels || ['Serene', 'Venti']
+  const sizeLabels = category.sizeLabels || ['Tall', 'Grande', 'Venti']
 
   return (
     <div className="kds-magazine-category">
@@ -575,11 +575,11 @@ function FavoritesSection({ category }: { category: KDSCategoryWithItems }) {
         <span className="kds-magazine-title">{category.name}</span>
       </div>
 
-      {/* Size header */}
+      {/* Size header - Grande is highlighted */}
       <div className="kds-compact-size-header" style={{ gridTemplateColumns: `1fr repeat(${sizeLabels.length}, 3.5rem)` }}>
         <span></span>
         {sizeLabels.map((label, i) => (
-          <span key={i}>{label}</span>
+          <span key={i} className={isGrande(label) ? 'kds-size-grande' : ''}>{label}</span>
         ))}
       </div>
 
