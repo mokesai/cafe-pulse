@@ -4,6 +4,7 @@ interface KDSPanelHeaderProps {
   cafeName: string
   subtitle?: string
   subtitleLogo?: string // Optional logo image to display before subtitle text
+  subtitleIcon?: string // Decorative icon flanking the subtitle text (left & right)
   leftImage?: string // Product image for left side
   rightImage?: string // Product image for right side
   leftTitleIcon?: string // Icon to display left of title (banner style)
@@ -30,6 +31,7 @@ export default function KDSPanelHeader({
   cafeName,
   subtitle,
   subtitleLogo,
+  subtitleIcon,
   leftImage,
   rightImage,
   leftTitleIcon,
@@ -68,7 +70,7 @@ export default function KDSPanelHeader({
               <img
                 src={leftTitleIcon}
                 alt=""
-                className={isBanner ? 'kds-banner-title-icon kds-banner-title-icon-left' : 'kds-standard-title-icon'}
+                className={isBanner ? 'kds-banner-title-icon kds-banner-title-icon-left' : 'kds-standard-title-icon kds-standard-title-icon-left'}
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.display = 'none'
                 }}
@@ -80,7 +82,7 @@ export default function KDSPanelHeader({
               <img
                 src={rightTitleIcon}
                 alt=""
-                className={isBanner ? 'kds-banner-title-icon kds-banner-title-icon-right' : 'kds-standard-title-icon'}
+                className={isBanner ? 'kds-banner-title-icon kds-banner-title-icon-right' : 'kds-standard-title-icon kds-standard-title-icon-right'}
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.display = 'none'
                 }}
@@ -89,7 +91,29 @@ export default function KDSPanelHeader({
           </h1>
           {!isBanner && subtitle && (
             <p className="kds-panel-subtitle">
+              {subtitleIcon && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={subtitleIcon}
+                  alt=""
+                  className="kds-panel-subtitle-flank kds-panel-subtitle-flank-left"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none'
+                  }}
+                />
+              )}
               <span>{subtitle}</span>
+              {subtitleIcon && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={subtitleIcon}
+                  alt=""
+                  className="kds-panel-subtitle-flank kds-panel-subtitle-flank-right"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none'
+                  }}
+                />
+              )}
             </p>
           )}
         </div>

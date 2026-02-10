@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from 'next'
-// Import warm theme (switch to './kds.css' for dark theme)
-import './kds-warm.css'
+import { Suspense } from 'react'
+import { getSetting } from '@/lib/kds/queries'
+import type { KDSTheme } from '@/lib/kds/types'
+import KDSThemeWrapper from './components/KDSThemeWrapper'
+import './kds-themes.css'
 
 export const metadata: Metadata = {
   title: 'Little Cafe - Menu Display',
@@ -15,14 +18,18 @@ export const viewport: Viewport = {
   userScalable: false,
 }
 
-export default function KDSLayout({
+export default async function KDSLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const dbTheme = (await getSetting('theme')) as KDSTheme | null
+
   return (
-    <div className="kds-root">
-      {children}
-    </div>
+    <Suspense fallback={<div className="kds-root theme-warm">{children}</div>}>
+      <KDSThemeWrapper dbTheme={dbTheme ?? 'warm'}>
+        {children}
+      </KDSThemeWrapper>
+    </Suspense>
   )
 }

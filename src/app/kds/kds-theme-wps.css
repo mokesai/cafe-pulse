@@ -1,0 +1,177 @@
+/* KDS Theme: WPS (We Proudly Serve)
+ * Starbucks brand-inspired clean aesthetic
+ * Font: Lato (modern sans-serif)
+ * Palette: Starbucks Green #00704A on light background
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Lato:wght@400;500;600;700;900&display=swap');
+
+.theme-wps {
+  /* Light color palette */
+  --kds-bg: #F8F9FA;
+  --kds-bg-texture: none;
+  --kds-bg-overlay: transparent;
+  --kds-bg-header: #00704A;
+  --kds-bg-footer: #00704A;
+  --kds-bg-category: rgba(0, 112, 74, 0.04);
+  --kds-bg-category-hover: rgba(0, 112, 74, 0.08);
+
+  /* Text colors */
+  --kds-text: #1E3932;
+  --kds-text-secondary: #2D5A4B;
+  --kds-text-muted: #6B7D78;
+  --kds-text-light: #ffffff;
+
+  /* Accent colors */
+  --kds-accent: #00704A;
+  --kds-accent-dark: #1E3932;
+  --kds-accent-light: #00A862;
+  --kds-accent-glow: rgba(0, 112, 74, 0.1);
+  --kds-accent-gold: #CBA258;
+
+  /* Category and pricing */
+  --kds-category-title: #00704A;
+  --kds-category-icon: #00704A;
+  --kds-price: #1E3932;
+  --kds-divider: rgba(0, 112, 74, 0.15);
+  --kds-divider-strong: rgba(0, 112, 74, 0.25);
+
+  /* Typography (shared with warm theme for consistency) */
+  --kds-font-body: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --kds-font-script: 'Great Vibes', cursive;
+
+  /* Compact spacing */
+  --kds-spacing-xs: 0.25rem;
+  --kds-spacing-sm: 0.5rem;
+  --kds-spacing-md: 0.75rem;
+  --kds-spacing-lg: 1rem;
+  --kds-spacing-xl: 1.5rem;
+
+  /* Border radius */
+  --kds-radius-sm: 0.375rem;
+  --kds-radius-md: 0.5rem;
+  --kds-radius-lg: 0.75rem;
+
+  /* Shadows */
+  --kds-shadow-sm: 0 1px 3px rgba(30, 57, 50, 0.08);
+  --kds-shadow-md: 0 2px 6px rgba(30, 57, 50, 0.1);
+  --kds-shadow-lg: 0 4px 12px rgba(30, 57, 50, 0.12);
+
+  /* Transitions */
+  --kds-transition-fast: 150ms ease;
+  --kds-transition-normal: 300ms ease;
+  --kds-transition-slow: 500ms ease;
+
+  /* Bullet colors */
+  --kds-bullet-green: #00704A;
+  --kds-bullet-yellow: #CBA258;
+  --kds-bullet-orange: #D4790E;
+  --kds-bullet-brown: #7C5E4A;
+  --kds-bullet-pink: #D4497D;
+  --kds-bullet-blue: #1E7EAD;
+  --kds-bullet-red: #C5282D;
+  --kds-bullet-teal: #008B73;
+
+  /* Theme-specific overrides */
+  --kds-header-gradient: linear-gradient(180deg, #00704A 0%, #005F3F 100%);
+  --kds-footer-gradient: linear-gradient(180deg, #005F3F 0%, #00704A 100%);
+  --kds-root-bg: #F8F9FA;
+  --kds-panel-overlay: transparent;
+
+  /* Header text */
+  --kds-header-logo-color: #ffffff;
+  --kds-header-logo-shadow: none;
+
+  /* Panel logo */
+  --kds-panel-logo-color: #ffffff;
+  --kds-panel-logo-shadow: none;
+
+  /* Banner header */
+  --kds-banner-bg: linear-gradient(180deg, #00704A 0%, #005F3F 100%);
+  --kds-banner-text: #ffffff;
+  --kds-banner-shadow: none;
+  --kds-banner-bottom-bg: rgba(0, 0, 0, 0.1);
+  --kds-banner-bottom-border: rgba(255, 255, 255, 0.2);
+  --kds-banner-info-color: rgba(255, 255, 255, 0.9);
+
+  /* Refresh indicator */
+  --kds-refresh-bg: rgba(30, 57, 50, 0.8);
+  --kds-refresh-text: rgba(255, 255, 255, 0.8);
+
+  /* Most Popular */
+  --kds-popular-bg: linear-gradient(135deg, #00704A 0%, #008B5C 100%);
+  --kds-popular-border: #CBA258;
+  --kds-popular-title: #CBA258;
+  --kds-popular-text: #ffffff;
+  --kds-popular-title-shadow: none;
+  --kds-popular-star-shadow: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+  --kds-popular-bullet-shadow: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
+
+  /* Lotus section */
+  --kds-lotus-bg: linear-gradient(135deg, rgba(0, 112, 74, 0.06) 0%, rgba(0, 112, 74, 0.03) 100%);
+  --kds-lotus-border: var(--kds-accent-gold);
+  --kds-lotus-shadow: 0 2px 4px rgba(30, 57, 50, 0.08);
+
+  /* Photo strip divider */
+  --kds-divider-line-color: #00704A;
+  --kds-divider-diamond-color: #00704A;
+
+  /* Photo strip */
+  --kds-photo-strip-empty-bg: linear-gradient(180deg, #00704A 0%, #005F3F 100%);
+
+  /* Featured description */
+  --kds-featured-desc-color: rgba(255, 255, 255, 0.9);
+
+  /* Grande highlighting */
+  --kds-grande-color: #00704A;
+
+  /* Header subtitle & info text (on dark green header) */
+  --kds-header-subtitle-color: rgba(255, 255, 255, 0.9);
+  --kds-header-hours-color: rgba(255, 255, 255, 0.9);
+  --kds-header-location-color: rgba(255, 255, 255, 0.85);
+  --kds-header-bottom-bg: rgba(0, 0, 0, 0.1);
+  --kds-header-bottom-border: rgba(255, 255, 255, 0.2);
+}
+
+/* ===== WPS Brand Compliance =====
+ * Per WPS Starbucks Logo Requirements:
+ *   - Rule 2: WPS logo must hold its own space, apart from operator logo
+ *   - Rule 2: Operator identity must be primary/most prominent
+ *   - Rule 1: Don't separate the Siren from "We Proudly Serve" text
+ * The WPS Siren is removed from the header title and placed next to
+ * the ICED FAVORITES section heading via kds-section-badge.
+ * A custom subtitle with coffee bean icons replaces the WPS subtitle.
+ */
+
+/* Show subtitle with coffee bean flanking icons */
+.theme-wps .kds-panel-subtitle {
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.theme-wps .kds-panel-subtitle-flank {
+  opacity: 0.9;
+  height: 0.75rem;
+}
+
+/* Section badge (WPS siren next to category headings) */
+.theme-wps .kds-section-badge {
+  height: 1.6rem;
+  width: auto;
+  object-fit: contain;
+  margin-left: auto;
+  opacity: 0.85;
+}
+
+/* Clean up header side images in WPS (cleaner green bar look) */
+.theme-wps .kds-panel-header-image {
+  background: transparent;
+}
+
+.theme-wps .kds-panel-header-image::after {
+  display: none;
+}
+

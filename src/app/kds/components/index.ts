@@ -21,3 +21,5 @@ export { default as KDSPhotoStrip } from './KDSPhotoStrip'
 export { default as KDSFoodMagazine } from './KDSFoodMagazine'
 // Magazine-style layout for drinks screen
 export { default as KDSDrinksMagazine } from './KDSDrinksMagazine'
+// Theme wrapper for dynamic theme switching
+export { default as KDSThemeWrapper } from './KDSThemeWrapper'

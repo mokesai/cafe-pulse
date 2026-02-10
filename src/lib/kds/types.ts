@@ -6,6 +6,10 @@
 // Screen identifier for the two TV displays
 export type KDSScreen = 'drinks' | 'food'
 
+// Available themes
+export type KDSTheme = 'warm' | 'dark' | 'wps'
+export const KDS_THEMES: KDSTheme[] = ['warm', 'dark', 'wps']
+
 // Display type for categories and items
 export type KDSDisplayType = 'featured' | 'price-grid' | 'simple-list' | 'single-price' | 'flavor-options'
 
@@ -150,7 +154,7 @@ export interface KDSSettingsMap {
   header_hours: string
   header_location: string
   cafe_name: string                // "Little Café"
-  theme: 'dark' | 'warm'           // theme selection
+  theme: KDSTheme                   // theme selection
   food_header: string              // banner header text for food screen
   drinks_show_starbucks_logo: boolean // show Starbucks logo in drinks subtitle
 }

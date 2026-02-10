@@ -1,8 +1,8 @@
 import { getScreenData } from '@/lib/kds/queries'
 import { KDSFoodMagazine } from '@/app/kds/components'
 
-// Revalidate every 5 minutes
-export const revalidate = 300
+// Always fetch fresh data (no ISR caching)
+export const dynamic = 'force-dynamic'
 
 // Header images for food panel
 const HEADER_IMAGES = {

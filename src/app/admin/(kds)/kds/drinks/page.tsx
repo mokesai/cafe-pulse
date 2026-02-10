@@ -1,14 +1,20 @@
 import { getScreenData } from '@/lib/kds/queries'
 import { KDSDrinksMagazine } from '@/app/kds/components'
 
-// Revalidate every 5 minutes
-export const revalidate = 300
+// Always fetch fresh data (no ISR caching)
+export const dynamic = 'force-dynamic'
 
 // Header images for drinks panel
 const HEADER_IMAGES = {
   leftTitleIcon: '/images/kds/header/coffee-steam-icon.png',
-  rightTitleIcon: '/images/kds/header/wps-starbucks-logo.png',
+  subtitleIcon: '/images/kds/icons/coffee-bean-gold.png',
 }
+
+// WPS Starbucks siren logo - displayed as section badge (brand compliance: separate from operator identity)
+const SECTION_BADGE = '/images/kds/header/wps-starbucks-logo.png'
+
+// Default subtitle (can be overridden by drinks_subtitle DB setting)
+const DEFAULT_SUBTITLE = 'Freshly Brewed, Just for You'
 
 // Inline images
 const MOST_POPULAR_IMAGE = '/images/kds/photos/wps-frappuccinos.png'
@@ -27,6 +33,8 @@ export default async function DrinksDisplayPage() {
     <KDSDrinksMagazine
       data={data}
       headerImages={HEADER_IMAGES}
+      sectionBadge={SECTION_BADGE}
+      defaultSubtitle={DEFAULT_SUBTITLE}
       mostPopularImage={MOST_POPULAR_IMAGE}
       photoStripImages={PHOTO_STRIP_IMAGES}
     />

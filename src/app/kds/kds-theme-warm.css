@@ -1,0 +1,133 @@
+/* KDS Theme: Warm
+ * Cafe chalkboard / wood aesthetic
+ * Font: Great Vibes (script) + Nunito (body)
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Great+Vibes&family=Nunito:wght@400;500;600;700;800&display=swap');
+
+.theme-warm {
+  /* Warm color palette */
+  --kds-bg: #8b6847;
+  --kds-bg-texture: url('/images/kds/bg-wood-texture.svg');
+  --kds-bg-overlay: rgba(139, 104, 71, 0.85);
+  --kds-bg-header: #c4a87c;
+  --kds-bg-footer: #b8976a;
+  --kds-bg-category: rgba(255, 255, 255, 0.08);
+  --kds-bg-category-hover: rgba(255, 255, 255, 0.12);
+
+  /* Text colors */
+  --kds-text: #3d2b1f;
+  --kds-text-secondary: #5c4033;
+  --kds-text-muted: #7a6352;
+  --kds-text-light: #ffffff;
+
+  /* Accent colors */
+  --kds-accent: #8b5a2b;
+  --kds-accent-dark: #6b4423;
+  --kds-accent-light: #a67c52;
+  --kds-accent-glow: rgba(139, 90, 43, 0.2);
+  --kds-accent-gold: #c4a87c;
+
+  /* Category and pricing */
+  --kds-category-title: #5c3d2e;
+  --kds-category-icon: #6b4423;
+  --kds-price: #3d2b1f;
+  --kds-divider: rgba(107, 68, 35, 0.2);
+  --kds-divider-strong: rgba(107, 68, 35, 0.35);
+
+  /* Typography */
+  --kds-font-body: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --kds-font-script: 'Great Vibes', cursive;
+
+  /* Compact spacing */
+  --kds-spacing-xs: 0.25rem;
+  --kds-spacing-sm: 0.5rem;
+  --kds-spacing-md: 0.75rem;
+  --kds-spacing-lg: 1rem;
+  --kds-spacing-xl: 1.5rem;
+
+  /* Border radius */
+  --kds-radius-sm: 0.25rem;
+  --kds-radius-md: 0.5rem;
+  --kds-radius-lg: 0.75rem;
+
+  /* Shadows */
+  --kds-shadow-sm: 0 1px 4px rgba(61, 43, 31, 0.1);
+  --kds-shadow-md: 0 2px 8px rgba(61, 43, 31, 0.12);
+  --kds-shadow-lg: 0 4px 16px rgba(61, 43, 31, 0.15);
+
+  /* Transitions */
+  --kds-transition-fast: 150ms ease;
+  --kds-transition-normal: 300ms ease;
+  --kds-transition-slow: 500ms ease;
+
+  /* Bullet colors */
+  --kds-bullet-green: #00704A;
+  --kds-bullet-yellow: #F5A623;
+  --kds-bullet-orange: #E67E22;
+  --kds-bullet-brown: #8B4513;
+  --kds-bullet-pink: #FF69B4;
+  --kds-bullet-blue: #3498DB;
+  --kds-bullet-red: #E74C3C;
+  --kds-bullet-teal: #1ABC9C;
+
+  /* Theme-specific overrides */
+  --kds-header-gradient: linear-gradient(180deg, var(--kds-bg-header) 0%, rgba(196, 168, 124, 0.95) 100%);
+  --kds-footer-gradient: linear-gradient(180deg, rgba(184, 151, 106, 0.95) 0%, var(--kds-bg-footer) 100%);
+  --kds-root-bg: #8b6847;
+  --kds-panel-overlay: rgba(139, 104, 71, 0.85);
+
+  /* Header text */
+  --kds-header-logo-color: var(--kds-accent-dark);
+  --kds-header-logo-shadow: 1px 1px 2px rgba(255, 255, 255, 0.3);
+
+  /* Panel logo */
+  --kds-panel-logo-color: #3d2314;
+  --kds-panel-logo-shadow: 1px 1px 1px rgba(255, 255, 255, 0.2);
+
+  /* Banner header */
+  --kds-banner-bg: linear-gradient(180deg, #5c3d2e 0%, #4a3120 100%);
+  --kds-banner-text: #ffffff;
+  --kds-banner-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+  --kds-banner-bottom-bg: rgba(0, 0, 0, 0.15);
+  --kds-banner-bottom-border: rgba(255, 255, 255, 0.1);
+  --kds-banner-info-color: rgba(255, 255, 255, 0.85);
+
+  /* Refresh indicator */
+  --kds-refresh-bg: rgba(61, 43, 31, 0.75);
+  --kds-refresh-text: rgba(255, 255, 255, 0.7);
+
+  /* Most Popular */
+  --kds-popular-bg: linear-gradient(135deg, #5d4037 0%, #6d4c41 100%);
+  --kds-popular-border: #f0c14b;
+  --kds-popular-title: #ffd54f;
+  --kds-popular-text: #fff;
+  --kds-popular-title-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --kds-popular-star-shadow: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+  --kds-popular-bullet-shadow: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3));
+
+  /* Lotus section */
+  --kds-lotus-bg: linear-gradient(135deg, rgba(0, 0, 0, 0.15) 0%, rgba(0, 0, 0, 0.08) 100%);
+  --kds-lotus-border: var(--kds-accent-gold);
+  --kds-lotus-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+  /* Photo strip divider */
+  --kds-divider-line-color: #c4a87c;
+  --kds-divider-diamond-color: #c4a87c;
+
+  /* Photo strip */
+  --kds-photo-strip-empty-bg: linear-gradient(180deg, var(--kds-bg-footer) 0%, rgba(160, 130, 90, 0.9) 100%);
+
+  /* Featured description */
+  --kds-featured-desc-color: rgba(255, 255, 255, 0.9);
+
+  /* Grande highlighting */
+  --kds-grande-color: var(--kds-accent-dark);
+
+  /* Header subtitle & info text */
+  --kds-header-subtitle-color: var(--kds-text-secondary);
+  --kds-header-hours-color: var(--kds-accent-dark);
+  --kds-header-location-color: var(--kds-text-secondary);
+  --kds-header-bottom-bg: rgba(0, 0, 0, 0.04);
+  --kds-header-bottom-border: var(--kds-divider);
+}

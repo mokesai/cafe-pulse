@@ -1,7 +1,10 @@
 import type { Metadata, Viewport } from 'next'
+import { Suspense } from 'react'
 import { requireAdmin } from '@/lib/admin/auth'
-// Import warm theme (switch to '@/app/kds/kds.css' for dark theme)
-import '@/app/kds/kds-warm.css'
+import { getSetting } from '@/lib/kds/queries'
+import type { KDSTheme } from '@/lib/kds/types'
+import KDSThemeWrapper from '@/app/kds/components/KDSThemeWrapper'
+import '@/app/kds/kds-themes.css'
 
 export const metadata: Metadata = {
   title: 'Little Cafe - Menu Display',
@@ -28,12 +31,13 @@ export default async function KDSLayout({
   // Protect KDS routes - only admin users can access
   await requireAdmin()
 
+  const dbTheme = (await getSetting('theme')) as KDSTheme | null
+
   return (
-    <div
-      className="kds-root"
-      style={{ backgroundColor: '#8b6847' }}
-    >
-      {children}
-    </div>
+    <Suspense fallback={<div className="kds-root theme-warm">{children}</div>}>
+      <KDSThemeWrapper dbTheme={dbTheme ?? 'warm'}>
+        {children}
+      </KDSThemeWrapper>
+    </Suspense>
   )
 }

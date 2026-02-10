@@ -8,6 +8,7 @@ interface HeaderImages {
   left?: string
   right?: string
   subtitleLogo?: string
+  subtitleIcon?: string
   leftTitleIcon?: string
   rightTitleIcon?: string
 }
@@ -16,6 +17,10 @@ interface KDSDrinksMagazineProps {
   data: KDSScreenData
   /** Header images: left product, right product, subtitle logo */
   headerImages?: HeaderImages
+  /** Badge icon for section headings (e.g., WPS Starbucks siren) */
+  sectionBadge?: string
+  /** Default subtitle text (overridable by drinks_subtitle DB setting) */
+  defaultSubtitle?: string
   /** Image to show beside Most Popular section (Starbucks frappuccinos) */
   mostPopularImage?: string
   /** Photos for center photo strip (stacked vertically with dividers) */
@@ -35,6 +40,8 @@ interface KDSDrinksMagazineProps {
 export default function KDSDrinksMagazine({
   data,
   headerImages = {},
+  sectionBadge,
+  defaultSubtitle = 'Freshly Brewed, Just for You',
   mostPopularImage = '/images/kds/photos/starbucks-frappuccinos.png',
   photoStripImages = [
     '/images/kds/photos/iced-coffee-wps.png',
@@ -49,11 +56,9 @@ export default function KDSDrinksMagazine({
   const refreshInterval = (settings.refresh_interval as number) || 5 * 60 * 1000
   const location = (settings.header_location as string) || 'Kaiser Permanente · Denver'
   const hours = (settings.header_hours as string) || '8AM-6PM Mon-Fri'
-  // Per WPS Starbucks Logo Requirements: Don't recreate "We Proudly Serve" text separately
-  // The WPS logo already contains this text - subtitle should be empty or minimal
-  const subtitle = (settings.drinks_subtitle as string) || ''
+  const subtitle = (settings.drinks_subtitle as string) || defaultSubtitle
 
-  const { left: leftImage, right: rightImage, subtitleLogo, leftTitleIcon, rightTitleIcon } = headerImages
+  const { left: leftImage, right: rightImage, subtitleLogo, subtitleIcon, leftTitleIcon, rightTitleIcon } = headerImages
 
   // Extract categories by slug
   const getCategoryBySlug = (slug: string): KDSCategoryWithItems | undefined =>
@@ -79,6 +84,7 @@ export default function KDSDrinksMagazine({
         cafeName={cafeName}
         subtitle={subtitle}
         subtitleLogo={subtitleLogo}
+        subtitleIcon={subtitleIcon}
         leftImage={leftImage}
         rightImage={rightImage}
         leftTitleIcon={leftTitleIcon}
@@ -111,7 +117,7 @@ export default function KDSDrinksMagazine({
           </div>
 
           {icedFavoritesCategory && (
-            <SizedCategorySection category={icedFavoritesCategory} />
+            <SizedCategorySection category={icedFavoritesCategory} badgeIcon={sectionBadge} />
           )}
         </div>
 
@@ -245,7 +251,7 @@ function MostPopularSection({ category }: { category: KDSCategoryWithItems }) {
  * Category with size variations (Tall/Grande/Venti) - consolidated
  * Grande column is highlighted with bold styling
  */
-function SizedCategorySection({ category }: { category: KDSCategoryWithItems }) {
+function SizedCategorySection({ category, badgeIcon }: { category: KDSCategoryWithItems; badgeIcon?: string }) {
   const sizeLabels = category.sizeLabels || ['Tall', 'Grande', 'Venti']
 
   return (
@@ -261,6 +267,17 @@ function SizedCategorySection({ category }: { category: KDSCategoryWithItems }) 
           }}
         />
         <span className="kds-magazine-title">{category.name}</span>
+        {badgeIcon && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={badgeIcon}
+            alt=""
+            className="kds-section-badge"
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = 'none'
+            }}
+          />
+        )}
       </div>
 
       {/* Size header - Grande is highlighted */}
