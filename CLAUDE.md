@@ -97,9 +97,49 @@ Type definitions in `src/types/`:
 ### Business Context
 Little Cafe at Kaiser Permanente, 10400 E Alameda Ave, Denver, CO. Hours: 8AM-6PM Monday-Friday. Menu items, pricing, and location details are real business data.
 
+### Kitchen Display System (KDS)
+KDS pages live in two places:
+- `/kds/*` - Public display pages (drinks, food screens for TVs)
+- `/admin/(kds)/kds/*` - Admin-editable versions of the same screens
+- Note: `/kds/drinks/page.tsx` is a redirect only; the actual page is at `/admin/(kds)/kds/drinks/page.tsx`
+
+KDS has a theme system with three themes: `warm`, `dark`, `wps`
+- CSS variable scoping: `.theme-warm`, `.theme-dark`, `.theme-wps`
+- Entry point: `src/app/kds/kds-themes.css`
+- KDS data stored in: `kds_categories`, `kds_menu_items`, `kds_settings`, `kds_images` tables
+
+### Important Warnings
+
+#### Two Supabase Projects
+The dev server connects to `ofppjltowsdvojixeflr` unless performing testing and dev in production, `etihvnzzmtxsnbifftfh` (cafe-web-app-prod). Always check `.env.local` before running any database operations.
+
+#### Stale Data in Dev
+`revalidate = 300` causes stale data in dev mode. KDS pages use `dynamic = 'force-dynamic'` to avoid this.
+
+### Do NOT
+- Don't modify the database without first verifying which Supabase project `.env.local` points to
+- Don't delete `.next` without warning — it requires a full dev server restart
+- Don't use CSS `display: none` hacks for showing/hiding elements across KDS themes — use component-level props instead
+- Don't add new code to old KDS CSS files (`kds-warm.css`, `kds.css`) — they are deprecated; use `kds-themes.css`
+
+### Environment Setup
+Required `.env.local` variables:
+- `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` / `SUPABASE_SECRET_KEY` — Supabase
+- `SQUARE_APPLICATION_ID` / `SQUARE_ACCESS_TOKEN` / `SQUARE_LOCATION_ID` / `SQUARE_ENVIRONMENT` — Square
+- `OPENAI_API_KEY` — AI invoice parsing
+- `RESEND_API_KEY` — Email service
+- `KDS_MENU_CSV_URL` / `KDS_CATEGORIES_CSV_URL` — KDS Google Sheets data sources
+
+### Key Patterns
+- Use `createClient()` for user-scoped queries, `createServiceClient()` for admin/system operations (bypasses RLS)
+- KDS pages must use `dynamic = 'force-dynamic'` to avoid stale cached data
+- Square config is fetched dynamically from `/api/square/config` endpoint, not hardcoded in client components
+- WPS brand compliance: Starbucks Siren must be separate from operator identity (see `data/WPS-Starbucks-Logo-Requirements.pdf`)
+
 ### Documentation
 Additional docs in `doc/`:
 - `cogs-recipes-sheets.md` - COGS recipe workflow with Google Sheets
 - `cogs-product-codes-sheets.md` - COGS product codes workflow
 - `SQUARE_SETUP.md` - Square integration setup
 - `DATABASE_SETUP.md` - Supabase schema setup
+- `multi-tenant-saas-plan.md` - Multi-tenant SaaS architecture plan
