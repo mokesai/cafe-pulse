@@ -30,7 +30,7 @@ interface KDSPanelHeaderProps {
 export default function KDSPanelHeader({
   cafeName,
   subtitle,
-  subtitleLogo,
+  // subtitleLogo - accepted but not yet rendered
   subtitleIcon,
   leftImage,
   rightImage,
