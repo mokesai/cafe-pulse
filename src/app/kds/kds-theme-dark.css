@@ -1,0 +1,131 @@
+/* KDS Theme: Dark
+ * Sleek dark display aesthetic
+ * Font: Inter (body)
+ */
+
+.theme-dark {
+  /* Dark color palette */
+  --kds-bg: #121212;
+  --kds-bg-texture: none;
+  --kds-bg-overlay: transparent;
+  --kds-bg-header: #0a0a0a;
+  --kds-bg-footer: #0a0a0a;
+  --kds-bg-category: #1a1a1a;
+  --kds-bg-category-hover: #222222;
+
+  /* Text colors */
+  --kds-text: #ffffff;
+  --kds-text-secondary: #e0e0e0;
+  --kds-text-muted: #888888;
+  --kds-text-light: #ffffff;
+
+  /* Accent colors */
+  --kds-accent: #c9a961;
+  --kds-accent-dark: #a8893d;
+  --kds-accent-light: #e8d5a3;
+  --kds-accent-glow: rgba(201, 169, 97, 0.15);
+  --kds-accent-gold: #c9a961;
+
+  /* Category and pricing */
+  --kds-category-title: #c9a961;
+  --kds-category-icon: #c9a961;
+  --kds-price: #ffffff;
+  --kds-divider: #2a2a2a;
+  --kds-divider-strong: #3a3a3a;
+
+  /* Typography (shared with warm theme for consistency) */
+  --kds-font-body: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --kds-font-script: 'Great Vibes', cursive;
+
+  /* Spacing */
+  --kds-spacing-xs: 0.25rem;
+  --kds-spacing-sm: 0.5rem;
+  --kds-spacing-md: 0.75rem;
+  --kds-spacing-lg: 1rem;
+  --kds-spacing-xl: 1.5rem;
+
+  /* Border radius */
+  --kds-radius-sm: 0.25rem;
+  --kds-radius-md: 0.5rem;
+  --kds-radius-lg: 0.75rem;
+
+  /* Shadows */
+  --kds-shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.3);
+  --kds-shadow-md: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --kds-shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.5);
+
+  /* Transitions */
+  --kds-transition-fast: 150ms ease;
+  --kds-transition-normal: 300ms ease;
+  --kds-transition-slow: 500ms ease;
+
+  /* Bullet colors */
+  --kds-bullet-green: #4CAF50;
+  --kds-bullet-yellow: #FFD54F;
+  --kds-bullet-orange: #FF9800;
+  --kds-bullet-brown: #A1887F;
+  --kds-bullet-pink: #F48FB1;
+  --kds-bullet-blue: #64B5F6;
+  --kds-bullet-red: #EF5350;
+  --kds-bullet-teal: #4DB6AC;
+
+  /* Theme-specific overrides */
+  --kds-header-gradient: linear-gradient(180deg, var(--kds-bg-header) 0%, #111111 100%);
+  --kds-footer-gradient: linear-gradient(180deg, #111111 0%, var(--kds-bg-footer) 100%);
+  --kds-root-bg: #121212;
+  --kds-panel-overlay: transparent;
+
+  /* Header text */
+  --kds-header-logo-color: #c9a961;
+  --kds-header-logo-shadow: 0 0 40px rgba(201, 169, 97, 0.15);
+
+  /* Panel logo */
+  --kds-panel-logo-color: #e8d5a3;
+  --kds-panel-logo-shadow: 0 0 20px rgba(201, 169, 97, 0.2);
+
+  /* Banner header */
+  --kds-banner-bg: linear-gradient(180deg, #0a0a0a 0%, #111111 100%);
+  --kds-banner-text: #e8d5a3;
+  --kds-banner-shadow: 0 0 10px rgba(201, 169, 97, 0.15);
+  --kds-banner-bottom-bg: rgba(0, 0, 0, 0.3);
+  --kds-banner-bottom-border: rgba(201, 169, 97, 0.15);
+  --kds-banner-info-color: rgba(255, 255, 255, 0.7);
+
+  /* Refresh indicator */
+  --kds-refresh-bg: rgba(0, 0, 0, 0.7);
+  --kds-refresh-text: rgba(255, 255, 255, 0.5);
+
+  /* Most Popular */
+  --kds-popular-bg: linear-gradient(135deg, #1a1a1a 0%, #222222 100%);
+  --kds-popular-border: #c9a961;
+  --kds-popular-title: #ffd54f;
+  --kds-popular-text: #ffffff;
+  --kds-popular-title-shadow: 0 0 10px rgba(201, 169, 97, 0.3);
+  --kds-popular-star-shadow: drop-shadow(0 0 4px rgba(201, 169, 97, 0.4));
+  --kds-popular-bullet-shadow: drop-shadow(0 0 3px rgba(201, 169, 97, 0.3));
+
+  /* Lotus section */
+  --kds-lotus-bg: linear-gradient(135deg, rgba(201, 169, 97, 0.08) 0%, rgba(201, 169, 97, 0.04) 100%);
+  --kds-lotus-border: var(--kds-accent-gold);
+  --kds-lotus-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+
+  /* Photo strip divider */
+  --kds-divider-line-color: #c9a961;
+  --kds-divider-diamond-color: #c9a961;
+
+  /* Photo strip */
+  --kds-photo-strip-empty-bg: linear-gradient(180deg, #0a0a0a 0%, #111111 100%);
+
+  /* Featured description */
+  --kds-featured-desc-color: rgba(255, 255, 255, 0.7);
+
+  /* Grande highlighting */
+  --kds-grande-color: #c9a961;
+
+  /* Header subtitle & info text */
+  --kds-header-subtitle-color: rgba(255, 255, 255, 0.7);
+  --kds-header-hours-color: #c9a961;
+  --kds-header-location-color: rgba(255, 255, 255, 0.6);
+  --kds-header-bottom-bg: rgba(0, 0, 0, 0.3);
+  --kds-header-bottom-border: rgba(201, 169, 97, 0.15);
+}

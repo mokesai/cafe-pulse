@@ -50,3 +50,13 @@ next-env.d.ts
 # local caches
 .cache/
 /tesseract-data/
+
+# KDS images - ignore unused subdirectories, keep root-level images
+/public/images/kds/photos/burritos/
+/public/images/kds/photos/croissants/
+/public/images/kds/photos/espressos/
+/public/images/kds/photos/frappuccinos/
+/public/images/kds/photos/muffins/
+/public/images/kds/photos/pastries/
+/public/images/kds/photos/refreshers/
+/public/images/kds/photos/sandwiches/

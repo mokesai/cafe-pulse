@@ -1,0 +1,2370 @@
+/* KDS (Kitchen Display System) - Warm Theme
+ * Compact cafe menu board aesthetic
+ * Optimized for TV display at 1920x1080 or 4K
+ * Designed for dense information display
+ */
+
+/* ===== Google Fonts Import ===== */
+@import url('https://fonts.googleapis.com/css2?family=Great+Vibes&family=Nunito:wght@400;500;600;700;800&display=swap');
+
+/* ===== CSS Variables - Warm Theme ===== */
+:root {
+  /* Warm color palette */
+  --kds-bg: #8b6847;
+  --kds-bg-texture: url('/images/kds/bg-wood-texture.svg');
+  --kds-bg-overlay: rgba(139, 104, 71, 0.85);
+  --kds-bg-header: #c4a87c;
+  --kds-bg-footer: #b8976a;
+  --kds-bg-category: rgba(255, 255, 255, 0.08);
+  --kds-bg-category-hover: rgba(255, 255, 255, 0.12);
+
+  /* Text colors - dark on light */
+  --kds-text: #3d2b1f;
+  --kds-text-secondary: #5c4033;
+  --kds-text-muted: #7a6352;
+  --kds-text-light: #ffffff;
+
+  /* Accent colors */
+  --kds-accent: #8b5a2b;
+  --kds-accent-dark: #6b4423;
+  --kds-accent-light: #a67c52;
+  --kds-accent-glow: rgba(139, 90, 43, 0.2);
+
+  /* Category and pricing */
+  --kds-category-title: #5c3d2e;
+  --kds-category-icon: #6b4423;
+  --kds-price: #3d2b1f;
+  --kds-divider: rgba(107, 68, 35, 0.2);
+  --kds-divider-strong: rgba(107, 68, 35, 0.35);
+
+  /* Typography */
+  --kds-font-body: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --kds-font-script: 'Great Vibes', cursive;
+
+  /* Compact spacing */
+  --kds-spacing-xs: 0.25rem;
+  --kds-spacing-sm: 0.5rem;
+  --kds-spacing-md: 0.75rem;
+  --kds-spacing-lg: 1rem;
+  --kds-spacing-xl: 1.5rem;
+
+  /* Border radius */
+  --kds-radius-sm: 0.25rem;
+  --kds-radius-md: 0.5rem;
+  --kds-radius-lg: 0.75rem;
+
+  /* Shadows */
+  --kds-shadow-sm: 0 1px 4px rgba(61, 43, 31, 0.1);
+  --kds-shadow-md: 0 2px 8px rgba(61, 43, 31, 0.12);
+  --kds-shadow-lg: 0 4px 16px rgba(61, 43, 31, 0.15);
+
+  /* Transitions */
+  --kds-transition-fast: 150ms ease;
+  --kds-transition-normal: 300ms ease;
+  --kds-transition-slow: 500ms ease;
+
+  /* Bullet colors for featured and flavor items */
+  --kds-bullet-green: #00704A;  /* Starbucks green */
+  --kds-bullet-yellow: #F5A623;
+  --kds-bullet-orange: #E67E22;
+  --kds-bullet-brown: #8B4513;
+  --kds-bullet-pink: #FF69B4;
+  --kds-bullet-blue: #3498DB;
+  --kds-bullet-red: #E74C3C;
+  --kds-bullet-teal: #1ABC9C;
+}
+
+/* ===== Override global body background for KDS pages ===== */
+html, body {
+  background-color: #8b6847 !important;
+  background: #8b6847 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* ===== Base Layout ===== */
+.kds-root {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: #8b6847 !important;
+  background-color: #8b6847 !important;
+  background-image: var(--kds-bg-texture);
+  background-size: 300px 300px;
+  background-repeat: repeat;
+  color: var(--kds-text);
+  font-family: var(--kds-font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  position: relative;
+}
+
+/* Warm overlay for better readability */
+.kds-root::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--kds-bg-overlay);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.kds-root > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ===== Header - Compact ===== */
+.kds-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--kds-spacing-md) var(--kds-spacing-xl);
+  background: linear-gradient(180deg, var(--kds-bg-header) 0%, rgba(196, 168, 124, 0.95) 100%);
+  border-bottom: 2px solid var(--kds-divider-strong);
+  min-height: 70px;
+  box-shadow: var(--kds-shadow-md);
+}
+
+.kds-header-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.125rem;
+}
+
+.kds-header-logo {
+  font-family: var(--kds-font-script);
+  font-size: 2.5rem;
+  font-weight: 400;
+  color: var(--kds-accent-dark);
+  line-height: 1;
+  text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.3);
+}
+
+.kds-header-subtitle {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--kds-text-secondary);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.kds-header-text {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--kds-text-secondary);
+  letter-spacing: 0.01em;
+}
+
+.kds-header-icon {
+  display: none;
+}
+
+/* ===== Main Content Grid - 2x2 ===== */
+.kds-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 1px;
+  background: var(--kds-divider);
+  padding: var(--kds-spacing-sm);
+  min-height: 0;
+}
+
+.kds-grid-cell {
+  background: var(--kds-bg-category);
+  border-radius: var(--kds-radius-sm);
+  overflow: hidden;
+  backdrop-filter: blur(2px);
+  min-height: 0;
+}
+
+/* ===== Category Section - Compact ===== */
+.kds-category {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: var(--kds-spacing-sm) var(--kds-spacing-md);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.kds-category-header {
+  display: flex;
+  align-items: center;
+  gap: var(--kds-spacing-sm);
+  margin-bottom: var(--kds-spacing-xs);
+  padding-bottom: var(--kds-spacing-xs);
+  border-bottom: 1px solid var(--kds-divider);
+  flex-shrink: 0;
+}
+
+.kds-category-header::after {
+  display: none;
+}
+
+.kds-category-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--kds-category-icon);
+  flex-shrink: 0;
+}
+
+.kds-category-icon svg,
+.kds-category-icon img {
+  width: 100%;
+  height: 100%;
+}
+
+.kds-category-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--kds-category-title);
+}
+
+.kds-category-price {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--kds-price);
+  margin-left: auto;
+}
+
+.kds-category-items {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: 0;
+}
+
+/* ===== Menu Items - Compact ===== */
+.kds-menu-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0.15rem 0;
+  gap: 0.25rem;
+  min-height: 0;
+}
+
+.kds-item-name {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--kds-text);
+  line-height: 1.25;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kds-menu-item-dots {
+  flex: 1;
+  border-bottom: 1px dotted var(--kds-divider-strong);
+  margin: 0 0.25rem;
+  min-width: 8px;
+  max-width: 60px;
+  position: relative;
+  top: -3px;
+}
+
+.kds-item-price {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--kds-price);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Two-column items grid */
+.kds-items-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 var(--kds-spacing-md);
+}
+
+.kds-items-grid .kds-menu-item {
+  padding: 0.1rem 0;
+}
+
+/* ===== Size Column Display - Compact ===== */
+.kds-size-header {
+  display: grid;
+  grid-template-columns: 1fr repeat(3, 2.75rem);
+  gap: 0.125rem;
+  padding: 0.125rem 0;
+  margin-bottom: 0.125rem;
+  border-bottom: 1px solid var(--kds-divider);
+  flex-shrink: 0;
+}
+
+.kds-size-header-spacer {
+  /* Empty spacer for item name column */
+}
+
+.kds-size-header-label {
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--kds-text-muted);
+  text-align: center;
+}
+
+.kds-sized-item {
+  display: grid;
+  grid-template-columns: 1fr repeat(3, 2.75rem);
+  gap: 0.125rem;
+  align-items: baseline;
+  padding: 0.15rem 0;
+}
+
+.kds-sized-item-name {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--kds-text);
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kds-sized-item-price {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--kds-price);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* ===== Footer - Large Product Images ===== */
+.kds-footer {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  background: linear-gradient(180deg, rgba(184, 151, 106, 0.95) 0%, var(--kds-bg-footer) 100%);
+  border-top: 2px solid var(--kds-divider-strong);
+  height: 160px;
+  flex-shrink: 0;
+  box-shadow: 0 -2px 8px rgba(61, 43, 31, 0.1);
+}
+
+.kds-footer-image {
+  width: 240px;
+  height: 100%;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.kds-footer-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.kds-footer-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--kds-spacing-lg);
+}
+
+.kds-footer-tagline {
+  font-family: var(--kds-font-script);
+  font-size: 1.75rem;
+  font-weight: 400;
+  color: var(--kds-accent-dark);
+  text-align: center;
+  line-height: 1.3;
+}
+
+.kds-footer-decoration {
+  display: none;
+}
+
+/* Large promo footer (full width image) */
+.kds-promo-footer {
+  display: flex;
+  align-items: stretch;
+  background: var(--kds-bg-footer);
+  border-top: 2px solid var(--kds-divider-strong);
+  height: 160px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.kds-promo-image {
+  flex: 1;
+  height: 100%;
+  position: relative;
+}
+
+.kds-promo-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ===== Customize Bar - Compact ===== */
+.kds-customize-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--kds-spacing-sm);
+  padding: var(--kds-spacing-xs) var(--kds-spacing-md);
+  background: rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--kds-divider);
+  font-size: 0.65rem;
+  color: var(--kds-text-secondary);
+}
+
+.kds-customize-icon {
+  width: 14px;
+  height: 14px;
+  color: var(--kds-accent);
+}
+
+.kds-customize-label {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--kds-accent-dark);
+}
+
+.kds-customize-text {
+  font-weight: 400;
+}
+
+/* ===== Image Rotator ===== */
+.kds-image-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--kds-bg);
+}
+
+.kds-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: opacity var(--kds-transition-slow);
+}
+
+.kds-image-dots {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+}
+
+.kds-image-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  transition: all var(--kds-transition-fast);
+}
+
+.kds-image-dot.active {
+  background: white;
+  transform: scale(1.2);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* ===== Animations ===== */
+@keyframes kds-fade-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes kds-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes kds-slide-up {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.kds-fade-enter {
+  animation: kds-fade-in 0.4s ease-out forwards;
+}
+
+.kds-fade-exit {
+  animation: kds-fade-out 0.4s ease-in forwards;
+}
+
+.kds-animate-in {
+  animation: kds-slide-up 0.4s ease-out forwards;
+}
+
+/* Staggered animation for menu items */
+.kds-item-animate {
+  opacity: 0;
+  animation: kds-slide-up 0.2s ease-out forwards;
+}
+
+.kds-item-animate:nth-child(1) { animation-delay: 0.02s; }
+.kds-item-animate:nth-child(2) { animation-delay: 0.04s; }
+.kds-item-animate:nth-child(3) { animation-delay: 0.06s; }
+.kds-item-animate:nth-child(4) { animation-delay: 0.08s; }
+.kds-item-animate:nth-child(5) { animation-delay: 0.10s; }
+.kds-item-animate:nth-child(6) { animation-delay: 0.12s; }
+.kds-item-animate:nth-child(7) { animation-delay: 0.14s; }
+.kds-item-animate:nth-child(8) { animation-delay: 0.16s; }
+.kds-item-animate:nth-child(9) { animation-delay: 0.18s; }
+.kds-item-animate:nth-child(10) { animation-delay: 0.20s; }
+.kds-item-animate:nth-child(11) { animation-delay: 0.22s; }
+.kds-item-animate:nth-child(12) { animation-delay: 0.24s; }
+
+/* ===== Auto-refresh Indicator ===== */
+.kds-refresh-indicator {
+  position: fixed;
+  bottom: var(--kds-spacing-sm);
+  right: var(--kds-spacing-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--kds-spacing-xs);
+  padding: 0.2rem 0.5rem;
+  background: rgba(61, 43, 31, 0.75);
+  border-radius: 12px;
+  font-size: 0.6rem;
+  color: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(8px);
+  transition: opacity var(--kds-transition-normal);
+  z-index: 100;
+}
+
+.kds-refresh-indicator:hover {
+  opacity: 1 !important;
+}
+
+/* ===== Empty State ===== */
+.kds-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--kds-text-muted);
+  font-style: italic;
+  font-size: 0.75rem;
+  opacity: 0.6;
+}
+
+/* ===== Responsive: 4K Displays ===== */
+@media (min-width: 2560px) {
+  :root {
+    --kds-spacing-xs: 0.5rem;
+    --kds-spacing-sm: 0.75rem;
+    --kds-spacing-md: 1.25rem;
+    --kds-spacing-lg: 1.75rem;
+    --kds-spacing-xl: 2.5rem;
+  }
+
+  .kds-header {
+    min-height: 100px;
+  }
+
+  .kds-header-logo {
+    font-size: 4rem;
+  }
+
+  .kds-header-subtitle {
+    font-size: 1rem;
+  }
+
+  .kds-header-text {
+    font-size: 1.2rem;
+  }
+
+  .kds-category-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .kds-category-title {
+    font-size: 1.25rem;
+  }
+
+  .kds-category-price {
+    font-size: 1.1rem;
+  }
+
+  .kds-item-name,
+  .kds-item-price {
+    font-size: 1.1rem;
+  }
+
+  .kds-footer {
+    height: 240px;
+  }
+
+  .kds-footer-image {
+    width: 360px;
+  }
+
+  .kds-footer-tagline {
+    font-size: 2.5rem;
+  }
+
+  .kds-promo-footer {
+    height: 240px;
+  }
+
+  .kds-customize-bar {
+    font-size: 0.95rem;
+    padding: var(--kds-spacing-sm) var(--kds-spacing-lg);
+  }
+
+  .kds-customize-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* Size columns for 4K */
+  .kds-size-header {
+    grid-template-columns: 1fr repeat(3, 4.5rem);
+    gap: 0.25rem;
+  }
+
+  .kds-size-header-label {
+    font-size: 0.8rem;
+  }
+
+  .kds-sized-item {
+    grid-template-columns: 1fr repeat(3, 4.5rem);
+    gap: 0.25rem;
+    padding: 0.25rem 0;
+  }
+
+  .kds-sized-item-name {
+    font-size: 1.1rem;
+  }
+
+  .kds-sized-item-price {
+    font-size: 1rem;
+  }
+}
+
+/* ===== Responsive: Standard HD (1920x1080) ===== */
+@media (min-width: 1920px) and (max-width: 2559px) {
+  .kds-header {
+    min-height: 80px;
+  }
+
+  .kds-header-logo {
+    font-size: 3rem;
+  }
+
+  .kds-category-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  .kds-category-title {
+    font-size: 1rem;
+  }
+
+  .kds-item-name,
+  .kds-item-price {
+    font-size: 0.9rem;
+  }
+
+  .kds-sized-item-name {
+    font-size: 0.9rem;
+  }
+
+  .kds-sized-item-price {
+    font-size: 0.85rem;
+  }
+
+  .kds-size-header {
+    grid-template-columns: 1fr repeat(3, 3.5rem);
+  }
+
+  .kds-sized-item {
+    grid-template-columns: 1fr repeat(3, 3.5rem);
+  }
+
+  .kds-size-header-label {
+    font-size: 0.65rem;
+  }
+
+  .kds-footer {
+    height: 180px;
+  }
+
+  .kds-footer-image {
+    width: 280px;
+  }
+
+  .kds-footer-tagline {
+    font-size: 2rem;
+  }
+
+  .kds-promo-footer {
+    height: 180px;
+  }
+}
+
+/* ===== Responsive: Smaller screens (testing/tablets) ===== */
+@media (max-width: 1280px) {
+  .kds-header {
+    min-height: 60px;
+    padding: var(--kds-spacing-sm) var(--kds-spacing-md);
+  }
+
+  .kds-header-logo {
+    font-size: 2rem;
+  }
+
+  .kds-header-subtitle {
+    font-size: 0.6rem;
+  }
+
+  .kds-header-text {
+    font-size: 0.7rem;
+  }
+
+  .kds-category-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .kds-category-title {
+    font-size: 0.75rem;
+  }
+
+  .kds-item-name,
+  .kds-item-price {
+    font-size: 0.65rem;
+  }
+
+  .kds-footer {
+    height: 120px;
+  }
+
+  .kds-footer-image {
+    width: 160px;
+  }
+
+  .kds-footer-tagline {
+    font-size: 1.25rem;
+  }
+
+  .kds-promo-footer {
+    height: 120px;
+  }
+
+  /* Size columns for smaller screens */
+  .kds-size-header {
+    grid-template-columns: 1fr repeat(3, 2.25rem);
+    gap: 0.1rem;
+  }
+
+  .kds-size-header-label {
+    font-size: 0.5rem;
+  }
+
+  .kds-sized-item {
+    grid-template-columns: 1fr repeat(3, 2.25rem);
+    gap: 0.1rem;
+    padding: 0.1rem 0;
+  }
+
+  .kds-sized-item-name {
+    font-size: 0.65rem;
+  }
+
+  .kds-sized-item-price {
+    font-size: 0.6rem;
+  }
+}
+
+/* ===== DUAL-PANEL LAYOUT (matches example design) ===== */
+
+/* Main panel container - one half of the dual-screen setup */
+.kds-panel {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background-color: #8b6847 !important;
+  background-image: var(--kds-bg-texture);
+  background-size: 200px 200px;
+  background-repeat: repeat;
+  color: var(--kds-text);
+  font-family: var(--kds-font-body);
+  position: relative;
+}
+
+.kds-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(139, 104, 71, 0.85);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.kds-panel > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Panel Header - "Little Café" branding with product images */
+.kds-panel-header {
+  display: flex;
+  flex-direction: column;
+  border-bottom: 2px solid var(--kds-divider-strong);
+  background: linear-gradient(180deg, var(--kds-bg-header) 0%, rgba(196, 168, 124, 0.9) 100%);
+  box-shadow: var(--kds-shadow-md);
+}
+
+/* Main row: [left image] | [center text] | [right image] */
+.kds-panel-header-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 70px;
+  padding: 0.5rem 0;
+}
+
+/* Product images on sides */
+.kds-panel-header-image {
+  width: 70px;
+  flex-shrink: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(196, 168, 124, 0.3) 0%, rgba(180, 150, 100, 0.4) 100%);
+  position: relative;
+}
+
+.kds-panel-header-image::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(196, 168, 124, 0.15) 0%, rgba(139, 90, 43, 0.1) 100%);
+  pointer-events: none;
+  mix-blend-mode: multiply;
+}
+
+.kds-panel-header-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(61, 43, 31, 0.2);
+}
+
+.kds-panel-header-image-left {
+  padding-left: 6px;
+}
+
+.kds-panel-header-image-right {
+  padding-right: 6px;
+}
+
+/* Centered title and subtitle */
+.kds-panel-header-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem 0.5rem;
+  text-align: center;
+  gap: 0.25rem;
+}
+
+.kds-panel-logo {
+  font-family: var(--kds-font-script);
+  font-size: 2rem;
+  font-weight: 700;
+  color: #3d2314;
+  line-height: 1.2;
+  margin: 0;
+  text-shadow: 1px 1px 1px rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+/* Standard header title icons (flanking cafe name) */
+.kds-standard-title-icon {
+  height: 2.5rem;
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.kds-panel-subtitle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--kds-text-secondary);
+  letter-spacing: 0.04em;
+  margin: 0;
+}
+
+.kds-panel-subtitle-logo {
+  height: 2.5rem;
+  width: auto;
+  vertical-align: middle;
+}
+
+/* Bottom row: location left, hours right */
+.kds-panel-header-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.1rem 0.75rem;
+  background: rgba(0, 0, 0, 0.04);
+  border-top: 1px solid var(--kds-divider);
+}
+
+.kds-panel-location {
+  font-size: 0.45rem;
+  font-weight: 500;
+  color: var(--kds-text-secondary);
+}
+
+.kds-panel-hours {
+  font-size: 0.45rem;
+  font-weight: 600;
+  color: var(--kds-accent-dark);
+}
+
+/* Panel Content - 2 column grid of categories */
+.kds-panel-content {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.kds-panel-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Compact Category */
+.kds-compact-category {
+  background: var(--kds-bg-category);
+  border-radius: var(--kds-radius-sm);
+  padding: 0.35rem 0.5rem;
+  overflow: hidden;
+}
+
+.kds-compact-header {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 0.2rem;
+  padding-bottom: 0.15rem;
+  border-bottom: 1px solid var(--kds-divider);
+}
+
+.kds-compact-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.kds-compact-title {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--kds-category-title);
+}
+
+.kds-compact-category-price {
+  margin-left: auto;
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--kds-price);
+}
+
+/* Compact Size Header */
+.kds-compact-size-header {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--kds-text-muted);
+  text-align: center;
+  margin-bottom: 0.15rem;
+}
+
+.kds-compact-size-header span:first-child {
+  text-align: left;
+}
+
+/* Compact Items */
+.kds-compact-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.kds-compact-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0.15rem 0;
+  gap: 0.25rem;
+}
+
+.kds-compact-item-name {
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--kds-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.kds-compact-item-price {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--kds-price);
+  white-space: nowrap;
+}
+
+/* Compact Sized Item (with Tall/Grande/Venti) */
+.kds-compact-sized-item {
+  display: grid;
+  gap: 0.25rem;
+  align-items: baseline;
+  padding: 0.15rem 0;
+}
+
+.kds-compact-sized-item .kds-compact-item-name {
+  font-size: 0.85rem;
+}
+
+.kds-compact-price {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--kds-price);
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* ===== Display Type: Bullets (Star Shape) ===== */
+.kds-bullet {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+}
+
+.kds-bullet-green { background: var(--kds-bullet-green); }
+.kds-bullet-yellow { background: var(--kds-bullet-yellow); }
+.kds-bullet-orange { background: var(--kds-bullet-orange); }
+.kds-bullet-brown { background: var(--kds-bullet-brown); }
+.kds-bullet-pink { background: var(--kds-bullet-pink); }
+.kds-bullet-blue { background: var(--kds-bullet-blue); }
+.kds-bullet-red { background: var(--kds-bullet-red); }
+.kds-bullet-teal { background: var(--kds-bullet-teal); }
+
+/* ===== Display Type: Featured List ===== */
+.kds-featured-category {
+  position: relative;
+  background-image: url('/images/kds/bg-coffee-watercolor.png');
+  background-size: cover;
+  background-position: center;
+  background-blend-mode: soft-light;
+}
+
+.kds-featured-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.15rem 0;
+}
+
+.kds-star-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.kds-featured-item-name {
+  font-size: 0.6rem;
+  font-weight: 500;
+  color: var(--kds-text);
+}
+
+.kds-featured-item-desc {
+  font-size: 0.55rem;
+  font-weight: 400;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* ===== Display Type: Flavor Grid ===== */
+.kds-flavor-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25rem 1rem;
+}
+
+.kds-flavor-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.kds-flavor-item-name {
+  font-size: 0.55rem;
+  font-weight: 400;
+  color: var(--kds-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ===== Display Type: Simple List ===== */
+.kds-simple-item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  padding: 0.1rem 0;
+}
+
+.kds-simple-item-name {
+  font-size: 0.55rem;
+  font-weight: 400;
+  color: var(--kds-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kds-simple-item-dots {
+  flex: 1;
+  border-bottom: 1px dotted var(--kds-divider-strong);
+  min-width: 10px;
+  margin: 0 0.25rem;
+  position: relative;
+  top: -3px;
+}
+
+.kds-simple-item-price {
+  font-size: 0.55rem;
+  font-weight: 600;
+  color: var(--kds-price);
+  white-space: nowrap;
+}
+
+/* ===== Display Type: Single Price (category header price) ===== */
+.kds-single-price-header {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--kds-price);
+  margin-left: auto;
+}
+
+/* ===== Banner Header Style ===== */
+.kds-panel-header-banner {
+  background: linear-gradient(180deg, #5c3d2e 0%, #4a3120 100%);
+  border-bottom: 2px solid var(--kds-divider-strong);
+  box-shadow: var(--kds-shadow-md);
+}
+
+.kds-panel-header-banner .kds-panel-header-main {
+  height: 50px;
+  justify-content: center;
+}
+
+.kds-panel-header-banner .kds-panel-header-center {
+  flex: none;
+}
+
+.kds-panel-header-banner .kds-panel-logo {
+  font-family: var(--kds-font-body);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #ffffff;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+/* Banner title icons (flanking the title text) */
+.kds-banner-title-icon {
+  height: 2.5rem;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+.kds-banner-title-icon-left {
+  margin-right: 0.25rem;
+}
+
+.kds-banner-title-icon-right {
+  margin-left: 0.25rem;
+}
+
+.kds-panel-header-banner .kds-panel-subtitle {
+  display: none;
+}
+
+.kds-panel-header-banner .kds-panel-header-image {
+  display: none;
+}
+
+.kds-panel-header-banner .kds-panel-header-bottom {
+  background: rgba(0, 0, 0, 0.15);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.kds-panel-header-banner .kds-panel-location,
+.kds-panel-header-banner .kds-panel-hours {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Photo Strip */
+.kds-photo-strip {
+  height: 80px;
+  min-height: 70px;
+  max-height: 80px;
+  display: flex;
+  gap: 0;
+  overflow: hidden;
+  border-top: 2px solid var(--kds-divider-strong);
+  background: var(--kds-bg-footer);
+  flex-shrink: 0;
+}
+
+.kds-photo-strip-empty {
+  background: linear-gradient(180deg, var(--kds-bg-footer) 0%, rgba(160, 130, 90, 0.9) 100%);
+}
+
+.kds-photo-item {
+  flex: 1;
+  overflow: hidden;
+}
+
+.kds-photo-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ===== Dual-Panel Responsive: HD (1920x1080) ===== */
+@media (min-width: 1920px) and (max-width: 2559px) {
+  .kds-bullet {
+    width: 14px;
+    height: 14px;
+  }
+
+  .kds-featured-item {
+    gap: 0.6rem;
+    padding: 0.2rem 0;
+  }
+
+  .kds-star-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .kds-featured-item-name {
+    font-size: 0.8rem;
+  }
+
+  .kds-featured-item-desc {
+    font-size: 0.65rem;
+  }
+
+  .kds-flavor-grid {
+    gap: 0.35rem 1.25rem;
+  }
+
+  .kds-flavor-item {
+    gap: 0.4rem;
+  }
+
+  .kds-flavor-item-name {
+    font-size: 0.7rem;
+  }
+
+  .kds-simple-item-name,
+  .kds-simple-item-price {
+    font-size: 0.7rem;
+  }
+
+  .kds-simple-item-dots {
+    top: -4px;
+  }
+
+  .kds-panel-header-banner .kds-panel-logo {
+    font-size: 1.8rem;
+  }
+
+  .kds-panel-header-banner .kds-panel-header-main {
+    height: 65px;
+  }
+
+  .kds-panel-header-main {
+    height: 65px;
+  }
+
+  .kds-panel-header-image {
+    width: 85px;
+  }
+
+  .kds-panel-logo {
+    font-size: 2.2rem;
+  }
+
+  .kds-panel-subtitle {
+    font-size: 0.55rem;
+    gap: 0.3rem;
+  }
+
+  .kds-panel-subtitle-logo {
+    height: 1em;
+  }
+
+  .kds-panel-location {
+    font-size: 0.5rem;
+  }
+
+  .kds-panel-hours {
+    font-size: 0.5rem;
+  }
+
+  .kds-photo-strip {
+    height: 100px;
+    max-height: 100px;
+  }
+
+  .kds-compact-title {
+    font-size: 0.8rem;
+  }
+
+  .kds-compact-category-price {
+    font-size: 0.75rem;
+  }
+
+  .kds-compact-size-header {
+    font-size: 0.55rem;
+    grid-template-columns: 1fr repeat(3, 3rem);
+  }
+
+  .kds-compact-item-name,
+  .kds-compact-item-price {
+    font-size: 0.7rem;
+  }
+
+  .kds-compact-sized-item {
+    grid-template-columns: 1fr repeat(3, 3rem);
+  }
+
+  .kds-compact-sized-item .kds-compact-item-name {
+    font-size: 0.7rem;
+  }
+
+  .kds-compact-price {
+    font-size: 0.65rem;
+  }
+
+  .kds-compact-icon {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+/* ===== Dual-Panel Responsive: 4K ===== */
+@media (min-width: 2560px) {
+  .kds-bullet {
+    width: 16px;
+    height: 16px;
+  }
+
+  .kds-featured-item {
+    gap: 0.75rem;
+    padding: 0.25rem 0;
+  }
+
+  .kds-star-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  .kds-featured-item-name {
+    font-size: 1rem;
+  }
+
+  .kds-featured-item-desc {
+    font-size: 0.8rem;
+  }
+
+  .kds-flavor-grid {
+    gap: 0.5rem 1.5rem;
+  }
+
+  .kds-flavor-item {
+    gap: 0.5rem;
+  }
+
+  .kds-flavor-item-name {
+    font-size: 0.9rem;
+  }
+
+  .kds-simple-item-name,
+  .kds-simple-item-price {
+    font-size: 0.9rem;
+  }
+
+  .kds-simple-item-dots {
+    top: -5px;
+  }
+
+  .kds-panel-header-banner .kds-panel-logo {
+    font-size: 2.2rem;
+  }
+
+  .kds-panel-header-banner .kds-panel-header-main {
+    height: 85px;
+  }
+
+  .kds-panel-header-main {
+    height: 85px;
+  }
+
+  .kds-panel-header-image {
+    width: 110px;
+  }
+
+  .kds-panel-header-center {
+    padding: 0.25rem 1rem;
+  }
+
+  .kds-panel-logo {
+    font-size: 2.8rem;
+  }
+
+  .kds-panel-subtitle {
+    font-size: 0.7rem;
+    gap: 0.4rem;
+  }
+
+  .kds-panel-subtitle-logo {
+    height: 1.1em;
+  }
+
+  .kds-panel-header-bottom {
+    padding: 0.15rem 1.5rem;
+  }
+
+  .kds-panel-location {
+    font-size: 0.6rem;
+  }
+
+  .kds-panel-hours {
+    font-size: 0.6rem;
+  }
+
+  .kds-photo-strip {
+    height: 120px;
+    max-height: 120px;
+  }
+
+  .kds-panel-content {
+    gap: 0.75rem;
+    padding: 0.75rem;
+  }
+
+  .kds-compact-category {
+    padding: 0.5rem 0.75rem;
+  }
+
+  .kds-compact-title {
+    font-size: 1rem;
+  }
+
+  .kds-compact-category-price {
+    font-size: 0.9rem;
+  }
+
+  .kds-compact-size-header {
+    font-size: 0.7rem;
+    grid-template-columns: 1fr repeat(3, 4rem);
+  }
+
+  .kds-compact-item-name,
+  .kds-compact-item-price {
+    font-size: 0.9rem;
+  }
+
+  .kds-compact-sized-item {
+    grid-template-columns: 1fr repeat(3, 4rem);
+  }
+
+  .kds-compact-sized-item .kds-compact-item-name {
+    font-size: 0.9rem;
+  }
+
+  .kds-compact-price {
+    font-size: 0.8rem;
+  }
+
+  .kds-compact-icon {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+/* ===== MAGAZINE LAYOUT (Food Screen) ===== */
+
+/* Magazine Grid Layout for Food Screen - 3 equal columns */
+.kds-magazine-content {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.6rem;
+  padding: 0.75rem;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* 4-column layout for Drinks screen with photo strip */
+.kds-magazine-content-4col {
+  grid-template-columns: 1.2fr 1fr 0.6fr 1fr;
+}
+
+/* Photo strip column - stacked images with dividers */
+.kds-drinks-photo-strip {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  padding: 0;
+  gap: 0.35rem;
+}
+
+.kds-photo-strip-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+}
+
+.kds-photo-strip-divider {
+  width: 90%;
+  height: 3px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    #8b6914 15%,
+    var(--kds-accent-gold) 50%,
+    #8b6914 85%,
+    transparent 100%
+  );
+  margin-bottom: 0.75rem;
+  border-radius: 2px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Elegant image divider for photo strip */
+.kds-photo-strip-divider-img {
+  width: 90%;
+  height: 40px;
+  object-fit: contain;
+}
+
+/* CSS-based elegant divider: line — ◆ — line */
+.kds-photo-strip-divider-css {
+  display: flex;
+  align-items: center;
+  width: 85%;
+  gap: 0.4rem;
+}
+
+.kds-divider-line {
+  flex: 1;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, #c4a87c 25%, #c4a87c 75%, transparent 100%);
+}
+
+.kds-divider-diamond {
+  width: 8px;
+  height: 8px;
+  background: #c4a87c;
+  transform: rotate(45deg);
+  flex-shrink: 0;
+}
+
+.kds-photo-strip-image {
+  width: 100%;
+  height: auto;
+  max-height: 100px;
+  object-fit: contain;
+  border-radius: var(--kds-radius-sm);
+  box-shadow: var(--kds-shadow-sm);
+}
+
+/* Horizontal photo strip (for drinks screen below Frappuccinos) */
+.kds-drinks-photo-strip-horizontal {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  margin-top: auto;
+}
+
+.kds-photo-strip-item-horizontal {
+  flex: 1;
+  max-width: 120px;
+}
+
+.kds-photo-strip-image-horizontal {
+  width: 100%;
+  height: auto;
+  max-height: 90px;
+  object-fit: contain;
+  border-radius: var(--kds-radius-sm);
+  box-shadow: var(--kds-shadow-sm);
+}
+
+/* Each column is a flex container for vertical stacking */
+.kds-magazine-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Inline image that blends with content */
+.kds-inline-image {
+  border-radius: var(--kds-radius-md);
+  overflow: hidden;
+  box-shadow: var(--kds-shadow-sm);
+  flex-shrink: 0;
+}
+
+.kds-inline-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--kds-radius-md);
+}
+
+/* Small inline image (beside category header) */
+.kds-inline-image-sm {
+  height: 70px;
+}
+
+/* Medium inline image */
+.kds-inline-image-md {
+  height: 90px;
+}
+
+/* Large inline image */
+.kds-inline-image-lg {
+  height: 110px;
+}
+
+/* Category with image beside it (side-by-side layout) */
+.kds-category-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.kds-category-row .kds-magazine-category,
+.kds-category-row .kds-lotus-section {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Most Popular section should not expand */
+.kds-category-row .kds-most-popular {
+  flex: 0 0 auto;
+}
+
+.kds-category-row .kds-inline-image {
+  flex: 1;
+  min-width: 120px;
+  height: auto;
+  align-self: flex-start;
+}
+
+/* Food Pairings Header with Icon */
+.kds-food-pairings-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 2px solid var(--kds-accent);
+  flex-shrink: 0;
+}
+
+.kds-food-pairings-icon {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+}
+
+/* Grande size highlighting - makes Grande stand out */
+.kds-size-grande {
+  font-weight: 700 !important;
+  color: var(--kds-accent-dark) !important;
+}
+
+.kds-price-grande {
+  font-weight: 700 !important;
+}
+
+/* Tight Item Spacing (for food pairings list) */
+.kds-tight-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.15rem 0;
+}
+
+.kds-tight-item-name {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--kds-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kds-tight-item-price {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--kds-price);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Grouped Pastries Section */
+.kds-pastries-grouped {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.kds-pastry-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.kds-pastry-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.kds-pastry-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--kds-text);
+}
+
+.kds-pastry-price {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--kds-price);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.kds-pastry-flavors {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--kds-text-secondary);
+  line-height: 1.3;
+  padding-left: 0.5rem;
+}
+
+.kds-pastry-exception {
+  font-style: italic;
+  color: var(--kds-text-muted);
+}
+
+/* Category with Thumbnail */
+.kds-category-with-thumb {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.kds-category-thumb {
+  width: 50px;
+  height: 50px;
+  flex-shrink: 0;
+  border-radius: var(--kds-radius-sm);
+  overflow: hidden;
+}
+
+.kds-category-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.kds-category-thumb-content {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Magazine Category Box */
+.kds-magazine-category {
+  background: var(--kds-bg-category);
+  border-radius: var(--kds-radius-sm);
+  padding: 0.35rem 0.5rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.kds-magazine-header {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.3rem;
+  padding-bottom: 0.2rem;
+  border-bottom: 1px solid var(--kds-divider);
+}
+
+.kds-magazine-icon {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.kds-magazine-title {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--kds-category-title);
+}
+
+.kds-magazine-price {
+  margin-left: auto;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--kds-price);
+}
+
+/* Column 2 flex sizing: Espresso gets more space, Refreshers gets less */
+.kds-col2-espresso {
+  flex: 3;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.kds-col2-espresso .kds-magazine-category {
+  flex: 1;
+  min-height: 0;
+}
+
+.kds-col2-refreshers {
+  flex: 2;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.kds-col2-refreshers .kds-magazine-category {
+  flex: 1;
+  min-height: 0;
+}
+
+.kds-subsection-label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--kds-text-muted);
+  padding: 0.3rem 0 0.1rem;
+  border-top: 1px solid var(--kds-divider);
+  margin-top: 0.2rem;
+}
+
+.kds-subsection-label:first-child {
+  border-top: none;
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.kds-subsection-icon {
+  width: 14px;
+  height: 14px;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.kds-compact-item-name:has(.kds-item-bullet) {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.kds-item-bullet {
+  width: 10px;
+  height: 10px;
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+.kds-magazine-items {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Food Pairings Box (larger right column) */
+.kds-food-pairings {
+  background: var(--kds-bg-category);
+  border-radius: var(--kds-radius-sm);
+  padding: 0.4rem 0.6rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.kds-food-pairings-header {
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--kds-accent-dark);
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.kds-food-pairings-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* Lotus Energy Combined Section */
+.kds-lotus-section {
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.15) 0%, rgba(0, 0, 0, 0.08) 100%);
+  border: 2px solid var(--kds-accent-gold);
+  border-radius: var(--kds-radius-sm);
+  padding: 0.35rem 0.5rem;
+  overflow: hidden;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.kds-lotus-header {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.25rem;
+  padding-bottom: 0.2rem;
+  border-bottom: 1px solid var(--kds-divider);
+  flex-wrap: nowrap;
+}
+
+.kds-lotus-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.kds-lotus-title {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--kds-category-title);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.kds-lotus-price {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--kds-price);
+  white-space: nowrap;
+  margin-bottom: 0.25rem;
+}
+
+.kds-lotus-subtitle {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--kds-text-secondary);
+  margin-bottom: 0.2rem;
+}
+
+.kds-lotus-flavors {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.kds-lotus-flavor {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.kds-lotus-flavor-name {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--kds-text);
+}
+
+/* Most Popular Section with Yellow Stars */
+.kds-most-popular {
+  background: linear-gradient(135deg, #5d4037 0%, #6d4c41 100%);
+  border: 2px solid #f0c14b;
+}
+
+.kds-most-popular-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 2px solid #f0c14b;
+}
+
+.kds-most-popular-star {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+.kds-most-popular-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #ffd54f;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.kds-star-bullet {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3));
+}
+
+.kds-featured-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.kds-featured-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.05rem 0;
+}
+
+.kds-featured-item-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+/* ===== Magazine Responsive: HD (1920x1080) ===== */
+@media (min-width: 1920px) and (max-width: 2559px) {
+  .kds-magazine-content {
+    gap: 0.65rem;
+    padding: 0.85rem;
+  }
+
+  .kds-tight-item-name,
+  .kds-tight-item-price {
+    font-size: 0.95rem;
+  }
+
+  .kds-tight-item {
+    padding: 0.2rem 0;
+  }
+
+  .kds-category-thumb {
+    width: 75px;
+    height: 75px;
+  }
+
+  .kds-magazine-category {
+    padding: 0.55rem 0.75rem;
+  }
+
+  .kds-magazine-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  .kds-magazine-title {
+    font-size: 1.05rem;
+  }
+
+  .kds-magazine-price {
+    font-size: 1rem;
+  }
+
+  .kds-food-pairings {
+    padding: 0.6rem 0.85rem;
+  }
+
+  .kds-food-pairings-header {
+    font-size: 0.9rem;
+  }
+
+  .kds-lotus-section {
+    padding: 0.55rem 0.75rem;
+  }
+
+  .kds-lotus-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .kds-lotus-title {
+    font-size: 1.05rem;
+  }
+
+  .kds-lotus-price {
+    font-size: 0.95rem;
+  }
+
+  .kds-lotus-subtitle {
+    font-size: 0.8rem;
+  }
+
+  .kds-lotus-flavor-name {
+    font-size: 0.85rem;
+  }
+
+  .kds-lotus-flavors {
+    gap: 0.25rem;
+  }
+
+  .kds-bullet {
+    width: 14px;
+    height: 14px;
+  }
+
+  /* Magazine column layout for HD */
+  .kds-magazine-content {
+    gap: 0.75rem;
+    padding: 0.85rem;
+  }
+
+  .kds-magazine-column {
+    gap: 0.5rem;
+  }
+
+  .kds-inline-image-sm {
+    height: 85px;
+  }
+
+  .kds-inline-image-md {
+    height: 110px;
+  }
+
+  .kds-inline-image-lg {
+    height: 140px;
+  }
+
+  .kds-category-row .kds-inline-image {
+    width: 110px;
+  }
+
+  .kds-food-pairings-icon {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+/* ===== Magazine Responsive: 4K ===== */
+@media (min-width: 2560px) {
+  .kds-magazine-content {
+    gap: 1rem;
+    padding: 1.25rem;
+  }
+
+  .kds-tight-item-name,
+  .kds-tight-item-price {
+    font-size: 1.2rem;
+  }
+
+  .kds-tight-item {
+    padding: 0.3rem 0;
+  }
+
+  .kds-category-thumb {
+    width: 100px;
+    height: 100px;
+  }
+
+  .kds-magazine-category {
+    padding: 0.75rem 1rem;
+  }
+
+  .kds-magazine-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .kds-magazine-title {
+    font-size: 1.3rem;
+  }
+
+  .kds-magazine-price {
+    font-size: 1.2rem;
+  }
+
+  .kds-food-pairings {
+    padding: 0.8rem 1.1rem;
+  }
+
+  .kds-food-pairings-header {
+    font-size: 1.1rem;
+  }
+
+  .kds-lotus-section {
+    padding: 0.75rem 1rem;
+  }
+
+  .kds-lotus-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .kds-lotus-title {
+    font-size: 1.3rem;
+  }
+
+  .kds-lotus-price {
+    font-size: 1.15rem;
+  }
+
+  .kds-lotus-subtitle {
+    font-size: 1rem;
+  }
+
+  .kds-lotus-flavor-name {
+    font-size: 1.05rem;
+  }
+
+  .kds-lotus-flavors {
+    gap: 0.35rem;
+  }
+
+  .kds-bullet {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* Magazine column layout for 4K */
+  .kds-magazine-content {
+    gap: 1.25rem;
+    padding: 1.25rem;
+  }
+
+  .kds-magazine-column {
+    gap: 0.75rem;
+  }
+
+  .kds-inline-image-sm {
+    height: 110px;
+  }
+
+  .kds-inline-image-md {
+    height: 140px;
+  }
+
+  .kds-inline-image-lg {
+    height: 180px;
+  }
+
+  .kds-category-row .kds-inline-image {
+    width: 140px;
+  }
+
+  .kds-food-pairings-icon {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+/* ===== Print (hide for printing) ===== */
+@media print {
+  .kds-root {
+    display: none;
+  }
+}

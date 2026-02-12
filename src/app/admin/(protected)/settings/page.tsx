@@ -1,14 +1,18 @@
 import { requireAdmin } from '@/lib/admin/auth'
 import SiteAvailabilitySettings from '@/components/admin/SiteAvailabilitySettings'
+import KDSThemeSelector from '@/components/admin/KDSThemeSelector'
 import { getSiteSettings, getSiteStatusUsingServiceClient } from '@/lib/services/siteSettings'
+import { getSettings as getKDSSettings } from '@/lib/kds/queries'
+import type { KDSTheme } from '@/lib/kds/types'
 
 export default async function AdminSettingsPage() {
   // Ensure user is admin (will redirect if not)
   await requireAdmin()
 
-  const [initialStatus, initialSettings] = await Promise.all([
+  const [initialStatus, initialSettings, kdsSettings] = await Promise.all([
     getSiteStatusUsingServiceClient(),
-    getSiteSettings()
+    getSiteSettings(),
+    getKDSSettings()
   ])
 
   return (
@@ -129,6 +133,21 @@ export default async function AdminSettingsPage() {
         </div>
       </div>
 
+      {/* KDS Display Settings */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+          KDS Display
+        </h3>
+        <p className="text-sm text-gray-600 mb-4">
+          Choose a theme for the Kitchen Display System screens. Changes apply to all KDS displays.
+          You can also override the theme per-screen using the <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">?theme=</code> URL parameter.
+        </p>
+        <KDSThemeSelector initialTheme={(kdsSettings.theme as KDSTheme) ?? 'warm'} />
+      </div>
+
       {/* Coming Soon */}
       <div className="mt-8 bg-gray-50 border border-gray-200 rounded-lg p-6">
         <h3 className="text-lg font-medium text-gray-900 mb-4">Additional Settings Coming Soon</h3>
@@ -137,7 +156,6 @@ export default async function AdminSettingsPage() {
             <li>• Email template customization</li>
             <li>• Notification preferences</li>
             <li>• Business hours management</li>
-            <li>• Theme and branding options</li>
           </ul>
           <ul className="space-y-2">
             <li>• User role management</li>

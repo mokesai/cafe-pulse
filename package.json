@@ -23,6 +23,8 @@
     "import-cogs-recipes": "node scripts/import-cogs-recipes-from-sheets.js",
     "import-cogs-product-codes": "node scripts/import-cogs-product-codes-from-sheets.js",
     "export-cogs-product-codes-template": "node scripts/export-cogs-product-code-mapping-template.js",
+    "export-kds-menu": "node scripts/export-kds-menu-to-sheets.js",
+    "import-kds-menu": "node scripts/import-kds-menu-from-sheets.js",
     "db:migrate": "npx supabase db push",
     "db:reset": "npx supabase db reset",
     "db:generate": "npx supabase gen types typescript --local",
