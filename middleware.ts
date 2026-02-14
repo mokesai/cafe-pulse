@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
 import { getCachedSiteStatus } from '@/lib/services/siteSettings.edge'
+import { extractSubdomain, resolveTenantBySlug } from '@/lib/tenant/context'
+import { DEFAULT_TENANT_ID, DEFAULT_TENANT_SLUG } from '@/lib/tenant/types'
 
 function shouldBypassMaintenance(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -36,8 +38,50 @@ function applyRewriteWithCookies(
 }
 
 export async function middleware(request: NextRequest) {
+  // 1. Refresh Supabase auth session
   const sessionResponse = await updateSession(request)
 
+  // 2. Resolve tenant from subdomain
+  const host = request.headers.get('host') || ''
+  const slug = extractSubdomain(host)
+
+  if (slug) {
+    const tenant = await resolveTenantBySlug(slug)
+    if (tenant) {
+      sessionResponse.cookies.set('x-tenant-id', tenant.id, {
+        httpOnly: true,
+        sameSite: 'strict',
+        path: '/',
+      })
+      sessionResponse.cookies.set('x-tenant-slug', tenant.slug, {
+        httpOnly: true,
+        sameSite: 'strict',
+        path: '/',
+      })
+    } else {
+      // Subdomain provided but tenant not found — return 404
+      const notFoundUrl = request.nextUrl.clone()
+      notFoundUrl.pathname = '/404'
+      return applyRewriteWithCookies(sessionResponse, notFoundUrl)
+    }
+  } else {
+    // No subdomain (bare localhost or bare domain)
+    // Set default tenant if no tenant cookie already exists
+    if (!request.cookies.get('x-tenant-id')?.value) {
+      sessionResponse.cookies.set('x-tenant-id', DEFAULT_TENANT_ID, {
+        httpOnly: true,
+        sameSite: 'strict',
+        path: '/',
+      })
+      sessionResponse.cookies.set('x-tenant-slug', DEFAULT_TENANT_SLUG, {
+        httpOnly: true,
+        sameSite: 'strict',
+        path: '/',
+      })
+    }
+  }
+
+  // 3. Maintenance mode check
   if (shouldBypassMaintenance(request)) {
     return sessionResponse
   }
