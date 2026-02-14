@@ -1,18 +1,18 @@
 # Project State
 
-## Current Status: Phase 20 In Progress
+## Current Status: Phase 20 Complete
 ## Current Milestone: 1.0 - Multi-Tenant MVP
-## Current Phase: 20 — Schema Migration (in progress)
-## Last Updated: 2026-02-14
+## Current Phase: 20 — Schema Migration (complete)
+## Last Updated: 2026-02-13
 ## Branch: features/multi-tenant-saas
 
 ## Progress
 
 Phase: 20 of 70 (Schema Migration — Add tenant_id)
-Plan: 2 of 3 in Phase 20
-Status: In progress
+Plan: 3 of 3 in Phase 20
+Status: Phase complete
 
-Progress: ███░░░░░░░ Phase 10 complete, Phase 20: 2/3 plans done
+Progress: ████░░░░░░ Phase 10 complete, Phase 20 complete
 
 ## Completed
 - [x] PROJECT.md created
@@ -25,6 +25,7 @@ Progress: ███░░░░░░░ Phase 10 complete, Phase 20: 2/3 plans 
 - [x] Phase 20 planned — 3 plans across 3 waves
 - [x] 20-01: Stage 1 migration — tenant_id columns added to all 48 tables
 - [x] 20-02: Stage 2 migration — NOT NULL + FK constraints on all 48 tables
+- [x] 20-03: Stage 3 migration — btree indexes on all 48 tables + full verification
 
 ### Decisions Made
 - **Tenant context via custom header**: Pass `x-tenant-id` header to Supabase client; `db-pre-request` function reads it and calls `set_config('app.tenant_id', ...)`
@@ -38,16 +39,20 @@ Progress: ███░░░░░░░ Phase 10 complete, Phase 20: 2/3 plans 
 - **Idempotent migrations**: ADD COLUMN IF NOT EXISTS / DROP COLUMN IF EXISTS for safe re-runs
 - **ON DELETE RESTRICT for tenant FK**: Prevents accidental tenant deletion; removal must be explicit multi-step
 - **Transactional DDL for constraints**: Single BEGIN/COMMIT wraps all 96 ALTER statements for atomic application
+- **Regular CREATE INDEX for dev**: Not CONCURRENTLY, since dev DB has no production traffic; CONCURRENTLY for production migration
+- **Hand-crafted types preserved**: db:generate is informational; TypeScript types in src/types/ are manually maintained
 
 ### Known Issues
-- 15+ tables have single-column UNIQUE constraints that will block multi-tenant data (deferred to post-Phase 20)
+- 15+ tables have single-column UNIQUE constraints that will block multi-tenant data (deferred to Phase 30+)
 - site_settings singleton pattern (`id = 1`) will conflict with second tenant (deferred to Phase 30+)
+- Database views need tenant_id filtering (deferred to Phase 30)
+- DEFAULT on tenant_id to be removed in Phase 40
 
 ## Session Continuity
 
-Last session: 2026-02-14
-Stopped at: Completed 20-02-add-constraints-PLAN.md
+Last session: 2026-02-13
+Stopped at: Completed 20-03-add-indexes-verify-PLAN.md — Phase 20 complete
 Resume file: None
 
 ## Next Action
-Execute Phase 20 Plan 03 — `/gsd:execute-phase .planning/phase-20/20-03-add-indexes-PLAN.md`
+Research and plan Phase 30 — RLS Policies
