@@ -1,18 +1,18 @@
 # Project State
 
-## Current Status: Phase 30 In Progress
+## Current Status: Phase 30 Complete
 ## Current Milestone: 1.0 - Multi-Tenant MVP
-## Current Phase: 30 — RLS Policy Rewrite
+## Current Phase: 30 — RLS Policy Rewrite (COMPLETE)
 ## Last Updated: 2026-02-14
 ## Branch: features/multi-tenant-saas
 
 ## Progress
 
 Phase: 30 of 70 (RLS Policy Rewrite)
-Plan: 2 of 3 in Phase 30
-Status: In progress
+Plan: 3 of 3 in Phase 30
+Status: Phase complete
 
-Progress: ██████░░░░ Phase 10 complete, Phase 20 complete, Phase 30 plan 2/3
+Progress: █████████░ Phase 10 complete, Phase 20 complete, Phase 30 complete
 
 ## Completed
 - [x] PROJECT.md created
@@ -30,6 +30,7 @@ Progress: ██████░░░░ Phase 10 complete, Phase 20 complete, P
 - [x] Phase 30 planned — 3 plans across 3 waves
 - [x] 30-01: RLS policy rewrite migration — 104 old policies dropped, 194 new tenant-scoped policies created across 48 tables
 - [x] 30-02: SECURITY DEFINER functions + storage policies — 5 functions updated with tenant_id filtering, 8 storage policies rewritten with tenant_memberships
+- [x] 30-03: Apply & verify — all migrations applied to dev Supabase, 202 tenant policies verified, 13 additional old policies cleaned up, app works on default tenant
 
 ### Decisions Made
 - **Tenant context via custom header**: Pass `x-tenant-id` header to Supabase client; `db-pre-request` function reads it and calls `set_config('app.tenant_id', ...)`
@@ -49,21 +50,22 @@ Progress: ██████░░░░ Phase 10 complete, Phase 20 complete, P
 - **Separate per-operation policies (no FOR ALL)**: Explicit SELECT/INSERT/UPDATE/DELETE for clarity and safety
 - **No service_role policies on tenant tables**: Service role bypasses RLS entirely; explicit policies are redundant
 - **initPlan-optimized patterns**: All policies use `(select current_setting(...))::uuid` and `(select auth.uid())` wrappers
-
 - **Session variable for tenant_id in SECURITY DEFINER functions**: Functions read tenant_id from `current_setting('app.tenant_id')`, not from new parameters; preserves backward compatibility
 - **PO attachments SELECT restricted to tenant members**: Previous public read removed; staff/admin/owner only
+- **Rollback scripts in supabase/rollback/**: Not in migrations/ to prevent accidental application by `supabase db push`
 
 ### Known Issues
-- 15+ tables have single-column UNIQUE constraints that will block multi-tenant data (deferred to Phase 30+)
-- site_settings singleton pattern (`id = 1`) will conflict with second tenant (deferred to Phase 30+)
-- Database views need tenant_id filtering (deferred to Phase 30)
+- 15+ tables have single-column UNIQUE constraints that will block multi-tenant data (deferred to Phase 40+)
+- site_settings singleton pattern (`id = 1`) will conflict with second tenant (deferred to Phase 40+)
+- Database views need tenant_id filtering (deferred to Phase 40)
 - DEFAULT on tenant_id to be removed in Phase 40
+- `db-pre-request` hook not yet configured for `x-tenant-id` header (Phase 40)
 
 ## Session Continuity
 
 Last session: 2026-02-14
-Stopped at: Completed 30-02-functions-storage-PLAN.md
+Stopped at: Completed 30-03-apply-verify-PLAN.md (Phase 30 complete)
 Resume file: None
 
 ## Next Action
-Execute Phase 30 Plan 03 — Apply migrations to dev Supabase and verify tenant isolation
+Begin Phase 40 — App-layer tenant context (middleware, Supabase client headers, db-pre-request hook)
