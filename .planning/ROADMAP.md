@@ -31,12 +31,21 @@ Add `tenant_id uuid` column to all 48 tenant-scoped tables. Backfill all existin
 ## Phase 30: RLS Policy Rewrite
 Rewrite all Row Level Security policies to include `tenant_id = current_setting('app.tenant_id')::uuid`. Update admin policies to check `tenant_memberships` instead of `profiles.role`.
 
+**Goal:** Complete tenant isolation at the database level. Every query returns only data belonging to the current tenant. Admin access uses tenant_memberships instead of profiles.role.
+
 **Deliverables:**
 - [ ] All RLS policies rewritten with tenant scoping
 - [ ] Admin policies use `tenant_memberships` table
-- [ ] Service role queries explicitly filter by `tenant_id`
+- [ ] SECURITY DEFINER functions updated with tenant_id filtering
+- [ ] Storage bucket policies rewritten with tenant_memberships
 
-**Testable:** Create two test tenants. Query from tenant A returns zero rows from tenant B.
+**Testable:** Query from tenant A context returns zero rows from tenant B.
+
+**Plans:** 3 plans
+Plans:
+- [ ] 30-01-rls-policy-rewrite-PLAN.md — Core RLS rewrite: helpers + drop 97 old policies + create new policies for all 48 tables
+- [ ] 30-02-functions-storage-PLAN.md — Update 5 SECURITY DEFINER functions + rewrite 8 storage bucket policies
+- [ ] 30-03-apply-verify-PLAN.md — Apply migrations to dev DB and verify tenant isolation
 
 ---
 
