@@ -3,16 +3,16 @@
 ## Current Status: Phase 20 In Progress
 ## Current Milestone: 1.0 - Multi-Tenant MVP
 ## Current Phase: 20 — Schema Migration (in progress)
-## Last Updated: 2026-02-13
+## Last Updated: 2026-02-14
 ## Branch: features/multi-tenant-saas
 
 ## Progress
 
 Phase: 20 of 70 (Schema Migration — Add tenant_id)
-Plan: 1 of 3 in Phase 20
+Plan: 2 of 3 in Phase 20
 Status: In progress
 
-Progress: ██░░░░░░░░ Phase 10 complete, Phase 20: 1/3 plans done
+Progress: ███░░░░░░░ Phase 10 complete, Phase 20: 2/3 plans done
 
 ## Completed
 - [x] PROJECT.md created
@@ -24,6 +24,7 @@ Progress: ██░░░░░░░░ Phase 10 complete, Phase 20: 1/3 plans 
 - [x] Phase 20 researched (20-RESEARCH.md)
 - [x] Phase 20 planned — 3 plans across 3 waves
 - [x] 20-01: Stage 1 migration — tenant_id columns added to all 48 tables
+- [x] 20-02: Stage 2 migration — NOT NULL + FK constraints on all 48 tables
 
 ### Decisions Made
 - **Tenant context via custom header**: Pass `x-tenant-id` header to Supabase client; `db-pre-request` function reads it and calls `set_config('app.tenant_id', ...)`
@@ -35,6 +36,8 @@ Progress: ██░░░░░░░░ Phase 10 complete, Phase 20: 1/3 plans 
 - **Feature branch**: All multi-tenant work on `features/multi-tenant-saas` (main reset to pre-Phase 10)
 - **48 tenant-scoped tables**: Full FK tree walk identified 48 tables (not 46 from early estimate)
 - **Idempotent migrations**: ADD COLUMN IF NOT EXISTS / DROP COLUMN IF EXISTS for safe re-runs
+- **ON DELETE RESTRICT for tenant FK**: Prevents accidental tenant deletion; removal must be explicit multi-step
+- **Transactional DDL for constraints**: Single BEGIN/COMMIT wraps all 96 ALTER statements for atomic application
 
 ### Known Issues
 - 15+ tables have single-column UNIQUE constraints that will block multi-tenant data (deferred to post-Phase 20)
@@ -42,9 +45,9 @@ Progress: ██░░░░░░░░ Phase 10 complete, Phase 20: 1/3 plans 
 
 ## Session Continuity
 
-Last session: 2026-02-13T19:40:50-07:00
-Stopped at: Completed 20-01-add-tenant-columns-PLAN.md
+Last session: 2026-02-14
+Stopped at: Completed 20-02-add-constraints-PLAN.md
 Resume file: None
 
 ## Next Action
-Execute Phase 20 Plan 02 — `/gsd:execute-phase .planning/phase-20/20-02-add-constraints-PLAN.md`
+Execute Phase 20 Plan 03 — `/gsd:execute-phase .planning/phase-20/20-03-add-indexes-PLAN.md`
