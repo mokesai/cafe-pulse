@@ -9,10 +9,10 @@
 ## Progress
 
 Phase: 30 of 70 (RLS Policy Rewrite)
-Plan: 1 of 3 in Phase 30
+Plan: 2 of 3 in Phase 30
 Status: In progress
 
-Progress: █████░░░░░ Phase 10 complete, Phase 20 complete, Phase 30 plan 1/3
+Progress: ██████░░░░ Phase 10 complete, Phase 20 complete, Phase 30 plan 2/3
 
 ## Completed
 - [x] PROJECT.md created
@@ -29,6 +29,7 @@ Progress: █████░░░░░ Phase 10 complete, Phase 20 complete, P
 - [x] Phase 30 researched (30-RESEARCH.md)
 - [x] Phase 30 planned — 3 plans across 3 waves
 - [x] 30-01: RLS policy rewrite migration — 104 old policies dropped, 194 new tenant-scoped policies created across 48 tables
+- [x] 30-02: SECURITY DEFINER functions + storage policies — 5 functions updated with tenant_id filtering, 8 storage policies rewritten with tenant_memberships
 
 ### Decisions Made
 - **Tenant context via custom header**: Pass `x-tenant-id` header to Supabase client; `db-pre-request` function reads it and calls `set_config('app.tenant_id', ...)`
@@ -49,19 +50,20 @@ Progress: █████░░░░░ Phase 10 complete, Phase 20 complete, P
 - **No service_role policies on tenant tables**: Service role bypasses RLS entirely; explicit policies are redundant
 - **initPlan-optimized patterns**: All policies use `(select current_setting(...))::uuid` and `(select auth.uid())` wrappers
 
+- **Session variable for tenant_id in SECURITY DEFINER functions**: Functions read tenant_id from `current_setting('app.tenant_id')`, not from new parameters; preserves backward compatibility
+- **PO attachments SELECT restricted to tenant members**: Previous public read removed; staff/admin/owner only
+
 ### Known Issues
 - 15+ tables have single-column UNIQUE constraints that will block multi-tenant data (deferred to Phase 30+)
 - site_settings singleton pattern (`id = 1`) will conflict with second tenant (deferred to Phase 30+)
 - Database views need tenant_id filtering (deferred to Phase 30)
 - DEFAULT on tenant_id to be removed in Phase 40
-- 5 SECURITY DEFINER functions need tenant_id filtering (Plan 30-02)
-- Storage bucket policies need rewriting (Plan 30-02)
 
 ## Session Continuity
 
 Last session: 2026-02-14
-Stopped at: Completed 30-01-rls-policy-rewrite-PLAN.md
+Stopped at: Completed 30-02-functions-storage-PLAN.md
 Resume file: None
 
 ## Next Action
-Execute Phase 30 Plan 02 — SECURITY DEFINER functions + storage policies
+Execute Phase 30 Plan 03 — Apply migrations to dev Supabase and verify tenant isolation
