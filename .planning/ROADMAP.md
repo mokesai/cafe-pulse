@@ -15,12 +15,21 @@ Create the `tenants` and `tenant_memberships` tables. Build the tenant context r
 ---
 
 ## Phase 20: Schema Migration — Add tenant_id
-Add `tenant_id` column to all 27+ tables. Create default tenant for existing "Little Cafe" data. Backfill all rows. Add NOT NULL constraints and indexes.
+Add `tenant_id uuid` column to all 48 tenant-scoped tables. Backfill all existing rows with default tenant UUID. Add NOT NULL constraints, FK constraints, and btree indexes.
+
+**Goal:** All existing data has tenant_id set. Schema enforces referential integrity. App still works unchanged on the default tenant.
 
 **Deliverables:**
-- [ ] Migration: add `tenant_id uuid` + index to every table
-- [ ] Migration: create default tenant, backfill existing data
-- [ ] Migration: add NOT NULL constraints
+- [ ] Migration: add `tenant_id uuid DEFAULT '...-0001'` to all 48 tables
+- [ ] Migration: add NOT NULL + FK constraints to all 48 tables
+- [ ] Migration: add btree indexes on tenant_id for all 48 tables
+
+**Plans:** 3 plans
+
+Plans:
+- [ ] 20-01-add-tenant-columns-PLAN.md — Stage 1: add tenant_id columns with DEFAULT to all 48 tables + rollback script
+- [ ] 20-02-add-constraints-PLAN.md — Stage 2: add NOT NULL and FK constraints to all 48 tables
+- [ ] 20-03-add-indexes-verify-PLAN.md — Stage 3: add btree indexes + build verification + smoke test
 
 **Testable:** All existing data has `tenant_id` set. App still works on default tenant.
 
