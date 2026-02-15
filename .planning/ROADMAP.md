@@ -84,11 +84,11 @@ Plans:
 - [x] 50-03-PLAN.md — requireAdmin() overhaul with tenant membership check
 - [x] 50-04-PLAN.md — TenantProvider React Context for client components
 - [x] 50-05-PLAN.md — Email service integration with tenant branding
-- [ ] 50-06-PLAN.md — Gap closure: add missing branding columns to tenants table
+- [x] 50-06-PLAN.md — Gap closure: add missing branding columns to tenants table
 
 **Testable:** Admin login on tenant A cannot access tenant B data. Emails show correct branding.
 
-**Verified:** 19/19 must-haves passed. Admin auth uses tenant_memberships. Email templates tenant-branded. TypeScript build clean.
+**Verified:** 22/22 must-haves passed (re-verified after gap closure). Admin auth uses tenant_memberships. Business identity with branding columns. Email templates tenant-branded. TypeScript build clean.
 
 ---
 
