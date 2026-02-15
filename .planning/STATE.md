@@ -1,19 +1,19 @@
 # Project State
 
-## Current Status: Phase 40 Complete
+## Current Status: Phase 50 In Progress
 ## Current Milestone: 1.0 - Multi-Tenant MVP
-## Current Phase: 40 — Tenant-Aware Square Integration (COMPLETE)
+## Current Phase: 50 — Tenant-Aware Auth & Business Identity (IN PROGRESS)
 ## Last Updated: 2026-02-15
 ## Branch: features/multi-tenant-saas
 
 ## Progress
 
-Phase: 40 of 70 (Tenant-Aware Square Integration)
-Plan: 13 of 13 in Phase 40
-Status: Phase complete, all gaps closed
-Last activity: 2026-02-15 - Completed 40-13-PLAN.md (test/debug routes gap closure)
+Phase: 50 of 70 (Tenant-Aware Auth & Business Identity)
+Plan: 1 of 8 in Phase 50
+Status: In progress
+Last activity: 2026-02-15 - Completed 50-01-PLAN.md (tenant identity loading)
 
-Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans)
+Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete, Phase 50 (1/8 plans)
 
 ## Completed
 - [x] PROJECT.md created
@@ -48,6 +48,9 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - [x] 40-12: Customer routes gap closure — cards, delete-card, save-card routes refactored to load per-tenant Square credentials via getTenantSquareConfig(), removing UAT TypeScript blocker
 - [x] 40-13: Test/debug routes gap closure — 6 test/debug routes (tax-config, test-catalog, validate-catalog, test-order, test-catalog, test-square) refactored to load per-tenant Square credentials, TypeScript build passes
 - [x] Phase 40 verified — 10/10 must-haves passed, all 23 Square API routes use tenant credentials, webhooks resolve tenant from merchant_id, frontend config server-rendered, zero TypeScript errors
+- [x] Phase 50 researched (50-RESEARCH.md)
+- [x] Phase 50 planned — 8 plans across 3 waves
+- [x] 50-01: Tenant identity loading infrastructure — getTenantIdentity() cached function, branding fields added to Tenant type (logo_url, primary_color, secondary_color)
 
 ### Decisions Made
 - **Menu cache keyed by tenantId**: Prevents cross-tenant data leakage; single-object cache would serve tenant A's menu to tenant B (Phase 40-05)
@@ -68,6 +71,8 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - **Scripts accept both --tenant-id and --tenant-slug**: Slugs are human-friendly; IDs are deterministic (Phase 40-10)
 - **Script env var fallback for backward compatibility**: Scripts default to env vars when no tenant flag provided (Phase 40-10)
 - **Service-role RPC for script credential access**: Scripts use get_tenant_square_credentials_internal with service_role client to bypass RLS (Phase 40-10)
+- **React cache() for getTenantIdentity**: Request-level deduplication prevents redundant database queries when multiple components need tenant identity (Phase 50-01)
+- **Service client for reading tenant identity**: Tenant table data is public (non-sensitive fields) and needs to be readable before user auth context exists (Phase 50-01)
 - **Tenant context via custom header**: Pass `x-tenant-id` header to Supabase client; `db-pre-request` function reads it and calls `set_config('app.tenant_id', ...)`
 - **Subdomain routing**: `slug.localhost:3000` for dev (no /etc/hosts needed)
 - **Caching**: Follow existing `globalThis` + TTL pattern from `siteSettings.edge.ts`, 60s TTL
@@ -99,8 +104,8 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 ## Session Continuity
 
 Last session: 2026-02-15
-Stopped at: Completed 40-13-PLAN.md — test/debug routes gap closure (TypeScript build blocker removed)
+Stopped at: Completed 50-01-PLAN.md — tenant identity loading infrastructure
 Resume file: None
 
 ## Next Action
-Phase 40 complete and verified. All 23 Square API routes now tenant-aware. TypeScript build passes. Ready for Phase 50: Tenant-Aware Auth & Business Identity.
+Phase 50-01 complete. getTenantIdentity() function ready for use in email templates (50-02), TenantProvider (50-03), and Business Profile UI (50-04).
