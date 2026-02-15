@@ -76,7 +76,7 @@ Overhaul admin auth to use `tenant_memberships`. Replace hardcoded business info
 
 **Goal:** Admin authentication checks tenant membership instead of profiles.role. Business identity loaded from tenants table. Emails use tenant branding.
 
-**Plans:** 5 plans
+**Plans:** 6 plans
 
 Plans:
 - [x] 50-01-PLAN.md — Tenant identity infrastructure: getTenantIdentity() function, TenantPublic type
@@ -84,6 +84,7 @@ Plans:
 - [x] 50-03-PLAN.md — requireAdmin() overhaul with tenant membership check
 - [x] 50-04-PLAN.md — TenantProvider React Context for client components
 - [x] 50-05-PLAN.md — Email service integration with tenant branding
+- [ ] 50-06-PLAN.md — Gap closure: add missing branding columns to tenants table
 
 **Testable:** Admin login on tenant A cannot access tenant B data. Emails show correct branding.
 
