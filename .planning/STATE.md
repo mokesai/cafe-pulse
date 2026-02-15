@@ -9,11 +9,11 @@
 ## Progress
 
 Phase: 40 of 70 (Tenant-Aware Square Integration)
-Plan: 7 of 10 in Phase 40
+Plan: 10 of 10 in Phase 40
 Status: In progress
-Last activity: 2026-02-14 - Completed 40-07-PLAN.md
+Last activity: 2026-02-14 - Completed 40-10-PLAN.md
 
-Progress: █████████░ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 started (7/10 plans)
+Progress: █████████░ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 started (10/10 plans)
 
 ## Completed
 - [x] PROJECT.md created
@@ -37,8 +37,10 @@ Progress: █████████░ Phase 10 complete, Phase 20 complete, P
 - [x] 40-01: Vault infrastructure — vault_secret_id columns, SECURITY DEFINER credential functions, audit table, merchant_id index
 - [x] 40-02: SquareConfig type and credential loading layer — getTenantSquareConfig() with Vault RPC + env fallback, resolveTenantFromMerchantId() for webhooks
 - [x] 40-03: Parameterize fetch-client.ts — all 14 functions accept SquareConfig as first parameter, zero env var reads remain
+- [x] 40-04: Domain layer parameterization — catalog.ts, orders.ts, tax-validation.ts, customers.ts accept SquareConfig, tenant-scoped catalog cache, tenant-neutral source name
 - [x] 40-07: Webhook tenant resolution — catalog and inventory webhooks resolve tenant from merchant_id, verify signatures with tenant keys, use tenant credentials for API calls
 - [x] 40-08: Server-rendered Square config — site layout calls getTenantSquareConfig, DynamicSquareProvider accepts props, CheckoutModal uses context (no env vars)
+- [x] 40-10: Tenant-flag support for setup scripts — sync-square-catalog, seed-inventory, setup-square-webhooks accept --tenant-id and --tenant-slug flags, load credentials from Vault via service_role RPC
 
 ### Decisions Made
 - **Vault with fallback for Square credentials**: New tenants store credentials in Supabase Vault (vault.secrets), default tenant falls back to env vars (Phase 40-01)
@@ -54,6 +56,9 @@ Progress: █████████░ Phase 10 complete, Phase 20 complete, P
 - **Server-render Square config**: Site layout server-renders config via getTenantSquareConfig and passes to DynamicSquareProvider as props (Phase 40-08)
 - **Context-based config delivery**: SquareProvider context extended with applicationId/locationId; descendants use useSquareConfig() hook instead of env vars (Phase 40-08)
 - **Graceful degradation for unconfigured tenants**: Null config renders children without SquareProvider wrapper; CheckoutModal shows config error (Phase 40-08)
+- **Scripts accept both --tenant-id and --tenant-slug**: Slugs are human-friendly; IDs are deterministic (Phase 40-10)
+- **Script env var fallback for backward compatibility**: Scripts default to env vars when no tenant flag provided (Phase 40-10)
+- **Service-role RPC for script credential access**: Scripts use get_tenant_square_credentials_internal with service_role client to bypass RLS (Phase 40-10)
 - **Tenant context via custom header**: Pass `x-tenant-id` header to Supabase client; `db-pre-request` function reads it and calls `set_config('app.tenant_id', ...)`
 - **Subdomain routing**: `slug.localhost:3000` for dev (no /etc/hosts needed)
 - **Caching**: Follow existing `globalThis` + TTL pattern from `siteSettings.edge.ts`, 60s TTL
@@ -85,8 +90,8 @@ Progress: █████████░ Phase 10 complete, Phase 20 complete, P
 ## Session Continuity
 
 Last session: 2026-02-14
-Stopped at: Completed 40-07-PLAN.md (Webhook tenant resolution)
+Stopped at: Completed 40-10-PLAN.md (Tenant-flag support for setup scripts)
 Resume file: None
 
 ## Next Action
-Continue Phase 40 — Plan 40-09: Update remaining components and API routes
+Phase 40 plans complete. Continue with verification or next phase planning.
