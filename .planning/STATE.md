@@ -1,18 +1,18 @@
 # Project State
 
-## Current Status: Phase 30 Complete
+## Current Status: Phase 40 In Progress
 ## Current Milestone: 1.0 - Multi-Tenant MVP
-## Current Phase: 30 — RLS Policy Rewrite (COMPLETE)
+## Current Phase: 40 — Tenant-Aware Square Integration (IN PROGRESS)
 ## Last Updated: 2026-02-14
 ## Branch: features/multi-tenant-saas
 
 ## Progress
 
-Phase: 30 of 70 (RLS Policy Rewrite)
-Plan: 3 of 3 in Phase 30
-Status: Phase complete
+Phase: 40 of 70 (Tenant-Aware Square Integration)
+Plan: 1 of 10 in Phase 40
+Status: In progress
 
-Progress: █████████░ Phase 10 complete, Phase 20 complete, Phase 30 complete
+Progress: █████████░ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 started (1/10 plans)
 
 ## Completed
 - [x] PROJECT.md created
@@ -31,8 +31,14 @@ Progress: █████████░ Phase 10 complete, Phase 20 complete, P
 - [x] 30-01: RLS policy rewrite migration — 104 old policies dropped, 194 new tenant-scoped policies created across 48 tables
 - [x] 30-02: SECURITY DEFINER functions + storage policies — 5 functions updated with tenant_id filtering, 8 storage policies rewritten with tenant_memberships
 - [x] 30-03: Apply & verify — all migrations applied to dev Supabase, 202 tenant policies verified, 13 additional old policies cleaned up, app works on default tenant
+- [x] Phase 40 researched (40-RESEARCH.md)
+- [x] Phase 40 planned — 10 plans across 4 waves
+- [x] 40-01: Vault infrastructure — vault_secret_id columns, SECURITY DEFINER credential functions, audit table, merchant_id index
 
 ### Decisions Made
+- **Vault with fallback for Square credentials**: New tenants store credentials in Supabase Vault (vault.secrets), default tenant falls back to env vars (Phase 40-01)
+- **Owner-only credential access**: Only tenant owners can read/write Square credentials via SECURITY DEFINER functions; API routes use service_role internal function (Phase 40-01)
+- **Audit write operations only**: credential_audit_log tracks create/update/delete, not routine reads (Phase 40-01)
 - **Tenant context via custom header**: Pass `x-tenant-id` header to Supabase client; `db-pre-request` function reads it and calls `set_config('app.tenant_id', ...)`
 - **Subdomain routing**: `slug.localhost:3000` for dev (no /etc/hosts needed)
 - **Caching**: Follow existing `globalThis` + TTL pattern from `siteSettings.edge.ts`, 60s TTL
@@ -64,8 +70,8 @@ Progress: █████████░ Phase 10 complete, Phase 20 complete, P
 ## Session Continuity
 
 Last session: 2026-02-14
-Stopped at: Completed 30-03-apply-verify-PLAN.md (Phase 30 complete)
+Stopped at: Completed 40-01-PLAN.md (Vault infrastructure)
 Resume file: None
 
 ## Next Action
-Begin Phase 40 — App-layer tenant context (middleware, Supabase client headers, db-pre-request hook)
+Continue Phase 40 — Plan 40-02: SquareConfig type and credential loading layer
