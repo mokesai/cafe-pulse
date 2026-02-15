@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { getCustomerCards, searchSquareCustomerByEmail } from '@/lib/square/customers'
 import { createClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
+import { getTenantSquareConfig } from '@/lib/square/config'
 
 export async function GET() {
   try {
@@ -15,6 +17,16 @@ export async function GET() {
       )
     }
 
+    // Resolve tenant and load Square config
+    const tenantId = await getCurrentTenantId()
+    const squareConfig = await getTenantSquareConfig(tenantId)
+    if (!squareConfig) {
+      return NextResponse.json(
+        { error: 'Square integration not configured for this tenant' },
+        { status: 503 }
+      )
+    }
+
     // Get user's Square customer ID from database
     const { data: profile } = await supabase
       .from('profiles')
@@ -26,7 +38,7 @@ export async function GET() {
 
     // If no customer ID in database, try to find by email
     if (!customerId && user.email) {
-      customerId = await searchSquareCustomerByEmail(user.email)
+      customerId = await searchSquareCustomerByEmail(squareConfig, user.email)
       
       // If found, store it in our database
       if (customerId) {
@@ -50,7 +62,7 @@ export async function GET() {
     }
 
     // Get customer's saved cards
-    const cards = await getCustomerCards(customerId)
+    const cards = await getCustomerCards(squareConfig, customerId)
 
     return NextResponse.json({
       success: true,
