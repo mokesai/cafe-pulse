@@ -9,11 +9,11 @@
 ## Progress
 
 Phase: 40 of 70 (Tenant-Aware Square Integration)
-Plan: 9 of 10 in Phase 40
-Status: In progress
-Last activity: 2026-02-15 - Completed 40-09-PLAN.md
+Plan: 10 of 10 in Phase 40
+Status: Phase complete
+Last activity: 2026-02-14 - Completed 40-11-PLAN.md
 
-Progress: █████████░ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 started (9/10 plans)
+Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (10/10 plans)
 
 ## Completed
 - [x] PROJECT.md created
@@ -44,6 +44,7 @@ Progress: █████████░ Phase 10 complete, Phase 20 complete, P
 - [x] 40-08: Server-rendered Square config — site layout calls getTenantSquareConfig, DynamicSquareProvider accepts props, CheckoutModal uses context (no env vars)
 - [x] 40-09: Dead code cleanup — deleted client.ts, simple-client.ts, test-connection, test-square-simple, debug-tax, test-simple routes; updated test page; cleaned .next cache
 - [x] 40-10: Tenant-flag support for setup scripts — sync-square-catalog, seed-inventory, setup-square-webhooks accept --tenant-id and --tenant-slug flags, load credentials from Vault via service_role RPC
+- [x] 40-11: Admin menu routes gap closure — categories and items routes refactored to load per-tenant Square credentials via getTenantSquareConfig(), closing 40-06 gap
 
 ### Decisions Made
 - **Menu cache keyed by tenantId**: Prevents cross-tenant data leakage; single-object cache would serve tenant A's menu to tenant B (Phase 40-05)
@@ -94,9 +95,9 @@ Progress: █████████░ Phase 10 complete, Phase 20 complete, P
 
 ## Session Continuity
 
-Last session: 2026-02-15
-Stopped at: Completed 40-09-PLAN.md (Dead code cleanup)
+Last session: 2026-02-14
+Stopped at: Completed 40-11-PLAN.md (Admin menu routes gap closure)
 Resume file: None
 
 ## Next Action
-Phase 40 nearly complete — only 1 remaining plan (40-06: Admin routes refactored)
+Phase 40 complete — all 10 plans executed. Ready for Phase 50 (Tenant-aware UI and onboarding).
