@@ -1,39 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
+import { getTenantSquareConfig } from '@/lib/square/config'
+import type { SquareConfig } from '@/lib/square/types'
 
-function getSupabaseClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseServiceKey = process.env.SUPABASE_SECRET_KEY
-
-  if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error('Missing Supabase environment variables')
-  }
-
-  return createClient(supabaseUrl, supabaseServiceKey)
-}
-
-function getSquareConfig() {
-  const squareAccessToken = process.env.SQUARE_ACCESS_TOKEN
-  const squareEnvironment = process.env.SQUARE_ENVIRONMENT
-  const squareLocationId = process.env.SQUARE_LOCATION_ID
-
-  if (!squareAccessToken || !squareLocationId) {
-    throw new Error('Missing required Square environment variables')
-  }
-
-  return { squareAccessToken, squareEnvironment, squareLocationId }
-}
-
-// Square API configuration
-function getSquareApiConfig() {
-  const { squareEnvironment } = getSquareConfig()
-  return {
-    SQUARE_BASE_URL: squareEnvironment === 'production'
-      ? 'https://connect.squareup.com'
-      : 'https://connect.squareupsandbox.com',
-    SQUARE_VERSION: '2024-12-18'
-  }
-}
+const SQUARE_VERSION = '2024-12-18'
 
 interface PushToSquareRequest {
   adminEmail: string
@@ -57,8 +28,7 @@ type SquareInventoryCount = {
   quantity: string
 }
 
-async function validateAdminAccess(adminEmail: string) {
-  const supabase = getSupabaseClient()
+async function validateAdminAccess(supabase: ReturnType<typeof createServiceClient>, adminEmail: string) {
   const { data: profile, error } = await supabase
     .from('profiles')
     .select('id, email, role')
@@ -72,18 +42,15 @@ async function validateAdminAccess(adminEmail: string) {
   return profile
 }
 
-function getSquareHeaders() {
-  const { squareAccessToken } = getSquareConfig()
-  const { SQUARE_VERSION } = getSquareApiConfig()
+function getSquareHeaders(config: SquareConfig) {
   return {
     'Square-Version': SQUARE_VERSION,
-    'Authorization': `Bearer ${squareAccessToken}`,
+    'Authorization': `Bearer ${config.accessToken}`,
     'Content-Type': 'application/json'
   }
 }
 
-async function getInventoryItemsToPush(itemIds?: string[]): Promise<InventoryItemToPush[]> {
-  const supabase = getSupabaseClient()
+async function getInventoryItemsToPush(supabase: ReturnType<typeof createServiceClient>, itemIds?: string[]): Promise<InventoryItemToPush[]> {
   let query = supabase
     .from('inventory_items')
     .select('id, square_item_id, item_name, current_stock, unit_cost, notes')
@@ -102,9 +69,10 @@ async function getInventoryItemsToPush(itemIds?: string[]): Promise<InventoryIte
   return (items ?? []) as InventoryItemToPush[]
 }
 
-async function pushInventoryCountsToSquare(items: InventoryItemToPush[], dryRun: boolean) {
-  const { squareLocationId } = getSquareConfig()
-  const { SQUARE_BASE_URL } = getSquareApiConfig()
+async function pushInventoryCountsToSquare(config: SquareConfig, supabase: ReturnType<typeof createServiceClient>, items: InventoryItemToPush[], dryRun: boolean) {
+  const baseUrl = config.environment === 'production'
+    ? 'https://connect.squareup.com'
+    : 'https://connect.squareupsandbox.com'
   const results = {
     processed: 0,
     updated: 0,
@@ -131,12 +99,12 @@ async function pushInventoryCountsToSquare(items: InventoryItemToPush[], dryRun:
     // Check if we need to update the inventory count in Square
     try {
       // First get current Square inventory count
-      const response = await fetch(`${SQUARE_BASE_URL}/v2/inventory/counts/batch-retrieve`, {
+      const response = await fetch(`${baseUrl}/v2/inventory/counts/batch-retrieve`, {
         method: 'POST',
-        headers: getSquareHeaders(),
+        headers: getSquareHeaders(config),
         body: JSON.stringify({
           catalog_object_ids: [item.square_item_id],
-          location_ids: [squareLocationId]
+          location_ids: [config.locationId]
         })
       })
 
@@ -151,7 +119,7 @@ async function pushInventoryCountsToSquare(items: InventoryItemToPush[], dryRun:
       const squareData = await response.json()
       const squareCounts = (squareData.counts || []) as SquareInventoryCount[]
       const currentSquareCount = squareCounts.find(
-        (count) => count.catalog_object_id === item.square_item_id && count.location_id === squareLocationId
+        (count) => count.catalog_object_id === item.square_item_id && count.location_id === config.locationId
       )
 
       const squareQuantity = currentSquareCount ? parseInt(currentSquareCount.quantity, 10) : 0
@@ -162,7 +130,7 @@ async function pushInventoryCountsToSquare(items: InventoryItemToPush[], dryRun:
           type: 'PHYSICAL_COUNT',
           physical_count: {
             catalog_object_id: item.square_item_id,
-            location_id: squareLocationId,
+            location_id: config.locationId,
             quantity: localQuantity.toString(),
             occurred_at: new Date().toISOString()
           }
@@ -180,9 +148,9 @@ async function pushInventoryCountsToSquare(items: InventoryItemToPush[], dryRun:
   // Push inventory changes to Square in batch
   if (inventoryChanges.length > 0 && !dryRun) {
     try {
-      const response = await fetch(`${SQUARE_BASE_URL}/v2/inventory/changes/batch-create`, {
+      const response = await fetch(`${baseUrl}/v2/inventory/changes/batch-create`, {
         method: 'POST',
-        headers: getSquareHeaders(),
+        headers: getSquareHeaders(config),
         body: JSON.stringify({
           idempotency_key: `inventory-push-${Date.now()}`,
           changes: inventoryChanges
@@ -198,9 +166,8 @@ async function pushInventoryCountsToSquare(items: InventoryItemToPush[], dryRun:
       results.updated = inventoryChanges.length
 
       console.log(`✅ Successfully pushed ${results.updated} inventory changes to Square`)
-      
+
       // Log the push operation
-      const supabase = getSupabaseClient()
       await supabase
         .from('stock_movements')
         .insert(
@@ -251,11 +218,21 @@ export async function POST(request: NextRequest) {
     const dryRun = body.dryRun || false
     const pushType = body.pushType || 'stock_only'
 
+    // Resolve tenant and load Square config
+    const tenantId = await getCurrentTenantId()
+    const squareConfig = await getTenantSquareConfig(tenantId)
+    if (!squareConfig) {
+      return NextResponse.json({ error: 'Square not configured' }, { status: 503 })
+    }
+
+    // Create per-request Supabase client
+    const supabase = createServiceClient()
+
     // Validate admin access
-    await validateAdminAccess(body.adminEmail)
+    await validateAdminAccess(supabase, body.adminEmail)
 
     // Get inventory items to push
-    const items = await getInventoryItemsToPush(body.itemIds)
+    const items = await getInventoryItemsToPush(supabase, body.itemIds)
 
     if (items.length === 0) {
       return NextResponse.json({
@@ -269,12 +246,12 @@ export async function POST(request: NextRequest) {
 
     if (pushType === 'stock_only') {
       // Push inventory counts only
-      results = await pushInventoryCountsToSquare(items, dryRun)
+      results = await pushInventoryCountsToSquare(squareConfig, supabase, items, dryRun)
     } else {
       // Full sync (item details + inventory)
-      const stockResults = await pushInventoryCountsToSquare(items, dryRun)
+      const stockResults = await pushInventoryCountsToSquare(squareConfig, supabase, items, dryRun)
       const detailResults = await syncItemDetailsToSquare(items)
-      
+
       results = {
         stock: stockResults,
         details: detailResults,

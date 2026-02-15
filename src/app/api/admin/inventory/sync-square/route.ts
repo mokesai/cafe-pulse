@@ -1,22 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
+import { getTenantSquareConfig } from '@/lib/square/config'
+import type { SquareConfig } from '@/lib/square/types'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SECRET_KEY!
-const squareAccessToken = process.env.SQUARE_ACCESS_TOKEN!
-const squareEnvironment = process.env.SQUARE_ENVIRONMENT
-const squareLocationId = process.env.SQUARE_LOCATION_ID!
-
-if (!supabaseUrl || !supabaseServiceKey || !squareAccessToken || !squareLocationId) {
-  throw new Error('Missing required environment variables for Square sync')
-}
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
-// Square API configuration
-const SQUARE_BASE_URL = squareEnvironment === 'production'
-  ? 'https://connect.squareup.com'
-  : 'https://connect.squareupsandbox.com'
 const SQUARE_VERSION = '2024-12-18'
 
 interface SquareSyncRequest {
@@ -70,7 +57,7 @@ type InventoryInsertResult = {
   current_stock: number
 }
 
-async function validateAdminAccess(adminEmail: string) {
+async function validateAdminAccess(supabase: ReturnType<typeof createServiceClient>, adminEmail: string) {
   const { data: profile, error } = await supabase
     .from('profiles')
     .select('id, email, role')
@@ -84,18 +71,22 @@ async function validateAdminAccess(adminEmail: string) {
   return profile
 }
 
-function getSquareHeaders() {
+function getSquareHeaders(config: SquareConfig) {
   return {
     'Square-Version': SQUARE_VERSION,
-    'Authorization': `Bearer ${squareAccessToken}`,
+    'Authorization': `Bearer ${config.accessToken}`,
     'Content-Type': 'application/json'
   }
 }
 
-async function fetchSquareCatalog(): Promise<SquareCatalog> {
-  const response = await fetch(`${SQUARE_BASE_URL}/v2/catalog/search`, {
+async function fetchSquareCatalog(config: SquareConfig): Promise<SquareCatalog> {
+  const baseUrl = config.environment === 'production'
+    ? 'https://connect.squareup.com'
+    : 'https://connect.squareupsandbox.com'
+
+  const response = await fetch(`${baseUrl}/v2/catalog/search`, {
     method: 'POST',
-    headers: getSquareHeaders(),
+    headers: getSquareHeaders(config),
     body: JSON.stringify({
       object_types: ['ITEM', 'CATEGORY'],
       include_related_objects: true
@@ -110,7 +101,7 @@ async function fetchSquareCatalog(): Promise<SquareCatalog> {
   return await response.json()
 }
 
-async function getSupplierMappings() {
+async function getSupplierMappings(supabase: ReturnType<typeof createServiceClient>) {
   const { data: suppliers, error } = await supabase
     .from('suppliers')
     .select('id, name')
@@ -122,7 +113,7 @@ async function getSupplierMappings() {
   return (suppliers ?? []) as SupplierRow[]
 }
 
-async function getExistingInventoryItems() {
+async function getExistingInventoryItems(supabase: ReturnType<typeof createServiceClient>) {
   const { data: items, error } = await supabase
     .from('inventory_items')
     .select('square_item_id, item_name')
@@ -378,7 +369,7 @@ function processSquareCatalog(
   return { newItems, stats }
 }
 
-async function syncInventoryItems(items: InventoryItemInput[], dryRun: boolean) {
+async function syncInventoryItems(supabase: ReturnType<typeof createServiceClient>, items: InventoryItemInput[], dryRun: boolean) {
   if (dryRun || items.length === 0) {
     return { inserted: items, movements: [] }
   }
@@ -432,23 +423,33 @@ export async function POST(request: NextRequest) {
 
     const dryRun = body.dryRun || false
 
+    // Resolve tenant and load Square config
+    const tenantId = await getCurrentTenantId()
+    const squareConfig = await getTenantSquareConfig(tenantId)
+    if (!squareConfig) {
+      return NextResponse.json({ error: 'Square not configured' }, { status: 503 })
+    }
+
+    // Create per-request Supabase client
+    const supabase = createServiceClient()
+
     // Validate admin access
-    await validateAdminAccess(body.adminEmail)
+    await validateAdminAccess(supabase, body.adminEmail)
 
     // Fetch Square catalog
-    const catalogData = await fetchSquareCatalog()
+    const catalogData = await fetchSquareCatalog(squareConfig)
 
     // Get supplier mappings
-    const suppliers = await getSupplierMappings()
+    const suppliers = await getSupplierMappings(supabase)
 
     // Get existing inventory items
-    const existingSquareIds = await getExistingInventoryItems()
+    const existingSquareIds = await getExistingInventoryItems(supabase)
 
     // Process catalog and generate inventory items
     const { newItems, stats } = processSquareCatalog(catalogData, suppliers, existingSquareIds)
 
     // Sync items to database
-    const syncResult = await syncInventoryItems(newItems, dryRun)
+    const syncResult = await syncInventoryItems(supabase, newItems, dryRun)
 
     // Calculate summary
     const summary = {
