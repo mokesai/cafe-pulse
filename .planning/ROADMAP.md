@@ -71,7 +71,7 @@ Plans:
 
 ---
 
-## Phase 50: Tenant-Aware Auth & Business Identity
+## Phase 50: Tenant-Aware Auth & Business Identity ✓
 Overhaul admin auth to use `tenant_memberships`. Replace hardcoded business info with per-tenant config. Make email templates tenant-aware.
 
 **Goal:** Admin authentication checks tenant membership instead of profiles.role. Business identity loaded from tenants table. Emails use tenant branding.
@@ -79,13 +79,15 @@ Overhaul admin auth to use `tenant_memberships`. Replace hardcoded business info
 **Plans:** 5 plans
 
 Plans:
-- [ ] 50-01-PLAN.md — Tenant identity infrastructure: getTenantIdentity() function, TenantPublic type
-- [ ] 50-02-PLAN.md — React Email setup and template components
-- [ ] 50-03-PLAN.md — requireAdmin() overhaul with tenant membership check
-- [ ] 50-04-PLAN.md — TenantProvider React Context for client components
-- [ ] 50-05-PLAN.md — Email service integration with tenant branding
+- [x] 50-01-PLAN.md — Tenant identity infrastructure: getTenantIdentity() function, TenantPublic type
+- [x] 50-02-PLAN.md — React Email setup and template components
+- [x] 50-03-PLAN.md — requireAdmin() overhaul with tenant membership check
+- [x] 50-04-PLAN.md — TenantProvider React Context for client components
+- [x] 50-05-PLAN.md — Email service integration with tenant branding
 
 **Testable:** Admin login on tenant A cannot access tenant B data. Emails show correct branding.
+
+**Verified:** 19/19 must-haves passed. Admin auth uses tenant_memberships. Email templates tenant-branded. TypeScript build clean.
 
 ---
 
