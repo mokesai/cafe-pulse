@@ -1,17 +1,17 @@
 # Project State
 
-## Current Status: Phase 50 Complete
+## Current Status: Phase 50 Complete (Gap Closure Done)
 ## Current Milestone: 1.0 - Multi-Tenant MVP
-## Current Phase: 50 — Tenant-Aware Auth & Business Identity (COMPLETE)
+## Current Phase: 50 — Tenant-Aware Auth & Business Identity (COMPLETE + GAP CLOSED)
 ## Last Updated: 2026-02-15
 ## Branch: features/multi-tenant-saas
 
 ## Progress
 
 Phase: 50 of 70 (Tenant-Aware Auth & Business Identity)
-Plan: 5 of 5 in Phase 50
-Status: Phase complete, all must-haves verified (19/19)
-Last activity: 2026-02-15 - Completed Phase 50 (tenant identity, React Email, admin auth, TenantProvider, email service)
+Plan: 6 of 6 in Phase 50 (including gap closure)
+Status: Phase complete, all must-haves verified (14/14 UAT tests passing)
+Last activity: 2026-02-15 - Completed 50-06 gap closure (branding columns added to tenants table)
 
 Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (5/5 plans)
 
@@ -56,8 +56,11 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - [x] 50-04: TenantProvider Context Integration — TenantProvider React Context created, integrated in site and admin layouts, useTenant() hook for client components
 - [x] 50-05: React Email Integration — EmailService refactored to use React Email templates with tenant branding, getTenantIdentity() loads business info, sender addresses use tenant config
 - [x] Phase 50 verified — 19/19 must-haves passed, admin auth uses tenant_memberships table, business identity loaded from tenants table, emails use tenant branding, TypeScript build clean
+- [x] 50-06: Gap closure — logo_url, primary_color, secondary_color columns added to tenants table, default tenant populated with Little Cafe brand colors, 14/14 UAT tests passing
 
 ### Decisions Made
+- **Nullable branding columns**: Allows gradual tenant onboarding without requiring branding config upfront (Phase 50-06)
+- **Default tenant brand colors**: Little Cafe gets primary_color=#f59e0b and secondary_color=#0f172a set immediately (Phase 50-06)
 - **Menu cache keyed by tenantId**: Prevents cross-tenant data leakage; single-object cache would serve tenant A's menu to tenant B (Phase 40-05)
 - **503 for unconfigured tenants**: Customer-facing routes return 503 when Square not configured for tenant (Phase 40-05)
 - **Vault with fallback for Square credentials**: New tenants store credentials in Supabase Vault (vault.secrets), default tenant falls back to env vars (Phase 40-01)
@@ -107,17 +110,16 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - **Rollback scripts in supabase/rollback/**: Not in migrations/ to prevent accidental application by `supabase db push`
 
 ### Known Issues
-- 15+ tables have single-column UNIQUE constraints that will block multi-tenant data (deferred to Phase 40+)
-- site_settings singleton pattern (`id = 1`) will conflict with second tenant (deferred to Phase 40+)
-- Database views need tenant_id filtering (deferred to Phase 40)
-- DEFAULT on tenant_id to be removed in Phase 40
-- `db-pre-request` hook not yet configured for `x-tenant-id` header (Phase 40)
+- 15+ tables have single-column UNIQUE constraints that will block multi-tenant data (deferred to Phase 60+)
+- site_settings singleton pattern (`id = 1`) will conflict with second tenant (deferred to Phase 60+)
+- Database views need tenant_id filtering (deferred to Phase 60)
+- `db-pre-request` hook not yet configured for `x-tenant-id` header (Phase 60)
 
 ## Session Continuity
 
 Last session: 2026-02-15
-Stopped at: Completed Phase 50 — Tenant-Aware Auth & Business Identity (19/19 must-haves verified)
+Stopped at: Completed 50-06 gap closure — branding columns added to tenants table (14/14 UAT tests passing)
 Resume file: None
 
 ## Next Action
-Phase 50 complete and verified. Admin authentication uses tenant_memberships table. Business identity loaded from tenants table. Emails use tenant branding. Ready for Phase 60: Platform Control Plane.
+Phase 50 complete and verified (including gap closure). UAT schema gap closed. All 14 UAT tests passing. Ready for Phase 60: Platform Control Plane.
