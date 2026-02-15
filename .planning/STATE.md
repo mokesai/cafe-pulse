@@ -9,11 +9,11 @@
 ## Progress
 
 Phase: 50 of 70 (Tenant-Aware Auth & Business Identity)
-Plan: 4 of 8 in Phase 50
+Plan: 5 of 8 in Phase 50
 Status: In progress
-Last activity: 2026-02-15 - Completed 50-04-PLAN.md (TenantProvider Context Integration)
+Last activity: 2026-02-15 - Completed 50-05-PLAN.md (React Email Integration)
 
-Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete, Phase 50 (4/8 plans)
+Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete, Phase 50 (5/8 plans)
 
 ## Completed
 - [x] PROJECT.md created
@@ -52,9 +52,9 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - [x] Phase 50 planned — 8 plans across 3 waves
 - [x] 50-01: Tenant identity loading infrastructure — getTenantIdentity() cached function, branding fields added to Tenant type (logo_url, primary_color, secondary_color)
 - [x] 50-02: React Email templates — OrderConfirmation and OrderStatusUpdate templates with tenant branding props, react-email dependencies installed
-- [x] 50-03: Admin auth tenant-aware — requireAdmin() checks tenant_memberships for owner/admin role, returns tenantClient with set_tenant_context, middleware.ts updated
-- [x] 50-04: TenantProvider Context Integration — TenantProvider React Context created, integrated in site and admin layouts, useTenant() hook for client components
 - [x] 50-03: Admin auth tenant-aware — requireAdmin() checks tenant_memberships and returns tenant-scoped RLS client, middleware updated for API routes, admin layout uses tenant context
+- [x] 50-04: TenantProvider Context Integration — TenantProvider React Context created, integrated in site and admin layouts, useTenant() hook for client components
+- [x] 50-05: React Email Integration — EmailService refactored to use React Email templates with tenant branding, getTenantIdentity() loads business info, sender addresses use tenant config
 
 ### Decisions Made
 - **Menu cache keyed by tenantId**: Prevents cross-tenant data leakage; single-object cache would serve tenant A's menu to tenant B (Phase 40-05)
@@ -115,8 +115,8 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 ## Session Continuity
 
 Last session: 2026-02-15
-Stopped at: Completed 50-04-PLAN.md — TenantProvider Context Integration
+Stopped at: Completed 50-05-PLAN.md — React Email Integration
 Resume file: None
 
 ## Next Action
-Phase 50-04 complete. TenantProvider React Context created and integrated in both layouts. Tenant identity now accessible to client components via useTenant() hook. Ready for 50-05 (Business Profile UI).
+Phase 50-05 complete. Email service now uses React Email templates with tenant branding. Both order confirmation and status emails are fully tenant-aware with dynamic business information. Ready for 50-06 (next plan in Phase 50).
