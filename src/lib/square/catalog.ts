@@ -1,4 +1,5 @@
 import { listCatalogObjects, searchCatalogItems } from './fetch-client'
+import type { SquareConfig } from './types'
 import type { MenuCategory, MenuItem } from '@/types/menu'
 
 interface SquareCatalogObjectBase {
@@ -48,17 +49,17 @@ interface SquareCatalogSearchResponse {
 const hasId = <T extends { id?: string }>(entry: T): entry is T & { id: string } =>
   Boolean(entry.id)
 
-export async function fetchMenuCategories(): Promise<MenuCategory[]> {
+export async function fetchMenuCategories(config: SquareConfig): Promise<MenuCategory[]> {
   try {
-    const result = await listCatalogObjects(['CATEGORY']) as SquareCatalogListResponse
+    const result = await listCatalogObjects(config, ['CATEGORY']) as SquareCatalogListResponse
     const categories = result.objects || []
-    
+
     // Get items for each category
     const categoriesWithItems = await Promise.all(
       categories
         .filter(hasId)
         .map(async (category) => {
-          const items = await fetchMenuItemsByCategory(category.id)
+          const items = await fetchMenuItemsByCategory(config, category.id)
           return {
             id: category.id,
             name: category.categoryData?.name || 'Unknown Category',
@@ -68,7 +69,7 @@ export async function fetchMenuCategories(): Promise<MenuCategory[]> {
           }
         })
     )
-    
+
     // Sort categories by ordinal
     return categoriesWithItems.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
   } catch (error) {
@@ -77,9 +78,9 @@ export async function fetchMenuCategories(): Promise<MenuCategory[]> {
   }
 }
 
-export async function fetchMenuItemsByCategory(categoryId: string): Promise<MenuItem[]> {
+export async function fetchMenuItemsByCategory(config: SquareConfig, categoryId: string): Promise<MenuItem[]> {
   try {
-    const result = await searchCatalogItems({
+    const result = await searchCatalogItems(config, {
       objectTypes: ['ITEM'],
       query: {
         exactQuery: {
@@ -88,9 +89,9 @@ export async function fetchMenuItemsByCategory(categoryId: string): Promise<Menu
         }
       }
     }) as SquareCatalogSearchResponse
-    
+
     const items = result.items || []
-    
+
     // Transform Square items to our format
     return await Promise.all(
       items
@@ -98,10 +99,10 @@ export async function fetchMenuItemsByCategory(categoryId: string): Promise<Menu
         .map(async (item) => {
           const itemData = item.itemData ?? {}
           const basePrice = itemData.variations?.[0]?.itemVariationData?.priceMoney?.amount || BigInt(0)
-          
+
           // Check availability
-          const isAvailable = await checkItemAvailability(item.id)
-          
+          const isAvailable = await checkItemAvailability(config, item.id)
+
           return {
             id: item.id,
             name: itemData.name || 'Unknown Item',
@@ -130,7 +131,8 @@ export async function fetchMenuItemsByCategory(categoryId: string): Promise<Menu
   }
 }
 
-export async function checkItemAvailability(itemId: string): Promise<boolean> {
+export async function checkItemAvailability(config: SquareConfig, itemId: string): Promise<boolean> {
+  void config
   try {
     // For now, we'll assume items are available
     // Inventory tracking would require additional API calls
