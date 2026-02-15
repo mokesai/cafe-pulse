@@ -43,7 +43,7 @@ Rewrite all Row Level Security policies to include `tenant_id = current_setting(
 
 ---
 
-## Phase 40: Tenant-Aware Square Integration
+## Phase 40: Tenant-Aware Square Integration ✓
 Refactor Square client to parameterized pattern with Vault-encrypted credential storage. Load credentials per-tenant per-request. Eliminate all env var reads for Square credentials.
 
 **Goal:** Every Square API call uses the correct tenant's credentials loaded from Supabase Vault (with env var fallback for default tenant). Webhooks resolve tenant from merchant_id. Frontend config is server-rendered.
@@ -51,19 +51,21 @@ Refactor Square client to parameterized pattern with Vault-encrypted credential 
 **Plans:** 11 plans
 
 Plans:
-- [ ] 40-01-PLAN.md — Vault infrastructure: migration, SECURITY DEFINER functions, audit table, merchant_id index
-- [ ] 40-02-PLAN.md — SquareConfig type and credential loading layer (getTenantSquareConfig)
-- [ ] 40-03-PLAN.md — Parameterize fetch-client.ts (all 15 functions accept SquareConfig)
-- [ ] 40-04-PLAN.md — Update domain layers (catalog.ts, orders.ts, tax-validation.ts, customers.ts)
-- [ ] 40-05-PLAN.md — Update customer-facing API routes (menu, config, payment, order-preview)
-- [ ] 40-06-PLAN.md — Update 7 admin API routes with inline Square env vars
-- [ ] 40-07-PLAN.md — Webhook tenant resolution via merchant_id
-- [ ] 40-08-PLAN.md — Frontend config delivery: server-rendered props replace client-side fetch
-- [ ] 40-09-PLAN.md — Dead code cleanup: remove client.ts, simple-client.ts, and consumer routes
-- [ ] 40-10-PLAN.md — Tenant-flag support for setup scripts (sync-square-catalog, seed-inventory, setup-square-webhooks)
-- [ ] 40-11-PLAN.md — Gap closure: fix menu categories and items admin routes (missed in 40-06)
+- [x] 40-01-PLAN.md — Vault infrastructure: migration, SECURITY DEFINER functions, audit table, merchant_id index
+- [x] 40-02-PLAN.md — SquareConfig type and credential loading layer (getTenantSquareConfig)
+- [x] 40-03-PLAN.md — Parameterize fetch-client.ts (all 15 functions accept SquareConfig)
+- [x] 40-04-PLAN.md — Update domain layers (catalog.ts, orders.ts, tax-validation.ts, customers.ts)
+- [x] 40-05-PLAN.md — Update customer-facing API routes (menu, config, payment, order-preview)
+- [x] 40-06-PLAN.md — Update 7 admin API routes with inline Square env vars
+- [x] 40-07-PLAN.md — Webhook tenant resolution via merchant_id
+- [x] 40-08-PLAN.md — Frontend config delivery: server-rendered props replace client-side fetch
+- [x] 40-09-PLAN.md — Dead code cleanup: remove client.ts, simple-client.ts, and consumer routes
+- [x] 40-10-PLAN.md — Tenant-flag support for setup scripts (sync-square-catalog, seed-inventory, setup-square-webhooks)
+- [x] 40-11-PLAN.md — Gap closure: fix menu categories and items admin routes (missed in 40-06)
 
 **Testable:** Two tenants with different Square sandbox accounts show different catalogs.
+
+**Verified:** 10/10 must-haves passed. All Square API calls use tenant credentials via getTenantSquareConfig(). Webhooks resolve tenant from merchant_id. Frontend config server-rendered.
 
 ---
 

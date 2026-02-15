@@ -1,19 +1,19 @@
 # Project State
 
-## Current Status: Phase 40 In Progress
+## Current Status: Phase 40 Complete
 ## Current Milestone: 1.0 - Multi-Tenant MVP
-## Current Phase: 40 — Tenant-Aware Square Integration (IN PROGRESS)
-## Last Updated: 2026-02-14
+## Current Phase: 40 — Tenant-Aware Square Integration (COMPLETE)
+## Last Updated: 2026-02-15
 ## Branch: features/multi-tenant-saas
 
 ## Progress
 
 Phase: 40 of 70 (Tenant-Aware Square Integration)
-Plan: 10 of 10 in Phase 40
-Status: Phase complete
-Last activity: 2026-02-14 - Completed 40-11-PLAN.md
+Plan: 11 of 11 in Phase 40
+Status: Phase complete, verified
+Last activity: 2026-02-15 - Phase 40 verified (10/10 must-haves passed)
 
-Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (10/10 plans)
+Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (11/11 plans)
 
 ## Completed
 - [x] PROJECT.md created
@@ -33,7 +33,7 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - [x] 30-02: SECURITY DEFINER functions + storage policies — 5 functions updated with tenant_id filtering, 8 storage policies rewritten with tenant_memberships
 - [x] 30-03: Apply & verify — all migrations applied to dev Supabase, 202 tenant policies verified, 13 additional old policies cleaned up, app works on default tenant
 - [x] Phase 40 researched (40-RESEARCH.md)
-- [x] Phase 40 planned — 10 plans across 4 waves
+- [x] Phase 40 planned — 11 plans across 4 waves
 - [x] 40-01: Vault infrastructure — vault_secret_id columns, SECURITY DEFINER credential functions, audit table, merchant_id index
 - [x] 40-02: SquareConfig type and credential loading layer — getTenantSquareConfig() with Vault RPC + env fallback, resolveTenantFromMerchantId() for webhooks
 - [x] 40-03: Parameterize fetch-client.ts — all 14 functions accept SquareConfig as first parameter, zero env var reads remain
@@ -45,6 +45,7 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - [x] 40-09: Dead code cleanup — deleted client.ts, simple-client.ts, test-connection, test-square-simple, debug-tax, test-simple routes; updated test page; cleaned .next cache
 - [x] 40-10: Tenant-flag support for setup scripts — sync-square-catalog, seed-inventory, setup-square-webhooks accept --tenant-id and --tenant-slug flags, load credentials from Vault via service_role RPC
 - [x] 40-11: Admin menu routes gap closure — categories and items routes refactored to load per-tenant Square credentials via getTenantSquareConfig(), closing 40-06 gap
+- [x] Phase 40 verified — 10/10 must-haves passed, all Square API calls use tenant credentials, webhooks resolve tenant from merchant_id, frontend config server-rendered
 
 ### Decisions Made
 - **Menu cache keyed by tenantId**: Prevents cross-tenant data leakage; single-object cache would serve tenant A's menu to tenant B (Phase 40-05)
@@ -95,9 +96,9 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 
 ## Session Continuity
 
-Last session: 2026-02-14
-Stopped at: Completed 40-11-PLAN.md (Admin menu routes gap closure)
+Last session: 2026-02-15
+Stopped at: Phase 40 verified and complete (10/10 must-haves passed)
 Resume file: None
 
 ## Next Action
-Phase 40 complete — all 10 plans executed. Ready for Phase 50 (Tenant-aware UI and onboarding).
+Phase 40 complete and verified. Ready for Phase 50: Tenant-Aware Auth & Business Identity.
