@@ -1,10 +1,22 @@
 import { NextResponse } from 'next/server'
 import { createOrder } from '@/lib/square/fetch-client'
+import { getCurrentTenantId } from '@/lib/tenant/context'
+import { getTenantSquareConfig } from '@/lib/square/config'
 
 export async function POST() {
+  // Resolve tenant and load Square config
+  const tenantId = await getCurrentTenantId()
+  const squareConfig = await getTenantSquareConfig(tenantId)
+  if (!squareConfig) {
+    return NextResponse.json(
+      { error: 'Square integration not configured for this tenant' },
+      { status: 503 }
+    )
+  }
+
   try {
     console.log('Testing Square order creation...')
-    
+
     // Test with the exact same structure as the payment flow
     const orderData = {
       order: {
@@ -26,10 +38,10 @@ export async function POST() {
         }]
       }
     }
-    
+
     console.log('Order data:', JSON.stringify(orderData, null, 2))
-    
-    const result = await createOrder(orderData)
+
+    const result = await createOrder(squareConfig, orderData)
     
     return NextResponse.json({
       success: true,

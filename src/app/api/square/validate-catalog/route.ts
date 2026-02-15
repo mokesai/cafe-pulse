@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { listCatalogObjects } from '@/lib/square/fetch-client'
+import { getCurrentTenantId } from '@/lib/tenant/context'
+import { getTenantSquareConfig } from '@/lib/square/config'
 
 interface CatalogObject {
   id: string
@@ -10,17 +12,27 @@ interface CatalogObject {
 }
 
 export async function POST(request: NextRequest) {
+  // Resolve tenant and load Square config
+  const tenantId = await getCurrentTenantId()
+  const squareConfig = await getTenantSquareConfig(tenantId)
+  if (!squareConfig) {
+    return NextResponse.json(
+      { error: 'Square integration not configured for this tenant' },
+      { status: 503 }
+    )
+  }
+
   try {
     const { catalogObjectId } = await request.json()
-    
+
     if (!catalogObjectId) {
       return NextResponse.json({ error: 'catalogObjectId required' }, { status: 400 })
     }
-    
+
     console.log('Validating catalog object ID:', catalogObjectId)
-    
+
     // Fetch all catalog objects to see what's available
-    const catalogData = await listCatalogObjects(['ITEM', 'ITEM_VARIATION', 'CATEGORY'])
+    const catalogData = await listCatalogObjects(squareConfig, ['ITEM', 'ITEM_VARIATION', 'CATEGORY'])
     
     if (!catalogData.objects) {
       return NextResponse.json({
