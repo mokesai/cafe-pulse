@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { deleteCustomerCard, searchSquareCustomerByEmail } from '@/lib/square/customers'
 import { createClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
+import { getTenantSquareConfig } from '@/lib/square/config'
 
 interface DeleteCardRequest {
   cardId: string
@@ -30,6 +32,16 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
+    // Resolve tenant and load Square config
+    const tenantId = await getCurrentTenantId()
+    const squareConfig = await getTenantSquareConfig(tenantId)
+    if (!squareConfig) {
+      return NextResponse.json(
+        { error: 'Square integration not configured for this tenant' },
+        { status: 503 }
+      )
+    }
+
     // Get user's Square customer ID
     const { data: profile } = await supabase
       .from('profiles')
@@ -41,7 +53,7 @@ export async function DELETE(request: NextRequest) {
 
     // If no customer ID in database, try to find by email
     if (!customerId && session.user.email) {
-      customerId = await searchSquareCustomerByEmail(session.user.email)
+      customerId = await searchSquareCustomerByEmail(squareConfig, session.user.email)
     }
 
     if (!customerId) {
@@ -52,7 +64,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Delete the card
-    await deleteCustomerCard(customerId, cardId)
+    await deleteCustomerCard(squareConfig, customerId, cardId)
 
     return NextResponse.json({
       success: true
