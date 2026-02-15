@@ -9,10 +9,11 @@
 ## Progress
 
 Phase: 40 of 70 (Tenant-Aware Square Integration)
-Plan: 8 of 10 in Phase 40
+Plan: 7 of 10 in Phase 40
 Status: In progress
+Last activity: 2026-02-14 - Completed 40-07-PLAN.md
 
-Progress: █████████░ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 started (8/10 plans)
+Progress: █████████░ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 started (7/10 plans)
 
 ## Completed
 - [x] PROJECT.md created
@@ -36,6 +37,7 @@ Progress: █████████░ Phase 10 complete, Phase 20 complete, P
 - [x] 40-01: Vault infrastructure — vault_secret_id columns, SECURITY DEFINER credential functions, audit table, merchant_id index
 - [x] 40-02: SquareConfig type and credential loading layer — getTenantSquareConfig() with Vault RPC + env fallback, resolveTenantFromMerchantId() for webhooks
 - [x] 40-03: Parameterize fetch-client.ts — all 14 functions accept SquareConfig as first parameter, zero env var reads remain
+- [x] 40-07: Webhook tenant resolution — catalog and inventory webhooks resolve tenant from merchant_id, verify signatures with tenant keys, use tenant credentials for API calls
 - [x] 40-08: Server-rendered Square config — site layout calls getTenantSquareConfig, DynamicSquareProvider accepts props, CheckoutModal uses context (no env vars)
 
 ### Decisions Made
@@ -46,6 +48,9 @@ Progress: █████████░ Phase 10 complete, Phase 20 complete, P
 - **60-second credential cache TTL**: Matches existing tenant cache TTL for consistency (Phase 40-02)
 - **Sandbox as default environment**: Safer default for development; production must be explicit (Phase 40-02)
 - **Per-call base URL derivation**: Environment can vary per tenant; base URL must be derived from config at call time, not module level (Phase 40-03)
+- **Webhook tenant resolution via merchant_id**: Webhooks identify tenant by looking up square_merchant_id from payload (Phase 40-07)
+- **Return 200 for unknown merchant_id**: Prevents Square from retrying valid requests from unconfigured tenants (Phase 40-07)
+- **Shared resolveTenantFromMerchantId utility**: Both webhooks import from config.ts to avoid duplication (Phase 40-07)
 - **Server-render Square config**: Site layout server-renders config via getTenantSquareConfig and passes to DynamicSquareProvider as props (Phase 40-08)
 - **Context-based config delivery**: SquareProvider context extended with applicationId/locationId; descendants use useSquareConfig() hook instead of env vars (Phase 40-08)
 - **Graceful degradation for unconfigured tenants**: Null config renders children without SquareProvider wrapper; CheckoutModal shows config error (Phase 40-08)
@@ -80,7 +85,7 @@ Progress: █████████░ Phase 10 complete, Phase 20 complete, P
 ## Session Continuity
 
 Last session: 2026-02-14
-Stopped at: Completed 40-08-PLAN.md (Server-rendered Square config frontend integration)
+Stopped at: Completed 40-07-PLAN.md (Webhook tenant resolution)
 Resume file: None
 
 ## Next Action
