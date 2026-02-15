@@ -16,6 +16,8 @@ export interface Tenant {
   square_environment: string
   square_merchant_id: string | null
   square_webhook_signature_key: string | null
+  square_access_token_vault_id: string | null
+  square_webhook_key_vault_id: string | null
   email_sender_name: string | null
   email_sender_address: string | null
   is_active: boolean
@@ -43,6 +45,8 @@ export type TenantPublic = Omit<
   | 'square_access_token'
   | 'square_webhook_signature_key'
   | 'square_application_id'
+  | 'square_access_token_vault_id'
+  | 'square_webhook_key_vault_id'
 >
 
 /** Default tenant UUID matching the seed migration */
