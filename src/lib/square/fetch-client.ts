@@ -1,32 +1,28 @@
 // Square API client using fetch for better Next.js compatibility
-const SQUARE_BASE_URL = process.env.SQUARE_ENVIRONMENT === 'production' 
-  ? 'https://connect.squareup.com' 
-  : 'https://connect.squareupsandbox.com'
+import type { SquareConfig } from './types'
 
 const SQUARE_VERSION = '2024-12-18'
 
 type SquareRequestBody = Record<string, unknown>
 
-function getHeaders() {
-  // Use the single SQUARE_ACCESS_TOKEN from .env.local (which points to live/production)
-  const accessToken = process.env.SQUARE_ACCESS_TOKEN
+function getBaseUrl(config: SquareConfig): string {
+  return config.environment === 'production'
+    ? 'https://connect.squareup.com'
+    : 'https://connect.squareupsandbox.com'
+}
 
+function getHeaders(config: SquareConfig) {
   return {
     'Square-Version': SQUARE_VERSION,
-    'Authorization': `Bearer ${accessToken}`,
+    'Authorization': `Bearer ${config.accessToken}`,
     'Content-Type': 'application/json'
   }
 }
 
-function getLocationId() {
-  // Use the single SQUARE_LOCATION_ID from .env.local (which points to live/production)
-  return process.env.SQUARE_LOCATION_ID
-}
-
 // Catalog API
-export async function listCatalogObjects(types?: string[], cursor?: string) {
+export async function listCatalogObjects(config: SquareConfig, types?: string[], cursor?: string) {
   try {
-    const url = new URL(`${SQUARE_BASE_URL}/v2/catalog/list`)
+    const url = new URL(`${getBaseUrl(config)}/v2/catalog/list`)
     if (types) {
       url.searchParams.append('types', types.join(','))
     }
@@ -36,7 +32,7 @@ export async function listCatalogObjects(types?: string[], cursor?: string) {
 
     const response = await fetch(url.toString(), {
       method: 'GET',
-      headers: getHeaders()
+      headers: getHeaders(config)
     })
 
     if (!response.ok) {
@@ -51,11 +47,11 @@ export async function listCatalogObjects(types?: string[], cursor?: string) {
   }
 }
 
-export async function searchCatalogItems(query: SquareRequestBody) {
+export async function searchCatalogItems(config: SquareConfig, query: SquareRequestBody) {
   try {
-    const response = await fetch(`${SQUARE_BASE_URL}/v2/catalog/search`, {
+    const response = await fetch(`${getBaseUrl(config)}/v2/catalog/search`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: getHeaders(config),
       body: JSON.stringify(query)
     })
 
@@ -72,13 +68,13 @@ export async function searchCatalogItems(query: SquareRequestBody) {
 }
 
 // Search catalog items with proper location filtering (recommended for menu API)
-export async function searchLocationCatalogItems() {
+export async function searchLocationCatalogItems(config: SquareConfig) {
   try {
-    const response = await fetch(`${SQUARE_BASE_URL}/v2/catalog/search-catalog-items`, {
+    const response = await fetch(`${getBaseUrl(config)}/v2/catalog/search-catalog-items`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: getHeaders(config),
       body: JSON.stringify({
-        enabled_location_ids: [getLocationId()],
+        enabled_location_ids: [config.locationId],
         product_types: ['REGULAR']
       })
     })
@@ -96,11 +92,11 @@ export async function searchLocationCatalogItems() {
 }
 
 // Search all catalog items (alternative to listCatalogObjects for items)
-export async function searchAllCatalogItems() {
+export async function searchAllCatalogItems(config: SquareConfig) {
   try {
-    const response = await fetch(`${SQUARE_BASE_URL}/v2/catalog/search`, {
+    const response = await fetch(`${getBaseUrl(config)}/v2/catalog/search`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: getHeaders(config),
       body: JSON.stringify({
         object_types: ['ITEM', 'CATEGORY']
         // No query filter - returns all items and categories
@@ -120,11 +116,11 @@ export async function searchAllCatalogItems() {
 }
 
 // Orders API
-export async function getOrder(orderId: string) {
+export async function getOrder(config: SquareConfig, orderId: string) {
   try {
-    const response = await fetch(`${SQUARE_BASE_URL}/v2/orders/${orderId}`, {
+    const response = await fetch(`${getBaseUrl(config)}/v2/orders/${orderId}`, {
       method: 'GET',
-      headers: getHeaders()
+      headers: getHeaders(config)
     })
 
     if (!response.ok) {
@@ -139,16 +135,16 @@ export async function getOrder(orderId: string) {
   }
 }
 
-export async function createOrder(orderData: SquareRequestBody) {
+export async function createOrder(config: SquareConfig, orderData: SquareRequestBody) {
   try {
-    const response = await fetch(`${SQUARE_BASE_URL}/v2/orders`, {
+    const response = await fetch(`${getBaseUrl(config)}/v2/orders`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: getHeaders(config),
       body: JSON.stringify({
         ...orderData,
         order: {
           ...(orderData.order as SquareRequestBody | undefined),
-          location_id: getLocationId()
+          location_id: config.locationId
         }
       })
     })
@@ -172,14 +168,14 @@ export async function createOrder(orderData: SquareRequestBody) {
 }
 
 // Payments API
-export async function createPayment(paymentData: SquareRequestBody) {
+export async function createPayment(config: SquareConfig, paymentData: SquareRequestBody) {
   try {
-    const response = await fetch(`${SQUARE_BASE_URL}/v2/payments`, {
+    const response = await fetch(`${getBaseUrl(config)}/v2/payments`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: getHeaders(config),
       body: JSON.stringify({
         ...paymentData,
-        location_id: getLocationId()
+        location_id: config.locationId
       })
     })
 
@@ -202,11 +198,11 @@ export async function createPayment(paymentData: SquareRequestBody) {
 }
 
 // Locations API
-export async function listLocations() {
+export async function listLocations(config: SquareConfig) {
   try {
-    const response = await fetch(`${SQUARE_BASE_URL}/v2/locations`, {
+    const response = await fetch(`${getBaseUrl(config)}/v2/locations`, {
       method: 'GET',
-      headers: getHeaders()
+      headers: getHeaders(config)
     })
 
     if (!response.ok) {
@@ -222,11 +218,11 @@ export async function listLocations() {
 }
 
 // Tax API
-export async function listCatalogTaxes() {
+export async function listCatalogTaxes(config: SquareConfig) {
   try {
-    const response = await fetch(`${SQUARE_BASE_URL}/v2/catalog/search`, {
+    const response = await fetch(`${getBaseUrl(config)}/v2/catalog/search`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: getHeaders(config),
       body: JSON.stringify({
         object_types: ['TAX']
         // Remove the problematic exact_query - we'll filter enabled taxes in code
@@ -246,11 +242,11 @@ export async function listCatalogTaxes() {
 }
 
 // Create or update catalog tax
-export async function createCatalogTax(taxData: SquareRequestBody) {
+export async function createCatalogTax(config: SquareConfig, taxData: SquareRequestBody) {
   try {
-    const response = await fetch(`${SQUARE_BASE_URL}/v2/catalog/upsert`, {
+    const response = await fetch(`${getBaseUrl(config)}/v2/catalog/upsert`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: getHeaders(config),
       body: JSON.stringify({
         idempotency_key: `tax-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         object: taxData
@@ -270,11 +266,11 @@ export async function createCatalogTax(taxData: SquareRequestBody) {
 }
 
 // Create or update catalog item
-export async function upsertCatalogItem(itemData: SquareRequestBody) {
+export async function upsertCatalogItem(config: SquareConfig, itemData: SquareRequestBody) {
   try {
-    const response = await fetch(`${SQUARE_BASE_URL}/v2/catalog/batch-upsert`, {
+    const response = await fetch(`${getBaseUrl(config)}/v2/catalog/batch-upsert`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: getHeaders(config),
       body: JSON.stringify({
         idempotency_key: `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         batches: [
@@ -303,11 +299,11 @@ export async function upsertCatalogItem(itemData: SquareRequestBody) {
 }
 
 // Create or update catalog category
-export async function upsertCatalogCategory(categoryData: SquareRequestBody) {
+export async function upsertCatalogCategory(config: SquareConfig, categoryData: SquareRequestBody) {
   try {
-    const response = await fetch(`${SQUARE_BASE_URL}/v2/catalog/batch-upsert`, {
+    const response = await fetch(`${getBaseUrl(config)}/v2/catalog/batch-upsert`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: getHeaders(config),
       body: JSON.stringify({
         idempotency_key: `category-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         batches: [
@@ -335,11 +331,11 @@ export async function upsertCatalogCategory(categoryData: SquareRequestBody) {
 }
 
 // Delete catalog object
-export async function deleteCatalogObject(objectId: string) {
+export async function deleteCatalogObject(config: SquareConfig, objectId: string) {
   try {
-    const response = await fetch(`${SQUARE_BASE_URL}/v2/catalog/delete`, {
+    const response = await fetch(`${getBaseUrl(config)}/v2/catalog/delete`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: getHeaders(config),
       body: JSON.stringify({
         object_id: objectId
       })
@@ -358,16 +354,16 @@ export async function deleteCatalogObject(objectId: string) {
 }
 
 // Batch upsert multiple catalog objects
-export async function batchUpsertCatalogObjects(objects: SquareRequestBody[]) {
+export async function batchUpsertCatalogObjects(config: SquareConfig, objects: SquareRequestBody[]) {
   try {
     const batches = objects.map(obj => ({
       object: obj,
       idempotency_key: `batch-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     }))
 
-    const response = await fetch(`${SQUARE_BASE_URL}/v2/catalog/batch-upsert`, {
+    const response = await fetch(`${getBaseUrl(config)}/v2/catalog/batch-upsert`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: getHeaders(config),
       body: JSON.stringify({
         batches
       })
@@ -385,10 +381,3 @@ export async function batchUpsertCatalogObjects(objects: SquareRequestBody[]) {
   }
 }
 
-// Configuration
-export const squareConfig = {
-  // Use the single SQUARE_APPLICATION_ID from .env.local (which points to live/production)  
-  applicationId: process.env.SQUARE_APPLICATION_ID,
-  environment: process.env.SQUARE_ENVIRONMENT || 'sandbox',
-  locationId: getLocationId()
-}
