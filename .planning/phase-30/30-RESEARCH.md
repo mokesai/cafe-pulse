@@ -581,7 +581,7 @@ Any tenant member (owner/admin/staff) can read; admin/owner can write. Requires 
 | `kds_settings` | KDS configuration |
 | `kds_images` | KDS footer images |
 
-### Category D: Admin (37 tables)
+### Category D: Admin (38 tables)
 Owner/admin full CRUD; staff SELECT only; all tenant-scoped.
 
 | Table | Rationale |

@@ -19,7 +19,6 @@ export async function GET(request: NextRequest) {
     // Get tenant ID from cookie
     const cookieStore = await cookies()
     const tenantId = cookieStore.get('x-tenant-id')?.value || '00000000-0000-0000-0000-000000000001'
-    console.log('Using tenantId for suppliers query:', tenantId)
 
     // Build query
     let query = supabase
