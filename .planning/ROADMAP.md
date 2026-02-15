@@ -63,11 +63,11 @@ Plans:
 - [x] 40-10-PLAN.md — Tenant-flag support for setup scripts (sync-square-catalog, seed-inventory, setup-square-webhooks)
 - [x] 40-11-PLAN.md — Gap closure: fix menu categories and items admin routes (missed in 40-06)
 - [x] 40-12-PLAN.md — Gap closure: fix customer cards routes (missed in 40-05 and 40-06)
-- [ ] 40-13-PLAN.md — Gap closure: fix test/debug routes (tax-config, test-catalog, validate-catalog, test-order)
+- [x] 40-13-PLAN.md — Gap closure: fix test/debug routes (tax-config, test-catalog, validate-catalog, test-order)
 
 **Testable:** Two tenants with different Square sandbox accounts show different catalogs.
 
-**Verified:** 9/10 must-haves passed. TypeScript build blocker identified in test/debug routes.
+**Verified:** 10/10 must-haves passed. All Square API routes tenant-aware. TypeScript build clean.
 
 ---
 
