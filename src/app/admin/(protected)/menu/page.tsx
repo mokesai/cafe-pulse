@@ -1,4 +1,3 @@
-import { requireAdmin } from '@/lib/admin/auth'
 import dynamic from 'next/dynamic'
 
 // Dynamically import heavy menu management component
@@ -14,8 +13,6 @@ const MenuManagementContainer = dynamic(() => import('@/components/admin/MenuMan
 })
 
 export default async function AdminMenuPage() {
-  // Ensure user is admin (will redirect if not)
-  await requireAdmin()
 
   return <MenuManagementContainer />
 }

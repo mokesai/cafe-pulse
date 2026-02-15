@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
-import { createCurrentTenantClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 
 export async function GET(request: NextRequest) {
   const auth = await requireAdminAuth(request)
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'id is required' }, { status: 400 })
   }
 
-  const supabase = await createCurrentTenantClient()
+  const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('inventory_item_cost_history')
     .select('*')

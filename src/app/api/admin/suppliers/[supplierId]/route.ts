@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/admin/middleware'
-import { createCurrentTenantClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 
 interface SupplierUpdateBody {
   name: string
@@ -65,7 +65,7 @@ export async function PUT(
 
     console.log('Updating supplier:', supplierId)
 
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
 
     // Update supplier
     const { data: updatedSupplier, error } = await supabase
@@ -143,7 +143,7 @@ export async function PATCH(
     
     console.log('Partially updating supplier:', supplierId, body)
 
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
 
     // Build update object with only provided fields
     const updateData: SupplierPartialUpdatePayload = {}
@@ -221,7 +221,7 @@ export async function DELETE(
 
     console.log('Deleting supplier:', supplierId)
 
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
 
     // Check if supplier has associated inventory items
     const { data: inventoryItems, error: checkError } = await supabase

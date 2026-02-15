@@ -3,7 +3,6 @@ import { listCatalogObjects, searchAllCatalogItems } from '@/lib/square/fetch-cl
 import { sortMenuItems, sortMenuCategories } from '@/lib/constants/menu'
 import { getCurrentTenantId } from '@/lib/tenant/context'
 import { getTenantSquareConfig } from '@/lib/square/config'
-import type { SquareConfig } from '@/lib/square/types'
 import type { MenuCategory, MenuItem as CanonicalMenuItem, MenuSubcategory as CanonicalMenuSubcategory } from '@/types/menu'
 
 interface MenuResponse {

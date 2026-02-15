@@ -1,0 +1,12 @@
+inventory: ui updates- lint error resolution
+• - Removed the unused payload fields in the admin purchase-order PUT handler and Auth container so the declared state mirrors what’s actually
+    needed (src/app/api/admin/purchase-orders/[orderId]/route.ts:500–517; src/components/auth/AuthContainer.tsx:17–27).
+  - Simplified the ordering menu component by removing the unused selection state/handler so the cards’ behavior centers on the add-to-cart
+    interaction, keeping filters and sorting intact (src/components/ordering/MenuSelection.tsx:123–166).
+  - Cleaned up unused imports/interfaces in the AI and PDF helpers and rewrote the retry toast to use toast.custom, ensuring the onRetry
+    callback actually drives the UI while remaining type-safe (src/lib/ai/openai-service.ts:1; src/lib/document/pdf-processor.ts:1–45; src/
+    lib/error-handling.ts:1–247).
+  - Replaced the previous any usage in the Square catalog helpers with explicit types for categories, items, variations, and modifiers so menu
+    fetching stays strongly typed without altering the transformation logic (src/lib/square/catalog.ts:1–145).
+
+

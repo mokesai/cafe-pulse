@@ -1,4 +1,3 @@
-import { requireAdmin } from '@/lib/admin/auth'
 import SiteAvailabilitySettings from '@/components/admin/SiteAvailabilitySettings'
 import KDSThemeSelector from '@/components/admin/KDSThemeSelector'
 import { getSiteSettings, getSiteStatusUsingServiceClient } from '@/lib/services/siteSettings'
@@ -6,8 +5,6 @@ import { getSettings as getKDSSettings } from '@/lib/kds/queries'
 import type { KDSTheme } from '@/lib/kds/types'
 
 export default async function AdminSettingsPage() {
-  // Ensure user is admin (will redirect if not)
-  await requireAdmin()
 
   const [initialStatus, initialSettings, kdsSettings] = await Promise.all([
     getSiteStatusUsingServiceClient(),

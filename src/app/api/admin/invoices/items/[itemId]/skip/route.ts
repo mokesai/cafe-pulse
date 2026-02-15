@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createCurrentTenantClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 
 export async function PUT(
   request: NextRequest,
@@ -14,7 +14,7 @@ export async function PUT(
       skip_reason
     })
 
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
 
     // Update the invoice item to mark as skipped
     const { error: skipError } = await supabase

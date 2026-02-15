@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/admin/middleware'
-import { createCurrentTenantClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 
 const STORAGE_BUCKET = 'purchase-order-attachments'
 
@@ -24,7 +24,7 @@ export async function DELETE(
       )
     }
 
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
 
     const { data: attachment, error: fetchError } = await supabase
       .from('purchase_order_attachments')

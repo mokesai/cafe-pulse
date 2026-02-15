@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
-import { createCurrentTenantClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     }
     console.log('Admin fetching stock alerts...')
 
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
 
     // Fetch current stock alerts
     const { data: alerts, error } = await supabase
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
 
     console.log('Updating alert acknowledgment:', { alertIds, acknowledged })
 
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
 
     // Update alert acknowledgment status
     const { data: updatedAlerts, error } = await supabase

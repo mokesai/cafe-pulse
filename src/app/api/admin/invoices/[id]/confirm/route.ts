@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createCurrentTenantClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 
 export async function PUT(
   request: NextRequest,
@@ -10,7 +10,7 @@ export async function PUT(
     
     console.log('✅ Confirming invoice import:', id)
 
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
 
     // Get the invoice and its items
     const { data: invoice, error: invoiceError } = await supabase

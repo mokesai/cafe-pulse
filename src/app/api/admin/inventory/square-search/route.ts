@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/admin/middleware'
 import { getCurrentTenantId } from '@/lib/tenant/context'
 import { getTenantSquareConfig } from '@/lib/square/config'
-import type { SquareConfig } from '@/lib/square/types'
 
 const SQUARE_VERSION = '2024-12-18'
 

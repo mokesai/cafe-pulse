@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createCurrentTenantClient } from '@/lib/supabase/server'
+import { cookies } from 'next/headers'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 
 interface OrderUpdatePayload {
   status: string
@@ -9,25 +10,29 @@ interface OrderUpdatePayload {
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createCurrentTenantClient()
-    
+    // Use regular client for authentication
+    const authClient = await createClient()
+
     // Check if user is authenticated and admin
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
+    const { data: { user }, error: authError } = await authClient.auth.getUser()
+
     if (authError || !user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
-    
+
     // Check admin role
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await authClient
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single()
-    
+
     if (profileError || profile?.role !== 'admin') {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
+
+    // Use service client for data queries with explicit tenant filtering
+    const supabase = createServiceClient()
     
     // Get query parameters
     const { searchParams } = new URL(request.url)
@@ -36,7 +41,11 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status')
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
-    
+
+    // Get tenant ID from cookie
+    const cookieStore = await cookies()
+    const tenantId = cookieStore.get('x-tenant-id')?.value || '00000000-0000-0000-0000-000000000001'
+
     // Build query - fetch orders and order_items, handle profiles separately
     let query = supabase
       .from('orders')
@@ -44,6 +53,7 @@ export async function GET(request: NextRequest) {
         *,
         order_items (*)
       `)
+      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
     
@@ -135,25 +145,29 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const supabase = await createCurrentTenantClient()
-    
+    // Use regular client for authentication
+    const authClient = await createClient()
+
     // Check if user is authenticated and admin
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
+    const { data: { user }, error: authError } = await authClient.auth.getUser()
+
     if (authError || !user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
-    
+
     // Check admin role
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await authClient
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single()
-    
+
     if (profileError || profile?.role !== 'admin') {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
+
+    // Use service client for data queries
+    const supabase = createServiceClient()
     
     const body = await request.json()
     const { orderId, status, notes } = body

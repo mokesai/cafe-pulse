@@ -3,7 +3,6 @@ import { headers } from 'next/headers'
 import crypto from 'crypto'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getTenantSquareConfig, resolveTenantFromMerchantId } from '@/lib/square/config'
-import type { SquareConfig } from '@/lib/square/types'
 
 interface InventoryCount {
   catalog_object_id: string

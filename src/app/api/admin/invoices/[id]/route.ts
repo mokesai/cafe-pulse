@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
-import { createCurrentTenantClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     const resolvedParams = await context.params
     const { id } = resolvedParams
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
 
     // Get invoice with related data
     const { data: invoice, error } = await supabase
@@ -160,7 +160,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
       parsing_error
     } = body
 
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
 
     // Update invoice
     const updateData: InvoiceUpdatePayload = {}
@@ -240,7 +240,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 
     const resolvedParams = await context.params
     const { id } = resolvedParams
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
 
     // Check if invoice exists and get file info for cleanup
     const { data: invoice, error: fetchError } = await supabase

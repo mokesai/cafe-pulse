@@ -1,9 +1,6 @@
-import { requireAdmin } from '@/lib/admin/auth'
 import { AdminDashboardOverview } from '@/components/admin/AdminDashboardOverview'
 
 export default async function AdminDashboardPage() {
-  // Ensure user is admin (will redirect if not)
-  await requireAdmin()
 
   return (
     <div>

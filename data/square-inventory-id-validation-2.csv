@@ -1,0 +1,191 @@
+status,inventory_id,inventory_name,square_item_id,square_item_name,square_object_type,inventory_archived,sales_total_for_square_id,sales_matched_for_square_id,sales_unmatched_for_square_id,sales_present,variation_sales_present,suspect_item_variation_mismatch
+invalid,7af28118-66d6-4671-a888-b1e55da730c5,"(4 pack) TAZO Classic Chai Latte Black Tea Concentrate, Made from Real Black Tea, 32oz Carton",manual-f0a015d6-04d7-480b-8653-ffc4b9a57af5,,,false,0,0,0,false,false,false
+invalid,d73ef6dc-93d0-42a2-8e20-1f047651ef48,"2% Reduced Fat MilkGreat Value, 2% Reduced Fat Milk, Gallon, Refrigerated",manual-e56c8e24-6911-46d1-9cd3-e0af6bebde45,,,false,0,0,0,false,false,false
+valid,936789e5-2798-457e-8dab-392079db8f11,AJ - Apple Juice Humankind,6Y4WWTKXY7GKOLT27MPWVA4W,AJ - Apple Juice Humankind,ITEM,false,0,0,0,false,true,true
+valid,363ec171-cb18-4669-8eb4-6e4c5005922b,Alfajores,RMSF3HOCMP5EHOLK6MZM6W7U,Alfajores,ITEM_VARIATION,false,0,0,0,false,false,false
+valid,e86e0d92-c41a-4023-bfc4-df611edcedf6,Almond Croissant,I6ATU46TLCIHM24OXD7MHXQC,Almond Croissant,ITEM_VARIATION,false,83,4,79,true,false,false
+valid,9d597780-4903-4e9d-b913-2affd5853aac,"Almonds & Cheese Snack Pack, 6.5 oz Tray",HRTXH4DN2YA4YESIMZMMMC6S,Almonds & Cheese Snack Pack,ITEM_VARIATION,false,0,0,0,false,false,false
+valid,3424ccf9-146a-4d0b-b375-525b5f8c1c9c,Apple Crisp Oatmilk Iced Shaken Espresso,H2BMBA7QH5Y6R2UN6OSDPX5O,Apple Crisp Oatmilk Iced Shaken Espresso,ITEM,false,0,0,0,false,false,false
+valid,ebf5e086-7a80-4f66-9926-d3adb0c1cb96,Apple juice,3TJVMFOEQYA6I44ULK2CYBGD,Apple juice,ITEM,false,0,0,0,false,false,false
+valid,ba6b0267-1f7a-4fe6-bf2c-80d353fc68dc,Apricot Almond Scone,PB4BADCE7LKQLXDRR47UQJP3,Apricot Almond Scone,ITEM,false,0,0,0,false,false,false
+valid,ea915c5a-a281-4ee2-9499-ea297ce8c0d9,Bear Claw,7WSPNUKF32ABVQFXPPTT26PZ,Bear Claw,ITEM,false,0,0,0,false,false,false
+valid,58db0cac-48d1-42d4-9994-dce3d0fa3b1c,Beef Stick,THJWBOJQ7FFUNWZMNNP7IWW4,Beef Stick,ITEM,false,0,0,0,false,false,false
+valid,9f432deb-2e91-416c-87b8-0a72b76ef361,Blueberry Muffin,2EWFTLWL7656HZF45IUOILF4,Blueberry Muffin,ITEM_VARIATION,false,102,11,91,true,false,false
+valid,79e4542d-0744-4d1e-b2ad-67232d90e33f,Blueberry Scone,KUOVENXQGTX64YNSLLNKKK5M,Blueberry Scone,ITEM,false,0,0,0,false,false,false
+valid,5aa8ee34-df7a-4e8d-9ab7-e04d1a2b7251,Boba Bubble Tea,DQ3DEJPEOQ4DFRXEHG66RSIR,Boba Bubble Tea,ITEM_VARIATION,false,6,0,6,true,false,false
+valid,4cc2fbd3-70a1-4146-9e7c-2a9b4b0e41e7,Boulder Canyon Chips - 1.5 oz,HHAG7Y33SJ7S7MYU6AYC3QLD,Boulder Canyon Chips - 1 oz Assorted,ITEM,false,0,0,0,false,true,true
+invalid,7158c224-4892-4024-89b4-d98c06388f51,"Boulder Canyon Kettle Cooked Variety Pack Potato Chips, 1.5 oz., 24 pk.",manual-0360f6fe-3a7f-4459-b110-4cd6f91c1040,,,false,0,0,0,false,false,false
+valid,b39fed58-5c18-4247-9841-945f7426a405,"Boulder Canyon Kettle Style Variety Pack Potato Chips, 1 oz., 36 pk.",PI3QKA545DT5O3BGMGH7MZ64,Boulder Canyon Chips - 1 oz Assorted,ITEM_VARIATION,false,27,23,4,true,false,false
+valid,a10beae2-65a3-4560-98f9-761e336b789d,Bread Banana Pecan,EOX6SDWV3TBJTWCV6WC47U5N,Bread Banana Pecan,ITEM,false,0,0,0,false,false,false
+valid,a0d49ca3-b8e7-4c9e-8d05-c60c1fcecb9b,Bread Blueberry,WRARP7CONYULY7JQV2HOC26Q,Bread Blueberry,ITEM,false,0,0,0,false,false,false
+valid,54d368ce-cce5-4a73-b55d-8a3492aa373c,Bread Marble,DAFCMKVJG5ZJ72DDKDXZZLRV,Bread Marble,ITEM,false,0,0,0,false,false,false
+valid,3813d840-1c96-448d-a612-7042c0d8e2a4,Brownie,WOKPDBYPFSOCYBXF6JY5YI26,Brownie,ITEM,false,0,0,0,false,false,false
+valid,ed13ed6b-b9c3-4328-b4a3-312729edda4a,Bubly - assorted - 12 oz,KU6Y6JRIXNIMI37FFLHXABYO,Bubly - assorted - 12 oz,ITEM,false,0,0,0,false,false,false
+valid,4a496494-c7f5-4a9c-9806-d2929b3a0473,Burrito Bacon,KWLBML2DPATBJEPFIBHCSMOT,Burrito Bacon,ITEM,false,0,0,0,false,true,true
+valid,027a6b64-5c8b-459c-8314-bd5eddaf7824,Burrito Chicken Chorizzo,PSX3ZYZMUIBYO6CAKNDWOWXQ,Burrito Chicken Chorizzo,ITEM,false,0,0,0,false,true,true
+valid,9abc97a2-1bde-4812-941b-c91a6c788773,Burrito Gluten Free Vegetarian,RUSF7ZKFE663ZAZYQWD3OJIM,Burrito Gluten Free Vegetarian,ITEM,false,0,0,0,false,false,false
+valid,836be3da-172a-4104-ab96-c1a515a63ebe,Burrito Sausage,34ILN45J7CBZP2HA53Q3JARY,Burrito Sausage,ITEM,false,0,0,0,false,true,true
+valid,444ad7f5-8b0a-4efc-bc22-8d2e3182cdfd,Burrito Vegan Chorizo,LQEMTQPQVHARR53NS444AZSU,Burrito Vegan Chorizo,ITEM,false,0,0,0,false,false,false
+valid,650e2505-f3cf-4205-81bb-fdb04a4e0b98,Burrito Veggie Black Bean,7DCL6LXOCVWWFE7BGM77LTSZ,Burrito Veggie Black Bean,ITEM_VARIATION,false,63,4,59,true,false,false
+valid,464e3d80-e704-4213-a46f-b4e44e57a043,Butter Croissant,XQQYMBZAFSPYS3U27BA7ZZ76,Butter Croissant,ITEM_VARIATION,false,64,3,61,true,false,false
+valid,b5659730-2ab2-4c16-9333-8e3ece47aa2f,Cake Pop,LYKB4ZTC6I6GBVURE3L34QJN,Cake Pop,ITEM_VARIATION,false,54,0,54,true,false,false
+valid,9281e857-0a18-41fb-8ba6-b1f2503dc154,Cake Pop Birthday Cake,MB2TNW4IISDIWNAW5C3SXW7B,Cake Pop - Birthday Cake,ITEM_VARIATION,false,15,0,15,true,false,false
+valid,1084b444-cbfd-43d0-b98a-fd5a2f62588b,Cake Pop Chocolate Cake,3DK2GEPTRJOQYNISV6BTUKNN,Cake Pop - Chocolate Cake,ITEM_VARIATION,false,12,0,12,true,false,false
+valid,ca0e650d-4af8-4068-9260-6e4a7771e910,Cake Pop Cookies & Cream Cake,5BXDXTSEX23PQRRKDRB764UK,Cake Pop Cookies & Cream Cake,ITEM_VARIATION,false,0,0,0,false,false,false
+valid,734f1f2b-2528-43dc-a773-b2f4704ec6c2,Cake Pop Strawberry Cake,EKT5ZFS7YUVFFDQRIGFF5B54,Cake Pop - Strawberry Cake,ITEM_VARIATION,false,12,0,12,true,false,false
+valid,d1d753e1-7296-4e75-92af-5fcba2a16edb,Cake Pops 3 for $10,2HECROJRRIBT5ZGQVUNZT3S4,Cake Pops 3 for $10,ITEM_VARIATION,false,19,1,18,true,false,false
+valid,7db1bd91-671f-4cda-b4ee-5bdfa51d5834,Celsius,6ZCR77YUMKXESH3M57WFYELL,Celsius,ITEM_VARIATION,false,36,5,31,true,false,false
+valid,887a89b6-98af-4253-9d9d-1f83c47ec36e,"Celsius Sparkling Core Variety Pack, 12 fl. oz., 18 pk.",6ZCR77YUMKXESH3M57WFYELL,Celsius,ITEM_VARIATION,false,36,5,31,true,false,false
+valid,740982b1-7513-49c8-a9a6-554a82c9d1b3,Chips,BOMMY3YNE4F4XALBBPT776VD,Chips,ITEM_VARIATION,false,21,0,21,true,false,false
+valid,df5d4c5a-28ff-4a75-a00e-1bfe7c82875c,"Chobani 20G Protein Low Fat Greek Yogurt Drink Variety Pack, 10 fl. oz,. 8 ct.",GRQLAGAPUIVPYLIAME7IE4FK,Chobani 20G Protein Yogurt,ITEM_VARIATION,false,24,4,20,true,false,false
+valid,3c4b2ae3-bb6f-4ec3-b76e-96f90effa85f,Chobani 20G Protein Yogurt,TSTH6J37FHIOFULWIOPZE3GE,Chobani 20G Protein Yogurt,ITEM,false,0,0,0,false,true,true
+valid,97d47a35-f0ef-4e53-8630-f1a8e551cc1e,Chocolate Chip Cookie,6R5JFN2XMGWRZDL2SP5I53JB,Chocolate chip cookie,ITEM_VARIATION,false,96,45,51,true,false,false
+valid,208f5e69-b10d-4bf0-887c-0cd42f4f16f2,Chocolate coated Almonds,YKYSBJGNCDMJ7JS3L3LHWZZT,Chocolate coated Almonds,ITEM,false,0,0,0,false,false,false
+valid,fd7c8ff5-1852-4cbb-93f6-2687da5ee992,Chocolate Croissant,R4ZZKRPHP7PDTHAIT2YVVB7Q,Chocolate Croissant,ITEM_VARIATION,false,117,7,110,true,false,false
+valid,7e4e3f28-29e4-4aff-9bc4-35164af4c1ca,Chocolate Dipped Strawberries,Y7B3AKHDNEVFBAUMFNGEURZY,Chocolate Dipped Strawberries,ITEM,false,0,0,0,false,false,false
+valid,43bbf682-f0af-43fe-b756-5f2ed46ff274,Chocolate Muffin,M2JVUY6GF7BJH6CPMP6KKVVH,Chocolate Muffin,ITEM_VARIATION,false,69,4,65,true,false,false
+valid,52d7c940-7e1c-48ab-82f8-c9c72fed7265,Cinnamon Roll,YWMRHRJTTRTQPD2VSFLKDPJD,Cinnamon Roll,ITEM,false,0,0,0,false,false,false
+valid,d4649e4d-3fcf-4e1f-afb4-6f3499266b19,"Clear Canadian Sparkling Water, 11 oz, 12pk",AYFIDGHNPVRSDKYVLXHP5ZCV,"Clearly Canadian - Sparkling Water, 11 oz",ITEM_VARIATION,false,0,0,0,false,false,false
+valid,66abddb9-09f0-4aa0-9d62-84df91b89a11,"Clearly Canadian Sparkling Water, 11 oz",AYFIDGHNPVRSDKYVLXHP5ZCV,"Clearly Canadian - Sparkling Water, 11 oz",ITEM_VARIATION,false,0,0,0,false,false,false
+invalid,e6e653d0-f839-4180-9f59-615c9bc7b462,"Coca-Cola Mexico Glass Bottles, 355 mL, 24 pk.",manual-9a057fb2-87f6-4e22-9558-86550a3e7a10,,,false,0,0,0,false,false,false
+invalid,53fbba85-d5d3-4d80-80c9-59fc1d23904f,"Coca-Cola Zero Sugar Soft Drink 12 fl oz., 35 pk.",manual-feb81c58-eb44-43e0-a761-0e1f8d96d28d,,,false,0,0,0,false,false,false
+valid,835c0cea-fc35-4a58-876d-312059ea3cb8,Coconut Water,4LDENLUSIPMFXA3DJVSFTINE,Coconut Water,ITEM,false,0,0,0,false,false,false
+valid,ba15f927-c2c2-4e6e-a524-417ac8ea0dc4,Coffee cake,2GSUHZIZRUGZ4AJID4YN3OLX,Coffee cake,ITEM_VARIATION,false,46,4,42,true,false,false
+valid,e1b30c35-709a-49fd-9d67-fd7dacedc972,Coke Bottle,ZBNL4SCLZF3M7TV655E35G5O,Coke Bottle,ITEM_VARIATION,false,47,4,43,true,false,false
+valid,29721600-5fad-410f-bdbd-b8a8c255f74d,Coke Zero - can - 12 oz,TVNZEYCDV6HESMX3GARWG2GC,Coke Zero - can - 12 oz,ITEM_VARIATION,false,102,14,88,true,false,false
+valid,9e5c47d8-620f-47b4-851b-c16b1a9d6682,Cold Brew w/ Vanilla Sweet Cream,B6TXOEXU2WMAYIASVAVJ552C,Cold Brew w/ Vanilla Sweet Cream - Tall,ITEM_VARIATION,false,15,1,14,true,false,false
+valid,5d7f75d6-ff55-4410-8a63-d683ae30815b,Cream cheese 1.5oz,2DLTMCWMLDRAHGN7U7Z4MSMD,Cream cheese 1.5oz,ITEM_VARIATION,false,35,12,23,true,false,false
+valid,76cb82b1-b25c-448e-9937-eaebc2c9449e,Croissant,YMR7Y2PODDCYL3T3DW4WZZGO,Croissant,ITEM_VARIATION,false,2,0,2,true,false,false
+valid,9d5c67f1-adae-4e78-bfe6-cc29e7307f9d,Danish,OKWC6AAABGVXWLJXWDJWFQH3,Danish,ITEM,false,0,0,0,false,true,true
+valid,b5740f61-c57c-459c-a086-e882375b6a01,Danish Almond,WVHR4EMA4HRFB3KQNFUVLAAL,Danish Almond,ITEM,false,0,0,0,false,false,false
+valid,0746fd2f-0ef4-4131-92a8-ffd950e48e73,Danish Apple,NCTQLWWGHJBL45IW3KP3MHQA,Danish - Apple,ITEM_VARIATION,false,6,0,6,true,false,false
+valid,daea24e3-df34-4c14-ada9-855a897f89c1,Danish Blueberry,2MEGZSD6EPTHN26B3YK73QQC,Danish - Blueberry,ITEM_VARIATION,false,5,0,5,true,false,false
+valid,fdeaf9a3-9e77-4785-956f-71bc43019ea2,Danish Chocolate,QOH4PJDWEGNYEI4ESDKMEHFQ,Danish Chocolate,ITEM,false,0,0,0,false,true,true
+valid,a163543b-5dce-40bd-bab6-694c6f844dc4,Danish Cream Cheese,XNXHVO6PETFRB7RITJRAQHTR,Danish - Cream Cheese,ITEM_VARIATION,false,14,0,14,true,false,false
+valid,c701b86c-cc2b-4af3-8e31-a288de9982e5,Danish Cream Cheese,DHLR2ESM6TFPTVEOQUNOMG65,Danish Cream Cheese,ITEM,false,0,0,0,false,true,true
+valid,82a49aab-138f-4bd4-9f94-d4843b54e1d0,Danish Lemon,ZM7LK54RCGYRWT3RS7WH2AVX,Danish - Lemon,ITEM_VARIATION,false,5,0,5,true,false,false
+valid,54d6cc66-96a0-4dcb-afe2-7254e9f6b7fe,Danish Raspberry,JGW4QPQBJNG456DVJPJELW7B,Danish - Raspberry,ITEM_VARIATION,false,4,0,4,true,false,false
+valid,e84b6edc-550c-4d9e-a505-4edea980a1a7,"Dis Burrito Breakfast Burrito - Bacon, 12pk",HJA472MAOA2BMNJ66SE6B5JP,Burrito Bacon,ITEM_VARIATION,false,77,30,47,true,false,false
+valid,a0ebec7a-3bf6-40f8-af8c-381452f09557,"Dis Burrito Breakfast Burrito - Chicken Chorizo, 12pk",MCPVKTMHBCQLNZ5DUNUQF7WP,Burrito Chicken Chorizzo,ITEM_VARIATION,false,50,19,31,true,false,false
+valid,6ace8231-bbbf-468f-81c8-2d621d32b925,"Dis Burrito Breakfast Burrito - Pork Breakfast Sausage, 12pk",3K3R2KTO5CCTZYEOMRI3EHJC,Burrito Sausage,ITEM_VARIATION,false,67,26,41,true,false,false
+valid,0f094aaa-8862-4245-b859-707cb2dde96e,"Dis Burrito Breakfast Burrito - Veggie, 12pk",2LS65NY5S5THBVIYOJNZJ6O4,Burrito Gluten Free Vegetarian,ITEM_VARIATION,false,0,0,0,false,false,false
+valid,8305adad-6917-4a01-b42f-845008fb3ad6,Dubai Drink,26CNLMEARP6PMQUXXVWA7ZHV,Dubai Drink,ITEM,false,0,0,0,false,false,false
+valid,1bd6e07f-9f20-414d-a99b-c8a089585027,Edamame Beans,GZNMN6QESBBHSAVST6WT7NWA,Edamame Beans,ITEM,false,0,0,0,false,false,false
+valid,aed97d97-4405-4565-af68-dafe9dc4a580,Egg Bites,YMHTUL2TIUZAZNDUDQFLZTIT,Egg Bites,ITEM,false,0,0,0,false,false,false
+valid,ff15e30d-245a-4448-a856-d12ef5ca7507,Elite Cold Pressed Juice,SOAFX3RSWP7RF5JQPPOEDWEH,Elite Naturel Cold Pressed Wild Red Smoothie,ITEM,false,0,0,0,false,true,true
+valid,7da8aaea-8c20-45b4-b5c3-6d1885881fa1,Elite Naturel Cold Pressed Fresh Green Smoothie ,SI2BY3LIBA452WTR67LVKMX6,Elite Naturel Cold Pressed Green Smoothie,ITEM_VARIATION,false,0,0,0,false,false,false
+valid,e380cacd-e195-41a6-b0d0-dcb64542d547,"Elite Naturel Cold Pressed Organic Wild Red Smoothie - 330 ml Bottle, 12x",4VRICXZ437USR65BZ6PG73PP,Elite Naturel Cold Pressed Wild Red Smoothie,ITEM_VARIATION,false,43,43,0,true,false,false
+valid,53d5542e-3563-4ee8-814d-477b1f022889,Elite Naturel Cold Pressed Tropic Sunset Smoothie,KX436I35C7W5FTR7GGM2OSEK,Elite Naturel Cold Pressed Tropic Sunset Smoothie,ITEM_VARIATION,false,0,0,0,false,false,false
+valid,476574e0-b393-471b-a79c-6cc2472506ee,Elite Naturel Cold Pressed Wild Red Smoothie,4VRICXZ437USR65BZ6PG73PP,Elite Naturel Cold Pressed Wild Red Smoothie,ITEM_VARIATION,false,43,43,0,true,false,false
+valid,e5eedb44-74f6-44d4-9881-d0f06b3f74bd,Empanada - Beef,6QTFJ3N6EIQQGVBKUDR37JCG,Empanada - Beef,ITEM_VARIATION,false,0,0,0,false,false,false
+valid,4d82375c-4c52-49a9-933d-0de836e1b398,Empanada - Chicken,LNTRJBDYEBF6IOW5FKNDRXS5,Empanada - Chicken,ITEM_VARIATION,false,0,0,0,false,false,false
+valid,e77bc017-37bb-4cb5-bdae-18a89ba62335,Empanada - Ham & Cheese,WMTHFDBBY4T4KRYZJ7NDI6T2,Empanada - Ham & Cheese,ITEM_VARIATION,false,0,0,0,false,false,false
+valid,50ac7480-422c-454e-a270-b4c3a5aa4fdd,Empanada - Spinach,ZAJEXVQY6IJVC6WUNZDRJN5K,Empanada - Spinach,ITEM_VARIATION,false,0,0,0,false,false,false
+valid,b3b67c64-1584-4077-aa6d-14734607bbbb,Everything Bagel,DQREMNMYOEZ3V76HYLLHWEP7,Everything Bagel,ITEM,false,0,0,0,false,true,true
+valid,5a32e599-3c45-4c13-954d-2245dedc235d,Fig Bar,EF77FEOKLRXM7PUONSDGGISY,Fig Bar,ITEM_VARIATION,false,38,1,37,true,false,false
+valid,687ebb6d-42b5-4c5c-8b3a-d2c415546de7,Gatorade - Assorted - 20 oz,CAVGF3LVEHY5B2JD5IDFCBZL,Gatorade - Assorted - 20 oz,ITEM_VARIATION,false,32,5,27,true,false,false
+valid,51bf78a7-a018-4bf3-b299-74ee0e60537e,Gatorade Zero - Assorted - 20 oz,P7BRUZJ6HLTO675QFJVX7X5J,Gatorade Zero - Assorted - 20 oz,ITEM_VARIATION,false,88,2,86,true,false,false
+invalid,78662d80-78f4-49ff-99d3-cde5e457d774,"Gatorade Zero Thirst Quencher Variety Pack 20 fl. oz., 24 pk.",manual-e1da7a20-b2b5-492f-a05e-12f08ddb874b,,,false,0,0,0,false,false,false
+valid,7009e14e-410a-4c5a-8f36-a6838a6b62e0,Granola Bar,N5RPVDND4PPWEWOQ7ITRPQP7,Granola Bar,ITEM,false,0,0,0,false,false,false
+invalid,a87d3a2e-2de3-429c-a731-29f42b79a8b5,"Great Value Heavy Whipping Cream, 32 oz Carton",manual-95110ed9-8247-4fe6-ae50-70a58d3c4e60,,,false,0,0,0,false,false,false
+invalid,65f2c99a-f9e5-4d8b-8c70-13149fbc5e27,"Half & Half, 32 FL OZ",manual-9b72ab8f-e169-47d3-a774-07f60f964515,,,false,0,0,0,false,false,false
+valid,ca8d5bd4-1ed2-4049-b6c1-61bcfde04403,Hershey’s Chocolate Milk,UNBJDWA2CEFFHRQUDWWIGEVW,Hershey’s Chocolate Milk,ITEM,false,0,0,0,false,false,false
+valid,e5e92f5c-0860-4679-966d-000c77bd3c92,Honest Kids Drink,S5WPSZOXVBZACGQ55DY4MAU6,Honest Kids Drink,ITEM,false,0,0,0,false,false,false
+valid,ebe0e5f6-35ec-4c03-9380-2776d3d3fdad,Honey Roasted Turkey,63RUCUS3JEQZMYOPCJ6Q7BYL,Honey Roasted Turkey Snack Pack,ITEM_VARIATION,false,0,0,0,false,false,false
+valid,303da4d2-dd8a-47b7-91c0-22dbe07e9aed,Humankind Apple Juice 10oz,4L6DDY5A2VM42PYY4OJRFYHO,AJ - Apple Juice Humankind,ITEM_VARIATION,false,14,14,0,true,false,false
+valid,fa4e9601-e3b8-481a-aece-dbfedf9b9160,Humankind Orange Juice 10oz,UEP2LDHGHTJMSFS54PWH4OC5,OJ - Orange Juice Humankind,ITEM_VARIATION,false,45,45,0,true,false,false
+valid,79bea440-4148-4d57-861d-7fa7a6bbd516,Ice Cream,7TZIVQYZHN4R4VFLS3Q7HXQU,Ice Cream,ITEM,false,0,0,0,false,true,true
+valid,fc257383-190c-45e1-9b88-3608faa0ac3c,Ice Cream - Cookie Dough,LII5ENTRTRTWXRUFKXRDG36J,Ice Cream - Cookie Dough,ITEM_VARIATION,false,5,0,5,true,false,false
+valid,5fac7f8a-9428-470e-bada-fcc09b9aaecd,Ice Cream - Salty O,RW3KLDWOVMBCTOINK7BSBPV5,Ice Cream - Salted O,ITEM_VARIATION,false,6,0,6,true,false,false
+valid,5b815cef-1d53-403c-8b04-801f400f9f1e,Ice Cream - Space Junkie,SNI2N4TYQXYPPNNP35TJSFVR,Ice Cream - Space Junkie,ITEM_VARIATION,false,11,0,11,true,false,false
+valid,0ff4430d-73b2-427d-b583-113d0ca6e773,Ice Cream - Vanilla,DFG7BF634TGDK7WAIZ7CEJOD,Ice Cream - Vanilla,ITEM_VARIATION,false,7,0,7,true,false,false
+valid,48774efc-305f-4eb9-bb94-829f981aed1d,Ice Cream (bulk) - Vegan Chocolate Salty O,3GD4BEMTCQLE24VSKSZHXG4Y,Ice Cream (bulk) - Vegan Chocolate Salty O - Pint,ITEM_VARIATION,false,4,0,4,true,false,false
+valid,62bdd208-d0b5-47b3-ae81-4e68ba67bd6b,Iced Apple Crisp NonDairy Cream Chai,74IWLLJEUJMZ573WLFO7GENK,Iced Apple Crisp NonDairy Cream Chai,ITEM,false,0,0,0,false,false,false
+valid,8ad45278-3580-44c5-914d-2f8fe1b19c80,Iced Brown Sugar Oat Shaken Espresso,EJ3KKCZIKIQQ5OE6A3IG6H3L,Iced Brown Sugar Oat Shaken Espresso - Tall,ITEM_VARIATION,false,9,1,8,true,false,false
+valid,ee35897a-a6de-4740-b3ca-b09842015ae6,Iced Pumpkin Cream Chai,TUTHNSAPIXEXCTTEMB2K5AZM,Iced Pumpkin Cream Chai - Tall,ITEM_VARIATION,false,9,3,6,true,false,false
+valid,d33f6616-cb94-432c-9915-64138fd11dc9,Izze Sparkling Water,WARZSMRSVCIEXCXXFQJASPES,Izze Sparkling Water,ITEM_VARIATION,false,20,0,20,true,false,false
+valid,ffa152a5-d5b8-4e81-ad29-3b00e0a224b5,Joyba Mango Passionfruit Bubble Tea - 12 oz,UOVT4DRMOKZYZNMGNSBAO5YU,Joyba Mango Passionfruit Bubble Tea - 12 oz,ITEM,false,0,0,0,false,true,true
+valid,eae85825-56a7-4309-8533-4e1995917a57,"Joyba Mango Passionfruit Green Tea Bubble Tea, 12 fl oz (Pack of 4)",7GJ4R22WSOTH7UVRGEXTRBDE,Joyba Mango Passionfruit Bubble Tea - 12 oz,ITEM_VARIATION,false,68,16,52,true,false,false
+valid,298f79ba-861d-4077-ba4b-4359b2b2a0b5,"Joyba Raspberry Dragonfruit Black Tea Bubble Tea, 12 fl oz Cup (Pack of 4)",SKINQVQXR46H6PIZ7K623LAK,Joyba Raspberry Dragonfruit Bubble Tea - 12 oz,ITEM_VARIATION,false,0,0,0,false,false,false
+valid,8e474d0a-56e5-4441-be94-a5936ac529df,Joyba Strawberry Lemonade Bubble Tea - 12 oz,JJM43APHHVFJVMWGCIIKEI4Y,Joyba Strawberry Lemonade Bubble Tea - 12 oz,ITEM,false,0,0,0,false,true,true
+valid,b37381c8-fa41-473e-b172-4282e28650bf,"Joyba Strawberry Lemonade Green Tea Bubble Tea, 12 fl oz Cup (Pack of 4)",6YQBQNY2M4SX4VZ7LDX4EBIK,Joyba Strawberry Lemonade Bubble Tea - 12 oz,ITEM_VARIATION,false,18,6,12,true,false,false
+valid,145b56bb-10ed-464f-95e3-5185a616f25d,Kind Bar,FMXCM3IVS3Q7Q4XQVYVI27R5,Kind Bar,ITEM_VARIATION,false,44,4,40,true,false,false
+valid,bc00f39e-a2e3-4b3b-aef0-c68c5bb10411,Kind Bar Mini,2HJT4BQHOEDUHA7VCOAWUMBZ,Kind Bar Mini,ITEM_VARIATION,false,43,7,36,true,false,false
+invalid,0b6e946d-7adf-4ec4-a7cf-e4213e915890,LaCroix Sprkilng Water Can Pure 8/12 FO,manual-888e9c0a-a82a-481c-842d-dc8506896038,,,false,0,0,0,false,false,false
+valid,74d7f0e1-6cb9-42ae-a0c7-9206bd6e5ae8,Lemon Poppy Muffin,JP7VN75QTOS5ZX2TMYXJHSHF,Lemon Poppy Muffin,ITEM_VARIATION,false,0,0,0,false,false,false
+invalid,9795f85c-5da8-48b7-bbde-62b596385cd2,Lotus Power Up Energy Concentrate 1/2 Gallon,manual-583bb546-35ba-402a-bc89-182b6a3876d4,,,false,0,0,0,false,false,false
+invalid,7660eefa-b0a5-4d22-9c39-59aafb85d07c,Lotus White Energy Concentrate 1/2 Gal,manual-f1451bd6-78ce-4c24-9564-1d2b8c25af47,,,false,0,0,0,false,false,false
+valid,6e9cbddd-9094-4661-98c7-0a0a307d1ecc,Mango & Strawberry Smoothie,BKF4XJT35GO24HCUIWYUDDTV,Mango & Strawberry Smoothie - Tall,ITEM_VARIATION,false,5,0,5,true,false,false
+valid,c12e0db3-04bb-4b75-98bc-889f96039520,"Marketside Caesar Salad with Chicken, 6.25 oz Bowl (Fresh)",NYTCOOX56RSEURR32XXUY7NP,Caesar Salad with Chicken,ITEM_VARIATION,false,2,2,0,true,false,false
+valid,98102034-c722-4b46-8b9d-afb50ba51dea,"Marketside Cobb Salad with Turkey & Bacon, 7.25 oz Bowl (Fresh)",ZC2MCANPY6XSYYLO6A7I2UBJ,Cobb Salad with Turkey & Bacon,ITEM_VARIATION,false,1,1,0,true,false,false
+valid,9dc75232-b2ca-48ac-8f3a-5eeceb75bfd3,"Member's Mark Everything Sliced Bagels, 6 ct.",Q5F7LUGK5EN4ZKRRKIJZOWY3,Everything Bagel,ITEM_VARIATION,false,30,30,0,true,false,false
+valid,573a285f-fcd4-4e52-8ed1-092118160c9a,"Member's Mark Plain Sliced Bagels, 6 ct.",L2DTBZ7CI6GWC7B26VCQAEID,Plain Bagel,ITEM_VARIATION,false,26,26,0,true,false,false
+valid,0f211e2d-2c65-4f6a-8380-e3ad53fa9c85,Mini Danish,EBMUUXZVYNERLCRTCBWGUQYY,Mini Danish,ITEM,false,0,0,0,false,true,true
+valid,84d0866f-dac4-4619-bd79-b2c1a40b99ea,Mini Soda Can - assorted,7AQ2O7CEJT2753WSQZSPJ5RF,Mini Soda Can - assorted,ITEM_VARIATION,false,84,2,82,true,false,false
+valid,cacf1457-c60b-4dcb-95fb-17c973c647ba,Nitro Cold Brew w/ Vanilla Sweet Cream Cold Foam,SNPIMQHBIDY62LJ4MJ43M2I5,Nitro Cold Brew w/ Vanilla Sweet Cream Cold Foam,ITEM,false,0,0,0,false,false,false
+valid,24613a4e-5547-4a63-b970-86605788f080,Oatmeal,KOI3OOGMIZZ5B5L3PTK3WP3Z,Oatmeal,ITEM,false,0,0,0,false,false,false
+valid,ad5278aa-1aa1-4c10-b81d-fd133e0c4237,OJ - Orange Juice Humankind,MUZVA7CLVLC75TPPXMYZ5TY4,OJ - Orange Juice Humankind,ITEM,false,0,0,0,false,true,true
+valid,eff84198-0821-458e-a7b5-18a1575f905e,Orange Creamsicle Lotus,6OQVDJKQMOVGQK3PHN6EJS3I,Orange Creamsicle Lotus - King,ITEM_VARIATION,false,14,0,14,true,false,false
+invalid,497ce95b-8bbc-4831-a422-70a5ce0a51e5,Pacific Barista Almond Milk 32oz,manual-0c11445f-246d-4a3d-b745-bcf22fe8f7a4,,,false,0,0,0,false,false,false
+invalid,5a0452c3-a442-4e86-b6fb-bf6c88fcfa48,Pacific Barista Coconut Milk 32oz,manual-a51a305d-267a-40e7-8d24-5a134b3bb5e0,,,false,0,0,0,false,false,false
+valid,59015697-01aa-4b6f-8851-db227a994177,Patter Bar Blueberry Lemon,RFPWFCBLFT6PY5TSPG6JRM3U,Patter Bar Blueberry Lemon,ITEM,false,0,0,0,false,true,true
+valid,16679077-ab81-46e0-a177-ae10c8343102,Patter Bar Chocolate Banana,ROO7MJMABDC4LA3MVZXJUODP,Patter Bar Chocolate Banana,ITEM,false,0,0,0,false,true,true
+valid,60e32ad7-5d51-4c22-b763-a232edd8649c,Patterbar Blueberry Lemon,B6YZ6CJR66KB6WJ5H2TFQXOL,Patter Bar Blueberry Lemon,ITEM_VARIATION,false,15,15,0,true,false,false
+valid,aad507be-d183-4101-b793-9d5ab820b69c,Patterbar Chocolate Banana,7AL2QYLITWI2JBYBRAF3PMD5,Patter Bar Chocolate Banana,ITEM_VARIATION,false,11,11,0,true,false,false
+invalid,19cc1748-a846-4cb3-a12a-f5be3796f9a6,"Philadelphia Original Cream Cheese Spread, 16 oz",manual-37b84ff6-e495-4172-af53-10618cbebc8f,,,false,0,0,0,false,false,false
+valid,55ce419f-c790-4e77-9d4f-e98bc332e4ef,Pistachios,SBDQ3KG4KGZZFY477C7CIRMO,Pistachios,ITEM,false,0,0,0,false,false,false
+valid,68e69bc4-f361-4cea-bb52-d33cdcae3568,"Pistachios, Roasted & Salted, 1.5 oz",27LL3LC4BY4U5PW5TCID6L3T,"Pistachios, Roasted & Salted, 1.5 oz",ITEM_VARIATION,false,0,0,0,false,false,false
+valid,cc3a54b6-34a3-4f32-bb48-e757b65ae1a7,Plain Bagel,DCVOYH735ZSQFOSSUD4BRHDT,Plain Bagel,ITEM,false,0,0,0,false,true,true
+valid,0c285639-33e4-4d1d-bfa3-f6f5ce9fd957,Pumpkin Cream Cold Brew,TVCIQEYBKIILRGC4M4CJNSLU,Pumpkin Cream Cold Brew - Tall,ITEM_VARIATION,false,1,0,1,true,false,false
+valid,64164c03-2cff-482f-bdf3-4fad57bb71a9,Pure Life Purified Water 16.9 oz,GQYBV3WA3KHX3BQPUB2PDJFL,Pure Life Purified Water 16.9 oz,ITEM_VARIATION,false,280,20,260,true,false,false
+valid,2fcf7bb7-67a4-47ab-a815-18bc9cf9a2e8,Quart - Ice Cream,D5ZAN4LW6L5FRB5XAMFWY6XZ,Quart - Ice Cream,ITEM,false,0,0,0,false,false,false
+valid,e82700fd-daa6-4636-bce0-4ff3b3ff350f,Quinoa Salad,B6D4VEJNWEO3O6WXNHN4NRM7,Quinoa Salad,ITEM,false,0,0,0,false,false,false
+valid,b7c15ca7-95ef-43ce-b1ab-331d4dce2418,Raspberry Croissant,5RVXX2O2ZBL4K2OSF3N4KRDL,Raspberry Croissant,ITEM_VARIATION,false,82,4,78,true,false,false
+valid,4f126b26-d521-4221-a744-78202043fdbc,Red Bull 8.4,4WDNNM46FRJ2RZNKUXPYSREM,Red Bull 8.4,ITEM,false,0,0,0,false,false,false
+valid,1a464cd3-e620-4ff9-86ad-df6af637b7e1,"Red Bull Energy 8.4 fl. oz., 24 pk.",AIPTWAA54N2BPDCQI47IOOCW,Red Bull 8.4,ITEM_VARIATION,false,0,0,0,false,false,false
+valid,f92f50df-edcf-49f4-b7d5-80a67c347c85,Rice Krispy,FWKNJAN3RBUZFXQYKKU2NBGC,Rice Krispy,ITEM,false,0,0,0,false,false,false
+valid,1ab24d64-7b67-4bbc-ba74-488b9ba3be2e,Rich Brownies - Crack Brownie,Q2RN4JEWPCFCLAPS3T7BH5OO,Rich Brownies - Crack Brownie,ITEM_VARIATION,false,55,5,50,true,false,false
+valid,ad74b505-f330-4cad-af1e-df2f2a756c23,Rich Brownies - M&M Brownie,QYRXKXU6ZYBW7RHRJJJVB6LE,Rich Brownies - M&M Brownie,ITEM_VARIATION,false,35,2,33,true,false,false
+valid,e010aac2-c760-480b-89ef-6676a02fa1f5,"Sammie - Bacon, Egg & Cheese Sandwich, 6ct",QUR57YMNJA5OX6NVZP3SMQGC,Sammies Bacon Sandwich,ITEM_VARIATION,false,31,8,23,true,false,false
+valid,8d651304-7579-4772-96d4-77af49b739e0,"Sammie - Egg & Cheese Sandwich, 6ct",2H3IEWLM5G4UOICQYW6I2TS3,Sammies Egg & Cheese Sandwich,ITEM_VARIATION,false,29,10,19,true,false,false
+valid,cc90664c-d8da-4610-a00c-93c72a537141,"Sammie - Sausage, Egg & Cheese Sandwich, 6ct",2R5MFQEV7G54P6FNHURIQMWW,Sammies Sausage Sandwich,ITEM_VARIATION,false,36,15,21,true,false,false
+valid,a3183cdb-c159-49f2-ae09-bd5273b08f05,Sammies Bacon Sandwich,5WVBDQXFTQK44BN474EL657I,Sammies Bacon Sandwich,ITEM,false,0,0,0,false,true,true
+valid,cb63bf81-4202-4a65-8b3a-ce1dbf656ce1,Sammies Egg & Cheese Sandwich,XJREZD5OXCVXOSQYDBIEV5VL,Sammies Egg & Cheese Sandwich,ITEM,false,0,0,0,false,true,true
+valid,68bf954a-e6b5-4b5f-89e7-63a8f5dd809c,Sammies Gluten Free Sandwich,RD22GCGLECXGARICS2QORORW,Sammies Gluten Free Sandwich,ITEM_VARIATION,false,1,0,1,true,false,false
+valid,a45a6370-e07e-4173-a8b5-cbde29aaaf3e,Sammies Sausage Sandwich,FAJ3SHJE3B7E2WKIQBB24B4P,Sammies Sausage Sandwich,ITEM,false,0,0,0,false,true,true
+valid,87fe2253-f5ab-4bf8-921f-bcf9c27f6c51,Sammies Turkey Sandwich,KIWO4CK3X4FBW5LACA4UNGRU,Sammies Turkey Sandwich,ITEM_VARIATION,false,19,0,19,true,false,false
+valid,fc8bbbd9-553c-4ca9-bd88-f2c4acabf715,Savory Croissant,W72WWTJYSGQEHLRX54NMMHNP,Savory Croissant,ITEM_VARIATION,false,55,0,55,true,false,false
+valid,aac9b7bc-e8ff-42a5-b23e-0c01208c5e7f,Savory Croissant - Bacon Egg & Cheese,Q6WH5QNKIJTKP45C7RPYTF53,Savory Croissant - Bacon Egg & Cheese,ITEM_VARIATION,false,43,39,4,true,false,false
+valid,9e582b49-a9cc-4daa-9397-f08964211bc9,"Savory Croissant - Bacon Egg & Cheese, 4pk",Q6WH5QNKIJTKP45C7RPYTF53,Savory Croissant - Bacon Egg & Cheese,ITEM_VARIATION,false,43,39,4,true,false,false
+valid,69a8648c-eca0-44c4-899a-79d0542ed98d,Savory Croissant - Ham & Cheese,N73XQD37SCUNMONYKUUEMQAM,Savory Croissant - Ham & Cheese,ITEM_VARIATION,false,33,30,3,true,false,false
+valid,f2d8f297-7eb9-4d9b-8baa-e6ca65ec8d60,"Savory Croissant - Ham & Cheese, 4pk",N73XQD37SCUNMONYKUUEMQAM,Savory Croissant - Ham & Cheese,ITEM_VARIATION,false,33,30,3,true,false,false
+valid,5056ec28-c4d8-4e27-9c2e-d863ccec1bbe,Savory Croissant - Spicy Egg & Cheese,MXUV2JJP2DLFEJISUVRUGTBV,Savory Croissant - Spicy Egg & Cheese,ITEM_VARIATION,false,8,5,3,true,false,false
+valid,9a0fc661-f43d-4018-8a2a-5d88fb70b443,"Savory Croissant - Spicy Egg & Cheese, 4pk",MXUV2JJP2DLFEJISUVRUGTBV,Savory Croissant - Spicy Egg & Cheese,ITEM_VARIATION,false,8,5,3,true,false,false
+valid,febc4aa4-8bf7-4430-8b9d-eef33bffec30,Scone,ZO6KMO4MWOWOUTJC74LXZL7A,Scone,ITEM,false,0,0,0,false,false,false
+invalid,53081ec1-8357-499d-a0a7-0be94a77f555,"Simply Non GMO All Natural Lemonade Juice, 52 fl oz Bottle",manual-beb6dfc6-1660-4f30-87cc-f9817a2e6585,,,false,0,0,0,false,false,false
+valid,1e3ed929-247b-40e0-b8f5-8dd879052ec0,Smart Water - 1L Bottle,KHNRZB3E3T2UEPQX6UVRWT5F,Smart Water - 1L Bottle,ITEM_VARIATION,false,188,16,172,true,false,false
+valid,50739250-0cfa-445e-b5e9-b940aee2eaf6,Snickerdoodle Cookie,N4RHIPJPBE2GWM2KU2IYUGXL,Snickerdoodle Cookie,ITEM_VARIATION,false,52,4,48,true,false,false
+invalid,f71d01e4-51bc-4d56-bb68-aafe117d3e78,Starbucks 12540222 1 lbs. Bag Decaffeinated Whole Bean Coffee - Pike Place,manual-4979bb87-338e-4abb-b033-8a4a3e306e4e,,,false,0,0,0,false,false,false
+invalid,84108e6a-e467-4508-8ded-5232c831f211,"Starbucks Espresso Roast Dark, 40 oz.",manual-17b04cc9-ba24-46cb-a48d-394c421a75ce,,,false,0,0,0,false,false,false
+invalid,e96a26f5-e65e-4040-ba75-7948c3aecda6,Starbucks SBK12540222CT 1 lbs. Bag Decaffeinated Whole Bean Coffee - Pike Place (6/Carton),manual-1d900716-55be-4c77-bf83-ced4b19acf95,,,false,0,0,0,false,false,false
+invalid,468ac64a-b9f4-4742-85de-3c67ce384cb1,Starbucks SBK12540222CT 1 lbs. Bag Decaffeinated Whole Bean Coffee - Pike Place (6/Carton),manual-bf2f5443-b269-4fcf-9f54-ad798f4b7038,,,false,0,0,0,false,false,false
+invalid,e0632a5d-ee41-4e5e-8439-272217cf3e2b,"Starbucks Signature Black Coffee, Bottled Cold Brew Coffee Concentrate Drink, 32 fl oz",manual-7cc876fa-c8f3-451a-8908-46b1697052cb,,,false,0,0,0,false,false,false
+valid,2c4cd049-b179-47be-83b9-af7f915f60a4,Steamed Milk,YZ5H6LK6LB7LPS5QDYLH7GZV,Steamed Milk - Tall,ITEM_VARIATION,false,2,0,2,true,false,false
+valid,1ea7d5c6-fb5f-468e-a96a-1c06821a729a,Strawberry Acai,6M6B2DC33TWXYBV7DBKC4Q5D,Strawberry Acai - Tall,ITEM_VARIATION,false,19,1,18,true,false,false
+valid,2c9336d3-0269-4e0b-a3f5-ba478de5a53c,Strawberry Frappuccino,7GZTLYBBN4GGWHECKR2HBW2B,Strawberry Frappuccino - Tall,ITEM_VARIATION,false,5,0,5,true,false,false
+valid,4b6f89b3-3032-4b12-8f49-e0d87baed747,Strawberry Smoothie,EBDT45J4RJWPQPFXYPC3DRV7,Strawberry Smoothie - Tall,ITEM_VARIATION,false,18,1,17,true,false,false
+invalid,65aa5e58-01fc-45b6-a76d-6602bf1bf537,"TAZO Classic Chai Latte Black Tea Concentrate, Made from Real Black Tea, 32oz Carton",manual-1c0ce235-03d4-4f55-871f-361de004412d,,,false,0,0,0,false,false,false
+valid,30df1b95-84f6-49c1-a2aa-779d35084728,Topo Chico,EGGX7BTQ3UTTIPQYHNJUACCH,Topo Chico,ITEM,false,0,0,0,false,false,false
+invalid,5d481c37-8d0d-47fd-af89-880b3827dbc8,"Topo Chico Twist of Lime Sparkling Mineral Water 16.9 fl. oz., 18 pk.",manual-d4c93ad2-382e-4867-8952-3cb6880b9440,,,false,0,0,0,false,false,false
+invalid,a6b2e0fc-ce6b-4e55-a4e0-828b3d2955fa,"Torani Coconut Syrup, 750ml",manual-e18cd601-9132-4aa9-8d19-6a41c2ce7d9a,,,false,0,0,0,false,false,false
+invalid,5772f7a9-121e-4970-94fb-52d03792891f,Torani Vanilla Bean Syrup 1L,manual-75fb5349-dcdd-4d97-a9b3-f4ddc5897ca1,,,false,0,0,0,false,false,false
+invalid,ffbe4d94-012c-4c12-8378-051284e0a5ee,Torani Vanilla Syrup 1L Plastic Bottle,manual-c2910c94-be40-4f53-b03e-c37b84f54521,,,false,0,0,0,false,false,false
+invalid,66a4916f-3d29-4547-ba45-8dd7bdebb418,"Torani Vanilla Syrup, 1L",manual-6b6fb034-f2ae-4a2e-b448-ca1f56b6fb59,,,false,0,0,0,false,false,false
+valid,bcce7202-322f-446a-bdc7-b4391c8de6cd,Trail Mix,GGTV3TAB47WM7KQKF2D5QQGK,Trail Mix,ITEM,false,0,0,0,false,false,false
+valid,d5252f73-4545-4b6f-9d3d-01bdae270918,"V8 +Energy Pomegranate Blueberry Energy Drink, Made with Real Vegetable and Fruit Juices",5OVVKQ25WRBQN3E6KFC6C3ZO,"V8 +Energy Pomegranate Blueberry Energy Drink, Made with Real Vegetable and Fruit Juices",ITEM,false,0,0,0,false,false,false
+valid,883ddbe9-843f-47d7-9e32-00ae68492b87,Vanilla Bean Frappuccino,ECXPRKCYGHTI2NQ5ABQAQG6H,Vanilla Bean Frappuccino - Tall,ITEM_VARIATION,false,18,2,16,true,false,false
+valid,75f98829-376e-4e25-856e-ed11ebd1039b,Vanilla Latte,3ZKZYP2HYWA7N74DWVF55ID7,Vanilla Latte - Tall,ITEM_VARIATION,false,32,2,30,true,false,false
+valid,1df62cf4-3091-489a-9f88-e362a0e9b994,Vegan cream cheese 1.5oz,NSIHZOF4FOVOSW5NJTVMCF6L,Vegan cream cheese 1.5oz,ITEM,false,0,0,0,false,false,false
+valid,b5fe730b-73ca-49de-bae8-089c49fac724,Waterloo - Sparkling Water - Assorted - 12 oz,IHICI3U3ZVOBCG75JFMMABGQ,Waterloo - Sparkling Water - Assorted - 12 oz,ITEM_VARIATION,false,12,0,12,true,false,false
+invalid,247b9b4c-d108-4a46-b3a0-3e38d980cba7,Whole Vitamin D Milk,manual-b4cfb4a7-7e34-4f9e-a7f1-437b5605176e,,,false,0,0,0,false,false,false
+valid,4d2cc4a8-ccf4-4a20-9057-70dbdabe4183,"Wonderful Pistachios, Roasted and Salted 1.5 oz., 24 pk.",27LL3LC4BY4U5PW5TCID6L3T,"Pistachios, Roasted & Salted, 1.5 oz",ITEM_VARIATION,false,0,0,0,false,false,false

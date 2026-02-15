@@ -325,6 +325,7 @@ export async function POST(request: NextRequest) {
       const { data: invRows } = await supabase
         .from('inventory_items')
         .select('id, pack_size')
+        .eq('tenant_id', tenantId)
         .in('id', inventoryIds)
       const typedRows = (invRows || []) as Array<{ id: string; pack_size: number | null }>
       typedRows.forEach(row => {

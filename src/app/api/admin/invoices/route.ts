@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
-import { createCurrentTenantClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { cookies } from 'next/headers'
 
 type TextQueue =
   | 'all'
@@ -74,7 +75,11 @@ export async function GET(request: NextRequest) {
     const end_date = searchParams.get('end_date')
     const text_queue = (searchParams.get('text_queue') as TextQueue) || 'all'
 
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
+
+    // Get tenant ID from cookie
+    const cookieStore = await cookies()
+    const tenantId = cookieStore.get('x-tenant-id')?.value || '00000000-0000-0000-0000-000000000001'
     const filters: FilterParams = { status, supplier_id, start_date, end_date }
 
     const columns = `
@@ -101,6 +106,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from('invoices')
       .select(columns, { count: 'exact' })
+      .eq('tenant_id', tenantId)
 
     query = applyBaseFilters(query, filters)
     query = applyTextQueueFilter(query, text_queue)
@@ -209,12 +215,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
+
+    // Get tenant ID from cookie
+    const cookieStore = await cookies()
+    const tenantId = cookieStore.get('x-tenant-id')?.value || '00000000-0000-0000-0000-000000000001'
 
     // Check for duplicate invoice
     const { data: existingInvoice } = await supabase
       .from('invoices')
       .select('id')
+      .eq('tenant_id', tenantId)
       .eq('supplier_id', supplier_id)
       .eq('invoice_number', invoice_number)
       .single()
@@ -230,6 +241,7 @@ export async function POST(request: NextRequest) {
     const { data: newInvoice, error } = await supabase
       .from('invoices')
       .insert({
+        tenant_id: tenantId,
         supplier_id,
         invoice_number,
         invoice_date,

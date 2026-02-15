@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
-import { createCurrentTenantClient, createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const ALLOWED_FILE_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp']
@@ -63,7 +63,7 @@ export async function GET(
       )
     }
 
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
 
     const { data, error } = await supabase
       .from('purchase_order_attachments')
@@ -152,7 +152,7 @@ export async function POST(
       )
     }
 
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
 
     const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
     const storagePath = `${orderId}/${Date.now()}_${sanitizedName}`

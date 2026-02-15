@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createCurrentTenantClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 
 export async function POST(
   request: NextRequest,
@@ -22,7 +22,7 @@ export async function POST(
       }, { status: 400 })
     }
 
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
 
     // Create new inventory item
     const { data: newItem, error: createError } = await supabase

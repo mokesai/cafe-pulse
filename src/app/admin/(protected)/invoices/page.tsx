@@ -1,15 +1,16 @@
-import { requireAdmin } from '@/lib/admin/auth'
-import { InvoiceManagement } from '@/components/admin/InvoiceManagement'
+'use client'
 
-export const metadata = {
-  title: 'Invoice Import - Little Cafe Admin',
-  description: 'AI-powered invoice import and order matching system',
-}
+import dynamic from 'next/dynamic'
 
-export default async function AdminInvoicesPage() {
-  // Ensure user has admin access
-  await requireAdmin()
+const InvoiceManagement = dynamic(
+  () => import('@/components/admin/InvoiceManagement').then(mod => mod.InvoiceManagement),
+  {
+    loading: () => <div>Loading invoices...</div>,
+    ssr: false
+  }
+)
 
+export default function AdminInvoicesPage() {
   return (
     <div>
       <InvoiceManagement />

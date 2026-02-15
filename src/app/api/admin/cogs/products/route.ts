@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
+import { cookies } from 'next/headers'
 
 function normalizeText(value: unknown) {
   return typeof value === 'string' ? value.trim() : ''
@@ -13,10 +14,15 @@ export async function GET(request: NextRequest) {
   const url = new URL(request.url)
   const includeInactive = url.searchParams.get('includeInactive') === '1'
 
+  // Get tenant ID from cookie
+  const cookieStore = await cookies()
+  const tenantId = cookieStore.get('x-tenant-id')?.value || '00000000-0000-0000-0000-000000000001'
+
   const supabase = createServiceClient()
   let query = supabase
     .from('cogs_products')
     .select('id, square_item_id, name, category, is_active, product_code, created_at, updated_at')
+    .eq('tenant_id', tenantId)
     .order('name', { ascending: true })
 
   if (!includeInactive) {
@@ -49,10 +55,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'square_item_id and name are required' }, { status: 400 })
   }
 
+  // Get tenant ID from cookie
+  const cookieStore = await cookies()
+  const tenantId = cookieStore.get('x-tenant-id')?.value || '00000000-0000-0000-0000-000000000001'
+
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('cogs_products')
     .insert([{
+      tenant_id: tenantId,
       square_item_id: squareItemId,
       name,
       category,

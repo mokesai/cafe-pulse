@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
-import { createCurrentTenantClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { PURCHASE_ORDER_TEMPLATE_TYPE } from '@/lib/purchase-orders/templates'
 
 export async function GET(
@@ -20,7 +20,7 @@ export async function GET(
   }
 
   try {
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
     const { data: template, error } = await supabase
       .from('supplier_email_templates')
       .select('*')
@@ -84,7 +84,7 @@ export async function PUT(
       )
     }
 
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
 
     const { data: existingTemplate, error: loadError } = await supabase
       .from('supplier_email_templates')

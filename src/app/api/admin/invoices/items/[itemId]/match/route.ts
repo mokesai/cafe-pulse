@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/admin/middleware'
-import { createCurrentTenantClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 
 interface RouteContext {
   params: Promise<{ itemId: string }>
@@ -31,7 +31,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
       )
     }
 
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
 
     // Verify the invoice item exists
     const { data: invoiceItem, error: fetchError } = await supabase
@@ -127,7 +127,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 
     const resolvedParams = await context.params
     const { itemId } = resolvedParams
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
 
     // Remove the match from the invoice item
     const { data: updatedItem, error: updateError } = await supabase

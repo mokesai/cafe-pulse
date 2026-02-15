@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
-import { createCurrentTenantClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 
 export async function PATCH(
   request: NextRequest,
@@ -23,7 +23,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'is_excluded must be boolean' }, { status: 400 })
     }
 
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
 
     const { data: updated, error } = await supabase
       .from('purchase_order_items')

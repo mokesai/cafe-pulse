@@ -1,10 +1,16 @@
-import { requireAdmin } from '@/lib/admin/auth'
-import { CustomersManagement } from '@/components/admin/CustomersManagement'
+'use client'
 
-export default async function AdminCustomersPage() {
-  // Ensure user is admin (will redirect if not)
-  await requireAdmin()
+import dynamic from 'next/dynamic'
 
+const CustomersManagement = dynamic(
+  () => import('@/components/admin/CustomersManagement').then(mod => mod.CustomersManagement),
+  {
+    loading: () => <div>Loading customers...</div>,
+    ssr: false
+  }
+)
+
+export default function AdminCustomersPage() {
   return (
     <div>
       <div className="mb-8">

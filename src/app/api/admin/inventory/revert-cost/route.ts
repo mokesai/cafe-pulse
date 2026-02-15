@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
-import { createCurrentTenantClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 
 export async function POST(request: NextRequest) {
   const auth = await requireAdminAuth(request)
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'target_cost must be a non-negative number' }, { status: 400 })
   }
 
-  const supabase = await createCurrentTenantClient()
+  const supabase = createServiceClient()
 
   const { data: existing, error: fetchError } = await supabase
     .from('inventory_items')

@@ -1,0 +1,12 @@
+slug,name,screen,position,sort_order,color
+hot-drinks,Hot Drinks,drinks,top-left,1,
+espressos,Espressos,drinks,top-right,2,
+cold-drinks,Cold Drinks,drinks,bottom-left,3,
+blended,Blended,drinks,bottom-right,4,
+frappuccinos-coffee,Frappuccinos - Coffee,drinks,right,5,
+frappuccinos-creme,Frappuccinos - Crème (Coffee-Free),drinks,right,6,
+refreshers,Refreshers,drinks,middle-right,7,
+breakfast,Breakfast,food,top-left,1,
+pastries,Pastries,food,top-right,2,
+sandwiches,Sandwiches,food,bottom-left,3,
+snacks,Snacks,food,bottom-right,4,

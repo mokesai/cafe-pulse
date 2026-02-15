@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
 
@@ -181,11 +182,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'end_at must be after start_at' }, { status: 400 })
   }
 
+  // Get tenant ID from cookie
+  const cookieStore = await cookies()
+  const tenantId = cookieStore.get('x-tenant-id')?.value || '00000000-0000-0000-0000-000000000001'
+
   const supabase = createServiceClient()
 
   const { data: priorPeriods, error: priorError } = await supabase
     .from('cogs_periods')
     .select('id, end_at')
+    .eq('tenant_id', tenantId)
     .eq('status', 'closed')
     .lt('end_at', start.toISOString())
     .order('end_at', { ascending: false })
@@ -201,6 +207,7 @@ export async function GET(request: NextRequest) {
     const { data: report, error: reportError } = await supabase
       .from('cogs_reports')
       .select('end_inventory_value')
+      .eq('tenant_id', tenantId)
       .eq('period_id', priorPeriodId)
       .maybeSingle()
     if (reportError) return NextResponse.json({ error: reportError.message }, { status: 500 })
@@ -210,6 +217,7 @@ export async function GET(request: NextRequest) {
   const { data: inventoryItems, error: invError } = await supabase
     .from('inventory_items')
     .select('current_stock, unit_cost')
+    .eq('tenant_id', tenantId)
     .is('deleted_at', null)
 
   if (invError) return NextResponse.json({ error: invError.message }, { status: 500 })
@@ -223,6 +231,7 @@ export async function GET(request: NextRequest) {
   const { data: invoices, error: invoiceError } = await supabase
     .from('invoices')
     .select('total_amount, invoice_date, confirmed_at, status')
+    .eq('tenant_id', tenantId)
     .eq('status', 'confirmed')
 
   if (invoiceError) return NextResponse.json({ error: invoiceError.message }, { status: 500 })
@@ -263,6 +272,7 @@ export async function GET(request: NextRequest) {
   const { data: txs, error: txError } = await supabase
     .from('sales_transactions')
     .select('id, ordered_at')
+    .eq('tenant_id', tenantId)
     .gte('ordered_at', startIso)
     .lte('ordered_at', endIso)
 
@@ -313,12 +323,14 @@ export async function GET(request: NextRequest) {
     const { data: sellablesData, error: sellablesError } = await supabase
       .from('cogs_sellables')
       .select('id, square_variation_id, product_id, name')
+      .eq('tenant_id', tenantId)
       .eq('is_active', true)
     if (sellablesError) return NextResponse.json({ error: sellablesError.message }, { status: 500 })
 
     const { data: aliasesData, error: aliasesError } = await supabase
       .from('cogs_sellable_aliases')
       .select('square_variation_id, sellable_id, valid_from, valid_to')
+      .eq('tenant_id', tenantId)
     if (aliasesError) return NextResponse.json({ error: aliasesError.message }, { status: 500 })
 
     const sellableByVariation = new Map<string, { id: string; product_id: string; name: string }>()
@@ -341,6 +353,7 @@ export async function GET(request: NextRequest) {
     const { data: productRecipes, error: recipesError } = await supabase
       .from('cogs_product_recipes')
       .select('id, product_id, effective_from, effective_to, yield_qty, yield_unit')
+      .eq('tenant_id', tenantId)
       .in('product_id', productIds.length ? productIds : ['00000000-0000-0000-0000-000000000000'])
     if (recipesError) return NextResponse.json({ error: recipesError.message }, { status: 500 })
 
@@ -373,6 +386,7 @@ export async function GET(request: NextRequest) {
     const { data: overrides, error: overridesError } = await supabase
       .from('cogs_sellable_recipe_overrides')
       .select('id, sellable_id, effective_from, effective_to')
+      .eq('tenant_id', tenantId)
       .in('sellable_id', sellableIds.length ? sellableIds : ['00000000-0000-0000-0000-000000000000'])
     if (overridesError) return NextResponse.json({ error: overridesError.message }, { status: 500 })
 
@@ -409,6 +423,7 @@ export async function GET(request: NextRequest) {
     const { data: modifierOptionsData, error: modifierOptionsError } = await supabase
       .from('cogs_modifier_options')
       .select('id, square_modifier_id, name')
+      .eq('tenant_id', tenantId)
     if (modifierOptionsError) return NextResponse.json({ error: modifierOptionsError.message }, { status: 500 })
 
     const modifierOptionBySquareId = new Map<string, { id: string; name: string }>()
@@ -420,6 +435,7 @@ export async function GET(request: NextRequest) {
     const { data: modRecipes, error: modRecipesError } = await supabase
       .from('cogs_modifier_option_recipes')
       .select('id, modifier_option_id, effective_from, effective_to')
+      .eq('tenant_id', tenantId)
       .in('modifier_option_id', modifierOptionIds.length ? modifierOptionIds : ['00000000-0000-0000-0000-000000000000'])
     if (modRecipesError) return NextResponse.json({ error: modRecipesError.message }, { status: 500 })
 
@@ -470,6 +486,7 @@ export async function GET(request: NextRequest) {
       const { data: chunkInv, error: invErr2 } = await supabase
         .from('inventory_items')
         .select('id, unit_cost, unit_type')
+        .eq('tenant_id', tenantId)
         .in('id', chunk)
       if (invErr2) return NextResponse.json({ error: invErr2.message }, { status: 500 })
       for (const row of chunkInv ?? []) invRows.push(row as unknown as (typeof invRows)[number])
@@ -604,6 +621,7 @@ export async function GET(request: NextRequest) {
     const { data: wasteMoves, error: wasteError } = await supabase
       .from('stock_movements')
       .select('inventory_item_id, quantity_change, unit_cost, created_at, movement_type')
+      .eq('tenant_id', tenantId)
       .eq('movement_type', 'waste')
       .gte('created_at', startIso)
       .lte('created_at', endIso)

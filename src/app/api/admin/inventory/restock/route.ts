@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
-import { createCurrentTenantClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
 
     console.log('Restocking inventory item:', inventory_item_id, 'quantity:', quantity)
 
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
 
     // Get current inventory item
     const { data: currentItem, error: fetchError } = await supabase

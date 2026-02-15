@@ -1,38 +1,48 @@
 import { NextResponse } from 'next/server'
-import { createCurrentTenantClient } from '@/lib/supabase/server'
+import { cookies } from 'next/headers'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 
 export async function GET() {
   try {
-    const supabase = await createCurrentTenantClient()
-    
+    // Use regular client for authentication
+    const authClient = await createClient()
+
     // Check if user is authenticated and admin
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
+    const { data: { user }, error: authError } = await authClient.auth.getUser()
+
     if (authError || !user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
-    
+
     // Check admin role
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await authClient
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single()
-    
+
     if (profileError || profile?.role !== 'admin') {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
-    
+
+    // Use service client for data queries with explicit tenant filtering
+    const supabase = createServiceClient()
+
+    // Get tenant ID from cookie
+    const cookieStore = await cookies()
+    const tenantId = cookieStore.get('x-tenant-id')?.value || '00000000-0000-0000-0000-000000000001'
+
     // Get today's date for filtering
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const tomorrow = new Date(today)
     tomorrow.setDate(tomorrow.getDate() + 1)
-    
+
     // Fetch today's orders
     const { data: todayOrders, error: ordersError } = await supabase
       .from('orders')
       .select('total_amount, status')
+      .eq('tenant_id', tenantId)
       .gte('created_at', today.toISOString())
       .lt('created_at', tomorrow.toISOString())
     
@@ -54,6 +64,7 @@ export async function GET() {
     const { count: pendingOrders, error: pendingError } = await supabase
       .from('orders')
       .select('*', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
       .in('status', ['pending', 'preparing'])
     
     if (pendingError) {

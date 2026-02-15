@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
-import { createCurrentTenantClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 
 interface RouteContext {
   params: Promise<{ orderId: string; matchId: string }>
@@ -22,7 +22,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       )
     }
 
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
 
     const { data: match, error: fetchError } = await supabase
       .from('order_invoice_matches')

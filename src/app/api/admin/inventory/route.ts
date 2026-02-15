@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
 
     console.log('Creating new inventory item:', { square_item_id: finalSquareId, item_name, current_stock })
 
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
 
     // Insert new inventory item
     const { data: newItem, error } = await supabase
@@ -228,7 +228,7 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
 
     // Load current values for change tracking (unit_cost, pack_size)
     const { data: existing, error: existingError } = await supabase
@@ -336,7 +336,7 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
     const { data, error } = await supabase
       .from('inventory_items')
       .update({ deleted_at: new Date().toISOString() })

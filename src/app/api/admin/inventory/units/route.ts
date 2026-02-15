@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/admin/middleware'
-import { createCurrentTenantClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
       return authResult
     }
 
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
 
     // Fetch all unit types
     const { data: units, error } = await supabase
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
 
     console.log('Creating new inventory unit type:', { name, symbol, category })
 
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
 
     // Check if symbol already exists
     const { data: existingUnit } = await supabase

@@ -1,4 +1,3 @@
-import { requireAdmin } from '@/lib/admin/auth'
 import dynamic from 'next/dynamic'
 
 const COGSManagement = dynamic(() => import('@/components/admin/COGSManagement'), {
@@ -13,7 +12,7 @@ const COGSManagement = dynamic(() => import('@/components/admin/COGSManagement')
 })
 
 export default async function AdminCOGSPage() {
-  await requireAdmin()
+  // Auth check handled by layout
   return <COGSManagement />
 }
 

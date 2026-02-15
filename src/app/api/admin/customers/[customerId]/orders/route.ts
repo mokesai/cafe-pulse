@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createCurrentTenantClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ customerId: string }> }
 ) {
   try {
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
     
     // Check if user is authenticated and admin
     const { data: { user }, error: authError } = await supabase.auth.getUser()

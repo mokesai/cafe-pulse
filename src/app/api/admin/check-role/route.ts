@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
-import { createCurrentTenantClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 
 export async function POST() {
   try {
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
     
     // Check if user is authenticated
     const { data: { user }, error: authError } = await supabase.auth.getUser()
