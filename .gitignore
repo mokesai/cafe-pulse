@@ -60,3 +60,4 @@ next-env.d.ts
 /public/images/kds/photos/pastries/
 /public/images/kds/photos/refreshers/
 /public/images/kds/photos/sandwiches/
+.mcp.json
