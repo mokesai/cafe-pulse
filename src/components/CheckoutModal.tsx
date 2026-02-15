@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { X, CreditCard, Loader2 } from 'lucide-react'
 import { PaymentForm, CreditCard as SquareCreditCard } from 'react-square-web-payments-sdk'
 import type { MenuItem, MenuCategory } from '@/types/menu'
+import { useSquareConfig } from '@/providers/SquareProvider'
 
 interface SquarePaymentToken {
   token?: string
@@ -172,8 +173,7 @@ export default function CheckoutModal({
     }
   }
 
-  const applicationId = process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID || process.env.SQUARE_APPLICATION_ID
-  const locationId = process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID || process.env.SQUARE_LOCATION_ID
+  const { applicationId, locationId } = useSquareConfig()
 
   if (!applicationId || !locationId) {
     return (

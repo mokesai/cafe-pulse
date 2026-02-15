@@ -5,6 +5,8 @@ import DynamicSquareProvider from '@/components/providers/DynamicSquareProvider'
 import { CartModalProvider } from '@/providers/CartProvider'
 import UserOnboarding from '@/components/onboarding/UserOnboarding'
 import GlobalCartModal from '@/components/cart/GlobalCartModal'
+import { getCurrentTenantId } from '@/lib/tenant/context'
+import { getTenantSquareConfig } from '@/lib/square/config'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,8 +25,18 @@ export default async function SiteLayout({
     )
   }
 
+  const tenantId = await getCurrentTenantId()
+  const squareConfig = await getTenantSquareConfig(tenantId)
+
+  // Only pass public-safe fields to client
+  const publicSquareConfig = squareConfig ? {
+    applicationId: squareConfig.applicationId,
+    locationId: squareConfig.locationId,
+    environment: squareConfig.environment,
+  } : null
+
   return (
-    <DynamicSquareProvider>
+    <DynamicSquareProvider config={publicSquareConfig}>
       <CartModalProvider>
         <div className="min-h-screen bg-white">
           {children}
