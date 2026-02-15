@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/admin/middleware'
 import { searchAllCatalogItems, upsertCatalogItem, listCatalogObjects, upsertCatalogCategory } from '@/lib/square/fetch-client'
+import { getCurrentTenantId } from '@/lib/tenant/context'
+import { getTenantSquareConfig } from '@/lib/square/config'
 
 interface CatalogVariation {
   id: string
@@ -59,10 +61,16 @@ export async function GET(request: NextRequest) {
       return authResult // Return the error response
     }
 
+    const tenantId = await getCurrentTenantId()
+    const squareConfig = await getTenantSquareConfig(tenantId)
+    if (!squareConfig) {
+      return NextResponse.json({ error: 'Square not configured' }, { status: 503 })
+    }
+
     console.log('Admin fetching menu items for management...')
-    
+
     // Fetch all catalog items from Square
-    const catalogResult = await searchAllCatalogItems() as CatalogResponse
+    const catalogResult = await searchAllCatalogItems(squareConfig) as CatalogResponse
     
     if (!catalogResult.objects) {
       return NextResponse.json(
@@ -160,6 +168,12 @@ export async function POST(request: NextRequest) {
       return authResult
     }
 
+    const tenantId = await getCurrentTenantId()
+    const squareConfig = await getTenantSquareConfig(tenantId)
+    if (!squareConfig) {
+      return NextResponse.json({ error: 'Square not configured' }, { status: 503 })
+    }
+
     const body = await request.json()
     const { name, description, categoryId, isAvailable, variations } = body
 
@@ -200,7 +214,7 @@ export async function POST(request: NextRequest) {
     console.log('📝 Item object being sent to Square:', JSON.stringify(itemObject, null, 2))
 
     // Create the item in Square
-    const result = await upsertCatalogItem(itemObject)
+    const result = await upsertCatalogItem(squareConfig, itemObject)
     
     if (!result.catalog_object) {
       throw new Error('Failed to create item in Square catalog')
@@ -212,7 +226,7 @@ export async function POST(request: NextRequest) {
     // Now update the category to include this item
     try {
       // Fetch the current category
-      const categoriesResult = await listCatalogObjects(['CATEGORY']) as CatalogResponse
+      const categoriesResult = await listCatalogObjects(squareConfig, ['CATEGORY']) as CatalogResponse
       const targetCategory = categoriesResult.objects?.find(cat => cat.id === categoryId)
       
       if (targetCategory) {
@@ -228,7 +242,7 @@ export async function POST(request: NextRequest) {
           }
         }
         
-        await upsertCatalogCategory(updatedCategory)
+        await upsertCatalogCategory(squareConfig, updatedCategory)
         console.log('✅ Category updated with new item')
       }
     } catch (error) {
