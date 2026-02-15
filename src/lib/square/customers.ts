@@ -1,3 +1,5 @@
+import type { SquareConfig } from './types'
+
 interface CustomerCard {
   id: string
   cardBrand: string
@@ -18,7 +20,8 @@ interface CreateCustomerCardRequest {
   }
 }
 
-export async function createSquareCustomer(_email: string, _fullName?: string): Promise<string> {
+export async function createSquareCustomer(_config: SquareConfig, _email: string, _fullName?: string): Promise<string> {
+  void _config
   void _email
   void _fullName
   try {
@@ -41,7 +44,8 @@ export async function createSquareCustomer(_email: string, _fullName?: string): 
   }
 }
 
-export async function getSquareCustomer(_customerId: string) {
+export async function getSquareCustomer(_config: SquareConfig, _customerId: string) {
+  void _config
   void _customerId
   try {
     // Temporarily disable until API method is verified
@@ -54,36 +58,42 @@ export async function getSquareCustomer(_customerId: string) {
   }
 }
 
-export async function searchSquareCustomerByEmail(_email: string): Promise<string | null> {
+export async function searchSquareCustomerByEmail(_config: SquareConfig, _email: string): Promise<string | null> {
+  void _config
   void _email
   // Temporarily disabled - return null for now
   return null
 }
 
 export async function saveCustomerCard(
-  _customerId: string, 
+  _config: SquareConfig,
+  _customerId: string,
   _cardRequest: CreateCustomerCardRequest
 ): Promise<string> {
+  void _config
   void _customerId
   void _cardRequest
   // Temporarily disabled - throw error for now
   throw new Error('Card saving temporarily disabled - Square Customer API integration pending')
 }
 
-export async function getCustomerCards(_customerId: string): Promise<CustomerCard[]> {
+export async function getCustomerCards(_config: SquareConfig, _customerId: string): Promise<CustomerCard[]> {
+  void _config
   void _customerId
   // Temporarily disabled - return empty array for now
   return []
 }
 
-export async function deleteCustomerCard(_customerId: string, _cardId: string): Promise<void> {
+export async function deleteCustomerCard(_config: SquareConfig, _customerId: string, _cardId: string): Promise<void> {
+  void _config
   void _customerId
   void _cardId
   // Temporarily disabled - throw error for now
   throw new Error('Card deletion temporarily disabled')
 }
 
-export async function findOrCreateCustomer(_email: string, _fullName?: string): Promise<string> {
+export async function findOrCreateCustomer(_config: SquareConfig, _email: string, _fullName?: string): Promise<string> {
+  void _config
   void _email
   void _fullName
   // Temporarily disabled - throw error for now
