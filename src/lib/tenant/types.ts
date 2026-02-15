@@ -10,6 +10,9 @@ export interface Tenant {
   business_phone: string | null
   business_email: string | null
   business_hours: Record<string, string> | null
+  logo_url: string | null
+  primary_color: string | null
+  secondary_color: string | null
   square_application_id: string | null
   square_access_token: string | null
   square_location_id: string | null
