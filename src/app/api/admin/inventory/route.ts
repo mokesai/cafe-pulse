@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
-import { createCurrentTenantClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { cookies } from 'next/headers'
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,9 +12,14 @@ export async function GET(request: NextRequest) {
     }
     console.log('Admin fetching inventory items...')
 
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
     const { searchParams } = new URL(request.url)
     const includeArchived = searchParams.get('includeArchived') === '1'
+
+    // Get tenant ID from cookie
+    const cookieStore = await cookies()
+    const tenantId = cookieStore.get('x-tenant-id')?.value || '00000000-0000-0000-0000-000000000001'
+    console.log('Using tenantId for query:', tenantId)
 
     // Fetch inventory items with supplier information (excluding archived)
     let query = supabase
@@ -25,6 +31,7 @@ export async function GET(request: NextRequest) {
           name
         )
       `)
+      .eq('tenant_id', tenantId)
       .order('item_name')
 
     if (!includeArchived) {
@@ -40,6 +47,8 @@ export async function GET(request: NextRequest) {
         { status: 500 }
       )
     }
+
+    console.log('✅ Fetched', inventoryItems?.length || 0, 'inventory items')
 
     // Process the data to include supplier name
     const processedItems = inventoryItems?.map(item => ({

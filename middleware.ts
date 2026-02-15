@@ -44,6 +44,7 @@ export async function middleware(request: NextRequest) {
   // 2. Resolve tenant from subdomain
   const host = request.headers.get('host') || ''
   const slug = extractSubdomain(host)
+  console.log('[Middleware] host:', host, 'slug:', slug)
 
   if (slug) {
     const tenant = await resolveTenantBySlug(slug)
@@ -67,7 +68,10 @@ export async function middleware(request: NextRequest) {
   } else {
     // No subdomain (bare localhost or bare domain)
     // Set default tenant if no tenant cookie already exists
-    if (!request.cookies.get('x-tenant-id')?.value) {
+    const existingTenantId = request.cookies.get('x-tenant-id')?.value
+    console.log('[Middleware] No subdomain, existing tenant cookie:', existingTenantId)
+    if (!existingTenantId) {
+      console.log('[Middleware] Setting default tenant:', DEFAULT_TENANT_ID)
       sessionResponse.cookies.set('x-tenant-id', DEFAULT_TENANT_ID, {
         httpOnly: true,
         sameSite: 'strict',

@@ -86,7 +86,14 @@ export async function createTenantClient(tenantId: string) {
   )
 
   // Set tenant context explicitly via RPC call
-  await client.rpc('set_tenant_context', { p_tenant_id: tenantId })
+  console.log('[createTenantClient] Calling set_tenant_context with tenantId:', tenantId, 'type:', typeof tenantId)
+  const { error } = await client.rpc('set_tenant_context', { p_tenant_id: tenantId })
+  if (error) {
+    console.error('[createTenantClient] Failed to set tenant context:', error)
+    // Continue anyway - queries will fail with RLS errors if tenant context not set
+  } else {
+    console.log('[createTenantClient] Tenant context set successfully')
+  }
 
   return client
 }
@@ -99,9 +106,11 @@ export async function createTenantClient(tenantId: string) {
 export async function createCurrentTenantClient() {
   const cookieStore = await cookies()
   const tenantId = cookieStore.get('x-tenant-id')?.value
+  console.log('[createCurrentTenantClient] tenantId from cookie:', tenantId)
   if (!tenantId) {
     // Fall back to default tenant
     const { DEFAULT_TENANT_ID } = await import('@/lib/tenant/types')
+    console.log('[createCurrentTenantClient] Using default tenant:', DEFAULT_TENANT_ID)
     return createTenantClient(DEFAULT_TENANT_ID)
   }
   return createTenantClient(tenantId)

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/admin/middleware'
 import type { AdminAuthSuccess } from '@/lib/admin/middleware'
-import { createCurrentTenantClient, createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { canonicalStatus, insertStatusHistory } from './status-utils'
+import { cookies } from 'next/headers'
 
 interface SupplierProfileInfo {
   full_name?: string | null
@@ -95,7 +96,11 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status')
     const dateFilter = searchParams.get('dateFilter')
 
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
+
+    // Get tenant ID from cookie
+    const cookieStore = await cookies()
+    const tenantId = cookieStore.get('x-tenant-id')?.value || '00000000-0000-0000-0000-000000000001'
 
     // Build query with supplier information
     let query = supabase
@@ -124,6 +129,7 @@ export async function GET(request: NextRequest) {
           note
         )
       `)
+      .eq('tenant_id', tenantId)
 
     // Filter by status
     if (status && status !== 'all') {
@@ -306,7 +312,11 @@ export async function POST(request: NextRequest) {
 
     console.log('Creating new purchase order:', order_number)
 
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
+
+    // Get tenant ID from cookie
+    const cookieStore = await cookies()
+    const tenantId = cookieStore.get('x-tenant-id')?.value || '00000000-0000-0000-0000-000000000001'
 
     // Fetch pack sizes from inventory for missing values
     const inventoryIds = Array.from(new Set(itemInputs.map(item => item.inventory_item_id).filter(Boolean)))

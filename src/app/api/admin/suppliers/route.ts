@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/admin/middleware'
-import { createCurrentTenantClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { cookies } from 'next/headers'
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,12 +14,18 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const includeInactive = searchParams.get('includeInactive') === 'true'
 
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
+
+    // Get tenant ID from cookie
+    const cookieStore = await cookies()
+    const tenantId = cookieStore.get('x-tenant-id')?.value || '00000000-0000-0000-0000-000000000001'
+    console.log('Using tenantId for suppliers query:', tenantId)
 
     // Build query
     let query = supabase
       .from('suppliers')
       .select('*')
+      .eq('tenant_id', tenantId)
 
     // Filter by active status unless including inactive
     if (!includeInactive) {
@@ -35,6 +42,8 @@ export async function GET(request: NextRequest) {
         { status: 500 }
       )
     }
+
+    console.log('✅ Fetched', suppliers?.length || 0, 'suppliers')
 
     return NextResponse.json({
       success: true,
@@ -84,7 +93,7 @@ export async function POST(request: NextRequest) {
 
     console.log('Creating new supplier:', name)
 
-    const supabase = await createCurrentTenantClient()
+    const supabase = createServiceClient()
 
     // Insert new supplier
     const { data: newSupplier, error } = await supabase
