@@ -9,11 +9,11 @@
 ## Progress
 
 Phase: 50 of 70 (Tenant-Aware Auth & Business Identity)
-Plan: 3 of 8 in Phase 50
+Plan: 4 of 8 in Phase 50
 Status: In progress
-Last activity: 2026-02-15 - Completed 50-03-PLAN.md (Admin auth tenant-aware)
+Last activity: 2026-02-15 - Completed 50-04-PLAN.md (TenantProvider Context Integration)
 
-Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete, Phase 50 (3/8 plans)
+Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete, Phase 50 (4/8 plans)
 
 ## Completed
 - [x] PROJECT.md created
@@ -52,6 +52,8 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - [x] Phase 50 planned — 8 plans across 3 waves
 - [x] 50-01: Tenant identity loading infrastructure — getTenantIdentity() cached function, branding fields added to Tenant type (logo_url, primary_color, secondary_color)
 - [x] 50-02: React Email templates — OrderConfirmation and OrderStatusUpdate templates with tenant branding props, react-email dependencies installed
+- [x] 50-03: Admin auth tenant-aware — requireAdmin() checks tenant_memberships for owner/admin role, returns tenantClient with set_tenant_context, middleware.ts updated
+- [x] 50-04: TenantProvider Context Integration — TenantProvider React Context created, integrated in site and admin layouts, useTenant() hook for client components
 - [x] 50-03: Admin auth tenant-aware — requireAdmin() checks tenant_memberships and returns tenant-scoped RLS client, middleware updated for API routes, admin layout uses tenant context
 
 ### Decisions Made
@@ -80,6 +82,8 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - **Check tenant_memberships not profiles.role**: Multi-tenant authorization requires per-tenant role checks; admin access scoped to tenant membership (Phase 50-03)
 - **Admin routes use tenant-scoped RLS client**: requireAdmin() returns createTenantClient() instead of service role; enforces proper tenant isolation (Phase 50-03)
 - **Redirect with error param for wrong tenant**: Differentiate "not authenticated" vs "not admin of this tenant" for better UX (Phase 50-03)
+- **TenantProvider as outermost provider**: Ensures tenant identity available to all descendant components including Square and Cart providers (Phase 50-04)
+- **useTenant() error checking**: Hook throws error if used outside TenantProvider for fail-fast debugging (Phase 50-04)
 - **Tenant context via custom header**: Pass `x-tenant-id` header to Supabase client; `db-pre-request` function reads it and calls `set_config('app.tenant_id', ...)`
 - **Subdomain routing**: `slug.localhost:3000` for dev (no /etc/hosts needed)
 - **Caching**: Follow existing `globalThis` + TTL pattern from `siteSettings.edge.ts`, 60s TTL
@@ -111,8 +115,8 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 ## Session Continuity
 
 Last session: 2026-02-15
-Stopped at: Completed 50-03-PLAN.md — Admin auth tenant-aware
+Stopped at: Completed 50-04-PLAN.md — TenantProvider Context Integration
 Resume file: None
 
 ## Next Action
-Phase 50-03 complete. Admin authentication now uses tenant_memberships and RLS-enforced clients. Ready for 50-04 (TenantProvider React Context) and 50-05 (Business Profile UI).
+Phase 50-04 complete. TenantProvider React Context created and integrated in both layouts. Tenant identity now accessible to client components via useTenant() hook. Ready for 50-05 (Business Profile UI).
