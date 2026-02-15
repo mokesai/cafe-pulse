@@ -92,7 +92,7 @@ Plans:
 
 ---
 
-## Phase 50.1: Fix OrdersManagement Component Loading Bug (INSERTED)
+## Phase 50.1: Fix OrdersManagement Component Loading Bug ✓
 
 **Goal:** Resolve server-side layout error that prevented OrdersManagement component from loading in admin panel. Restore admin order management functionality.
 
@@ -101,12 +101,15 @@ Plans:
 **Plans:** 1 plan
 
 Plans:
-- [ ] 50.1-01-PLAN.md — Re-enable OrdersManagement component now that branding columns exist
+- [x] 50.1-01-PLAN.md — Re-enable OrdersManagement component now that branding columns exist
 
 **Root Cause:**
 The error was NOT a webpack bundling issue as initially suspected. The `getTenantIdentity()` function in both site and admin layouts tried to SELECT `logo_url, primary_color, secondary_color` columns from the tenants table (added in Phase 50-01), but those columns didn't exist in the database until Phase 50-06 gap closure migration. This caused a server-side database error that crashed the layout before any page component could render, making it appear as a client-side component loading error.
 
-**Priority:** High - Blocks core admin functionality
+**Additional Discovery:**
+Recursive RLS policy on `tenant_memberships` table ("Admins can read tenant memberships") caused infinite recursion when `requireAdmin()` tried to verify user permissions. Fixed by dropping the recursive policy and relying on "Users can read own memberships" policy.
+
+**Verified:** 3/3 automated checks + 6/6 human verification items passed. Admin orders page loads without errors. OrdersManagement component renders with full functionality (filtering, pagination, details modal). TypeScript build clean.
 
 ---
 

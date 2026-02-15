@@ -59,9 +59,12 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - [x] Phase 50 re-verified — 22/22 must-haves passed (19 from plans 50-01 to 50-05, 3 from gap closure 50-06), admin auth uses tenant_memberships table, business identity with branding columns, emails use tenant branding, TypeScript build clean
 - [x] Phase 50.1 planned — 1 plan to fix OrdersManagement loading bug
 - [x] 50.1-01: Re-enabled OrdersManagement component — removed maintenance placeholder, component loads successfully after Phase 50-06 fixed missing branding columns
-- [x] Phase 50.1 complete — admin orders page working, no runtime errors, full order management functionality restored
+- [x] Fixed RLS recursion bug — dropped "Admins can read tenant memberships" policy that caused infinite recursion when requireAdmin() queried tenant_memberships; "Users can read own memberships" policy sufficient
+- [x] Fixed admin login issue — created tenant membership for jerry.mccommas@gmail.com on default tenant (owner role)
+- [x] Phase 50.1 verified — 3/3 automated checks + 6/6 human verification items passed, admin orders page loads without errors, OrdersManagement component fully functional (filtering, pagination, details modal)
 
 ### Decisions Made
+- **Drop recursive admin membership policy**: "Admins can read tenant memberships" policy created infinite recursion; "Users can read own memberships" sufficient for requireAdmin() (Phase 50.1)
 - **Nullable branding columns**: Allows gradual tenant onboarding without requiring branding config upfront (Phase 50-06)
 - **Default tenant brand colors**: Little Cafe gets primary_color=#f59e0b and secondary_color=#0f172a set immediately (Phase 50-06)
 - **Menu cache keyed by tenantId**: Prevents cross-tenant data leakage; single-object cache would serve tenant A's menu to tenant B (Phase 40-05)
@@ -119,7 +122,7 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - `db-pre-request` hook not yet configured for `x-tenant-id` header (Phase 60)
 
 ### Roadmap Evolution
-- **Phase 50.1 inserted after Phase 50** (2026-02-15): Fixed OrdersManagement component loading bug — Root cause was missing branding columns in tenants table (fixed in 50-06). Re-enabled component successfully.
+- **Phase 50.1 inserted after Phase 50** (2026-02-15): Fixed OrdersManagement component loading bug — Root cause was missing branding columns in tenants table (fixed in 50-06). Also fixed RLS recursion bug in tenant_memberships policies that blocked admin login. Re-enabled component successfully.
 
 ## Session Continuity
 
