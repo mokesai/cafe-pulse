@@ -92,6 +92,24 @@ Plans:
 
 ---
 
+## Phase 50.1: Fix OrdersManagement Component Loading Bug (INSERTED)
+
+**Goal:** Resolve server-side layout error that prevented OrdersManagement component from loading in admin panel. Restore admin order management functionality.
+
+**Depends on:** Phase 50 (completed — Phase 50-06 fixed the root cause)
+
+**Plans:** 1 plan
+
+Plans:
+- [ ] 50.1-01-PLAN.md — Re-enable OrdersManagement component now that branding columns exist
+
+**Root Cause:**
+The error was NOT a webpack bundling issue as initially suspected. The `getTenantIdentity()` function in both site and admin layouts tried to SELECT `logo_url, primary_color, secondary_color` columns from the tenants table (added in Phase 50-01), but those columns didn't exist in the database until Phase 50-06 gap closure migration. This caused a server-side database error that crashed the layout before any page component could render, making it appear as a client-side component loading error.
+
+**Priority:** High - Blocks core admin functionality
+
+---
+
 ## Phase 60: Platform Control Plane
 Build the super-admin interface for managing tenants. Onboarding flow for new cafes. Tenant status monitoring.
 
