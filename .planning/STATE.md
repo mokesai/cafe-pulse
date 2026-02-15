@@ -38,6 +38,7 @@ Progress: █████████░ Phase 10 complete, Phase 20 complete, P
 - [x] 40-02: SquareConfig type and credential loading layer — getTenantSquareConfig() with Vault RPC + env fallback, resolveTenantFromMerchantId() for webhooks
 - [x] 40-03: Parameterize fetch-client.ts — all 14 functions accept SquareConfig as first parameter, zero env var reads remain
 - [x] 40-04: Domain layer parameterization — catalog.ts, orders.ts, tax-validation.ts, customers.ts accept SquareConfig, tenant-scoped catalog cache, tenant-neutral source name
+- [x] 40-06: Admin routes refactored — 7 admin API routes (sync-square, push-to-square, sales-sync, square-search, menu items, menu availability, COGS sync) resolve tenant and use getTenantSquareConfig()
 - [x] 40-07: Webhook tenant resolution — catalog and inventory webhooks resolve tenant from merchant_id, verify signatures with tenant keys, use tenant credentials for API calls
 - [x] 40-08: Server-rendered Square config — site layout calls getTenantSquareConfig, DynamicSquareProvider accepts props, CheckoutModal uses context (no env vars)
 - [x] 40-10: Tenant-flag support for setup scripts — sync-square-catalog, seed-inventory, setup-square-webhooks accept --tenant-id and --tenant-slug flags, load credentials from Vault via service_role RPC
@@ -90,8 +91,8 @@ Progress: █████████░ Phase 10 complete, Phase 20 complete, P
 ## Session Continuity
 
 Last session: 2026-02-14
-Stopped at: Completed 40-10-PLAN.md (Tenant-flag support for setup scripts)
+Stopped at: Completed 40-06-PLAN.md (Admin routes refactored)
 Resume file: None
 
 ## Next Action
-Phase 40 plans complete. Continue with verification or next phase planning.
+Continue Phase 40 — Plan 40-05 or 40-09 (remaining customer-facing routes and cleanup)
