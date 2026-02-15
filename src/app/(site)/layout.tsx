@@ -7,6 +7,8 @@ import UserOnboarding from '@/components/onboarding/UserOnboarding'
 import GlobalCartModal from '@/components/cart/GlobalCartModal'
 import { getCurrentTenantId } from '@/lib/tenant/context'
 import { getTenantSquareConfig } from '@/lib/square/config'
+import { getTenantIdentity } from '@/lib/tenant/identity'
+import { TenantProvider } from '@/providers/TenantProvider'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,6 +29,7 @@ export default async function SiteLayout({
 
   const tenantId = await getCurrentTenantId()
   const squareConfig = await getTenantSquareConfig(tenantId)
+  const tenant = await getTenantIdentity()
 
   // Only pass public-safe fields to client
   const publicSquareConfig = squareConfig ? {
@@ -36,15 +39,17 @@ export default async function SiteLayout({
   } : null
 
   return (
-    <DynamicSquareProvider config={publicSquareConfig}>
-      <CartModalProvider>
-        <div className="min-h-screen bg-white">
-          {children}
-          <UserOnboarding />
-          <GlobalCartModal />
-          <Toaster />
-        </div>
-      </CartModalProvider>
-    </DynamicSquareProvider>
+    <TenantProvider tenant={tenant}>
+      <DynamicSquareProvider config={publicSquareConfig}>
+        <CartModalProvider>
+          <div className="min-h-screen bg-white">
+            {children}
+            <UserOnboarding />
+            <GlobalCartModal />
+            <Toaster />
+          </div>
+        </CartModalProvider>
+      </DynamicSquareProvider>
+    </TenantProvider>
   )
 }
