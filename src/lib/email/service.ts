@@ -1,4 +1,8 @@
 import { Resend } from 'resend'
+import { render } from '@react-email/render'
+import OrderConfirmation from './templates/OrderConfirmation'
+import OrderStatusUpdate from './templates/OrderStatusUpdate'
+import { getTenantIdentity } from '@/lib/tenant/identity'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -22,11 +26,37 @@ export interface OrderEmailData {
 export class EmailService {
   static async sendOrderConfirmation(orderData: OrderEmailData) {
     try {
+      // Load tenant identity for branding
+      const tenant = await getTenantIdentity()
+
+      // Render React Email template to HTML
+      const html = await render(
+        OrderConfirmation({
+          ...orderData,
+          businessName: tenant.business_name || tenant.name,
+          businessAddress: tenant.business_address || undefined,
+          businessPhone: tenant.business_phone || undefined,
+          businessEmail: tenant.business_email || undefined,
+          businessHours: tenant.business_hours
+            ? typeof tenant.business_hours === 'string'
+              ? tenant.business_hours
+              : JSON.stringify(tenant.business_hours)
+            : undefined,
+          logoUrl: tenant.logo_url || undefined,
+          primaryColor: tenant.primary_color || '#f59e0b',
+        })
+      )
+
+      // Build sender from tenant config with fallback
+      const from = tenant.email_sender_address
+        ? `${tenant.email_sender_name || tenant.name} <${tenant.email_sender_address}>`
+        : `${tenant.name} <noreply@jmcpastrycoffee.com>`
+
       const { data, error } = await resend.emails.send({
-        from: 'Little Cafe <orders@jmcpastrycoffee.com>',
+        from,
         to: [orderData.customerEmail],
         subject: `Order Confirmation #${orderData.orderId.slice(-8)}`,
-        html: generateOrderConfirmationEmail(orderData),
+        html,
       })
 
       if (error) {
@@ -49,6 +79,8 @@ export class EmailService {
     customerName?: string
   ) {
     try {
+      const tenant = await getTenantIdentity()
+
       const statusMessages = {
         confirmed: 'Your order has been confirmed and is being prepared.',
         preparing: 'Your order is currently being prepared.',
@@ -57,14 +89,37 @@ export class EmailService {
         cancelled: 'Your order has been cancelled.'
       }
 
-      const message = statusMessages[status as keyof typeof statusMessages] || 
+      const message = statusMessages[status as keyof typeof statusMessages] ||
                      `Your order status has been updated to: ${status}`
 
+      const html = await render(
+        OrderStatusUpdate({
+          orderId,
+          status,
+          message,
+          customerName,
+          businessName: tenant.business_name || tenant.name,
+          businessAddress: tenant.business_address || undefined,
+          businessPhone: tenant.business_phone || undefined,
+          businessEmail: tenant.business_email || undefined,
+          businessHours: tenant.business_hours
+            ? typeof tenant.business_hours === 'string'
+              ? tenant.business_hours
+              : JSON.stringify(tenant.business_hours)
+            : undefined,
+          primaryColor: tenant.primary_color || '#f59e0b',
+        })
+      )
+
+      const from = tenant.email_sender_address
+        ? `${tenant.email_sender_name || tenant.name} <${tenant.email_sender_address}>`
+        : `${tenant.name} <noreply@jmcpastrycoffee.com>`
+
       const { data, error } = await resend.emails.send({
-        from: 'Little Cafe <orders@jmcpastrycoffee.com>',
+        from,
         to: [customerEmail],
         subject: `Order Update #${orderId.slice(-8)} - ${status.charAt(0).toUpperCase() + status.slice(1)}`,
-        html: generateOrderStatusEmail(orderId, status, message, customerName),
+        html,
       })
 
       if (error) {
@@ -79,154 +134,6 @@ export class EmailService {
       throw error
     }
   }
-}
-
-function generateOrderConfirmationEmail(orderData: OrderEmailData): string {
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Order Confirmation</title>
-      <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: #f59e0b; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-        .content { background: #f9f9f9; padding: 20px; border-radius: 0 0 8px 8px; }
-        .order-details { background: white; padding: 15px; border-radius: 6px; margin: 15px 0; }
-        .item-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
-        .total-row { display: flex; justify-content: space-between; padding: 8px 0; font-weight: bold; }
-        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 14px; }
-        .location { background: #fef3c7; padding: 15px; border-radius: 6px; margin: 15px 0; }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <h1>Order Confirmation</h1>
-        <p>Thank you for your order, ${orderData.customerName}!</p>
-      </div>
-      
-      <div class="content">
-        <div class="order-details">
-          <h3>Order #${orderData.orderId.slice(-8)}</h3>
-          
-          <h4>Items Ordered:</h4>
-          ${orderData.items.map(item => `
-            <div class="item-row">
-              <span>${item.quantity}x ${item.name}</span>
-              <span>$${item.total.toFixed(2)}</span>
-            </div>
-          `).join('')}
-          
-          <div style="margin-top: 15px; padding-top: 15px; border-top: 2px solid #f59e0b;">
-            <div class="item-row">
-              <span>Subtotal:</span>
-              <span>$${orderData.subtotal.toFixed(2)}</span>
-            </div>
-            <div class="item-row">
-              <span>Tax:</span>
-              <span>$${orderData.tax.toFixed(2)}</span>
-            </div>
-            <div class="total-row">
-              <span>Total:</span>
-              <span>$${orderData.total.toFixed(2)}</span>
-            </div>
-          </div>
-          
-          ${orderData.specialInstructions ? `
-            <div style="margin-top: 15px;">
-              <strong>Special Instructions:</strong>
-              <p style="margin: 5px 0;">${orderData.specialInstructions}</p>
-            </div>
-          ` : ''}
-        </div>
-        
-        <div class="location">
-          <h4>Pickup Location:</h4>
-          <p><strong>Little Cafe</strong><br>
-          10400 E Alameda Ave<br>
-          Denver, CO<br>
-          Hours: 8AM-6PM Monday-Friday</p>
-          
-          ${orderData.pickupTime ? `<p><strong>Estimated Pickup Time:</strong> ${orderData.pickupTime}</p>` : ''}
-        </div>
-        
-        <p>We'll send you another email when your order is ready for pickup!</p>
-      </div>
-      
-      <div class="footer">
-        <p>Questions? Contact us at orders@jmcpastrycoffee.com</p>
-        <p>Little Cafe - Fresh coffee, made with care</p>
-      </div>
-    </body>
-    </html>
-  `
-}
-
-function generateOrderStatusEmail(
-  orderId: string, 
-  status: string, 
-  message: string, 
-  customerName?: string
-): string {
-  const statusColors = {
-    confirmed: '#10b981',
-    preparing: '#f59e0b', 
-    ready: '#059669',
-    completed: '#6b7280',
-    cancelled: '#ef4444'
-  }
-  
-  const color = statusColors[status as keyof typeof statusColors] || '#6b7280'
-  
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Order Update</title>
-      <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: ${color}; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-        .content { background: #f9f9f9; padding: 20px; border-radius: 0 0 8px 8px; }
-        .status-badge { background: ${color}; color: white; padding: 8px 16px; border-radius: 20px; display: inline-block; font-weight: bold; text-transform: uppercase; }
-        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 14px; }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <h1>Order Update</h1>
-        ${customerName ? `<p>Hi ${customerName}!</p>` : ''}
-      </div>
-      
-      <div class="content">
-        <p><strong>Order #${orderId.slice(-8)}</strong></p>
-        
-        <div style="text-align: center; margin: 20px 0;">
-          <span class="status-badge">${status}</span>
-        </div>
-        
-        <p>${message}</p>
-        
-        ${status === 'ready' ? `
-          <div style="background: #fef3c7; padding: 15px; border-radius: 6px; margin: 15px 0;">
-            <h4>Pickup Location:</h4>
-            <p><strong>Little Cafe</strong><br>
-            10400 E Alameda Ave<br>
-            Denver, CO<br>
-            Hours: 8AM-6PM Monday-Friday</p>
-          </div>
-        ` : ''}
-      </div>
-      
-      <div class="footer">
-        <p>Questions? Contact us at orders@littlecafe.com</p>
-        <p>Little Cafe - Fresh coffee, made with care</p>
-      </div>
-    </body>
-    </html>
-  `
 }
 
 export default EmailService
