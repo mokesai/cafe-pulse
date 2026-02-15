@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/admin/middleware'
 import { listCatalogObjects, upsertCatalogCategory, deleteCatalogObject } from '@/lib/square/fetch-client'
+import { getCurrentTenantId } from '@/lib/tenant/context'
+import { getTenantSquareConfig } from '@/lib/square/config'
 
 interface CatalogObject {
   id: string
@@ -30,10 +32,16 @@ export async function GET(request: NextRequest) {
       return authResult
     }
 
+    const tenantId = await getCurrentTenantId()
+    const squareConfig = await getTenantSquareConfig(tenantId)
+    if (!squareConfig) {
+      return NextResponse.json({ error: 'Square not configured' }, { status: 503 })
+    }
+
     console.log('Admin fetching categories for management...')
-    
+
     // Fetch all catalog objects
-    const catalogResult = await listCatalogObjects(['CATEGORY', 'ITEM']) as CatalogResponse
+    const catalogResult = await listCatalogObjects(squareConfig, ['CATEGORY', 'ITEM']) as CatalogResponse
     
     if (!catalogResult.objects) {
       return NextResponse.json(
@@ -101,6 +109,12 @@ export async function POST(request: NextRequest) {
       return authResult
     }
 
+    const tenantId = await getCurrentTenantId()
+    const squareConfig = await getTenantSquareConfig(tenantId)
+    if (!squareConfig) {
+      return NextResponse.json({ error: 'Square not configured' }, { status: 503 })
+    }
+
     const body = await request.json()
     const { name, ordinal, parentCategory } = body
 
@@ -125,7 +139,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create the category in Square
-    const result = await upsertCatalogCategory(categoryObject)
+    const result = await upsertCatalogCategory(squareConfig, categoryObject)
     
     if (!result.catalog_object) {
       throw new Error('Failed to create category in Square catalog')
@@ -159,6 +173,12 @@ export async function PUT(request: NextRequest) {
       return authResult
     }
 
+    const tenantId = await getCurrentTenantId()
+    const squareConfig = await getTenantSquareConfig(tenantId)
+    if (!squareConfig) {
+      return NextResponse.json({ error: 'Square not configured' }, { status: 503 })
+    }
+
     const body = await request.json()
     const { categoryId, name, ordinal } = body
 
@@ -172,7 +192,7 @@ export async function PUT(request: NextRequest) {
     console.log('Updating category:', { categoryId, name, ordinal })
 
     // Fetch the current category to get its version
-    const catalogResult = await listCatalogObjects(['CATEGORY']) as CatalogResponse
+    const catalogResult = await listCatalogObjects(squareConfig, ['CATEGORY']) as CatalogResponse
     const existingCategory = catalogResult.objects?.find(cat => cat.id === categoryId)
     
     if (!existingCategory) {
@@ -194,7 +214,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Update the category in Square
-    const result = await upsertCatalogCategory(updatedCategoryObject)
+    const result = await upsertCatalogCategory(squareConfig, updatedCategoryObject)
     
     if (!result.catalog_object) {
       throw new Error('Failed to update category in Square catalog')
@@ -228,6 +248,12 @@ export async function DELETE(request: NextRequest) {
       return authResult
     }
 
+    const tenantId = await getCurrentTenantId()
+    const squareConfig = await getTenantSquareConfig(tenantId)
+    if (!squareConfig) {
+      return NextResponse.json({ error: 'Square not configured' }, { status: 503 })
+    }
+
     const body = await request.json()
     const { categoryId } = body
 
@@ -241,7 +267,7 @@ export async function DELETE(request: NextRequest) {
     console.log('Deleting category:', { categoryId })
 
     // Fetch the category to check if it exists and has items
-    const catalogResult = await listCatalogObjects(['CATEGORY', 'ITEM']) as CatalogResponse
+    const catalogResult = await listCatalogObjects(squareConfig, ['CATEGORY', 'ITEM']) as CatalogResponse
     const existingCategory = catalogResult.objects?.find(obj => obj.type === 'CATEGORY' && obj.id === categoryId)
     
     if (!existingCategory) {
@@ -265,7 +291,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Delete the category from Square
-    await deleteCatalogObject(categoryId)
+    await deleteCatalogObject(squareConfig, categoryId)
     
     console.log('✅ Successfully deleted category:', categoryId)
 
