@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { createCurrentTenantClient } from '@/lib/supabase/server'
 
 export async function PATCH(
   request: NextRequest,
@@ -26,7 +26,7 @@ export async function PATCH(
     
     console.log('Updating inventory unit type:', unitId, body)
 
-    const supabase = await createClient()
+    const supabase = await createCurrentTenantClient()
 
     // Build update object with only provided fields
     const updateData: Record<string, unknown> = {}

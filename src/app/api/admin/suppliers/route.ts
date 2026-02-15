@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { createCurrentTenantClient } from '@/lib/supabase/server'
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const includeInactive = searchParams.get('includeInactive') === 'true'
 
-    const supabase = await createClient()
+    const supabase = await createCurrentTenantClient()
 
     // Build query
     let query = supabase
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
 
     console.log('Creating new supplier:', name)
 
-    const supabase = await createClient()
+    const supabase = await createCurrentTenantClient()
 
     // Insert new supplier
     const { data: newSupplier, error } = await supabase

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { createCurrentTenantClient } from '@/lib/supabase/server'
 
 type TextQueue =
   | 'all'
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
     const end_date = searchParams.get('end_date')
     const text_queue = (searchParams.get('text_queue') as TextQueue) || 'all'
 
-    const supabase = await createClient()
+    const supabase = await createCurrentTenantClient()
     const filters: FilterParams = { status, supplier_id, start_date, end_date }
 
     const columns = `
@@ -209,7 +209,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = await createClient()
+    const supabase = await createCurrentTenantClient()
 
     // Check for duplicate invoice
     const { data: existingInvoice } = await supabase

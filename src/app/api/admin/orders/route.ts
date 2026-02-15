@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createCurrentTenantClient } from '@/lib/supabase/server'
 
 interface OrderUpdatePayload {
   status: string
@@ -9,7 +9,7 @@ interface OrderUpdatePayload {
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient()
+    const supabase = await createCurrentTenantClient()
     
     // Check if user is authenticated and admin
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -135,7 +135,7 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const supabase = await createClient()
+    const supabase = await createCurrentTenantClient()
     
     // Check if user is authenticated and admin
     const { data: { user }, error: authError } = await supabase.auth.getUser()

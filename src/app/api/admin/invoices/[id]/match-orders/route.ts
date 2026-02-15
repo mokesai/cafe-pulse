@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { createCurrentTenantClient } from '@/lib/supabase/server'
 import { findOrderMatches } from '@/lib/matching/item-matcher'
 
 interface RouteContext {
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const resolvedParams = await context.params
     const { id } = resolvedParams
-    const supabase = await createClient()
+    const supabase = await createCurrentTenantClient()
 
     console.log('🔍 Starting order matching for invoice:', id)
 
@@ -384,7 +384,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     const resolvedParams = await context.params
     const { id } = resolvedParams
-    const supabase = await createClient()
+    const supabase = await createCurrentTenantClient()
 
     // Get existing order matches for the invoice
     const { data: matches, error } = await supabase

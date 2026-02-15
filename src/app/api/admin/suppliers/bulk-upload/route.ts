@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createCurrentTenantClient } from '@/lib/supabase/server'
 
 interface SupplierImportPayload {
   suppliers: SupplierInput[]
@@ -30,7 +30,7 @@ type ValidatedSupplier = Required<Pick<SupplierInput, 'name'>> &
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
+    const supabase = await createCurrentTenantClient()
 
     // Check authentication and admin role
     const { data: { user }, error: authError } = await supabase.auth.getUser()

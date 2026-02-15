@@ -2,7 +2,7 @@ import { Buffer } from 'node:buffer'
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { createCurrentTenantClient } from '@/lib/supabase/server'
 import { fetchPurchaseOrderForIssuance } from '@/lib/purchase-orders/load'
 import { generatePurchaseOrderPdf } from '@/lib/purchase-orders/pdf'
 import { fetchSupplierTemplate, buildPurchaseOrderTemplateContext, renderTemplate } from '@/lib/purchase-orders/templates'
@@ -49,7 +49,7 @@ export async function POST(
 
     const body: SendRequestBody = await request.json().catch(() => ({}))
 
-    const supabase = await createClient()
+    const supabase = await createCurrentTenantClient()
     const { order, error } = await fetchPurchaseOrderForIssuance(supabase, orderId)
 
     if (error) {

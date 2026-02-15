@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { createCurrentTenantClient } from '@/lib/supabase/server'
 import { fetchPurchaseOrderForIssuance } from '@/lib/purchase-orders/load'
 import { generatePurchaseOrderPdf } from '@/lib/purchase-orders/pdf'
 import { canonicalStatus } from '../../status-utils'
@@ -27,7 +27,7 @@ export async function GET(
       )
     }
 
-    const supabase = await createClient()
+    const supabase = await createCurrentTenantClient()
     const { order, error } = await fetchPurchaseOrderForIssuance(supabase, orderId)
 
     if (error) {

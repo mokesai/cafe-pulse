@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { createCurrentTenantClient } from '@/lib/supabase/server'
 import type { PostgrestError } from '@supabase/supabase-js'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = await createClient()
+    const supabase = await createCurrentTenantClient()
 
     // Check for duplicate invoice (only if supplier_id is provided)
     let existingInvoice: {

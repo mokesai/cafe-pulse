@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { createCurrentTenantClient } from '@/lib/supabase/server'
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
       return authResult
     }
 
-    const supabase = await createClient()
+    const supabase = await createCurrentTenantClient()
 
     // Fetch settings (there should only be one row)
     const { data: settings, error } = await supabase
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
 
     console.log('Saving inventory settings:', body)
 
-    const supabase = await createClient()
+    const supabase = await createCurrentTenantClient()
 
     // Check if settings already exist
     const { data: existingSettings } = await supabase

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { createCurrentTenantClient } from '@/lib/supabase/server'
 
 type InventoryExportRecord = {
   item_name: string
@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
         startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
     }
 
-    const supabase = await createClient()
+    const supabase = await createCurrentTenantClient()
 
     console.log('Exporting inventory analytics for range:', range)
 

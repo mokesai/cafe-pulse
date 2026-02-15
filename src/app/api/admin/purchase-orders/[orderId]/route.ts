@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/admin/middleware'
 import type { AdminAuthSuccess } from '@/lib/admin/middleware'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createCurrentTenantClient, createServiceClient } from '@/lib/supabase/server'
 import { canonicalStatus, canTransition, insertStatusHistory, isValidStatus } from '../status-utils'
 
 interface SupplierDetails {
@@ -128,7 +128,7 @@ export async function GET(
       )
     }
 
-    const supabase = await createClient()
+    const supabase = await createCurrentTenantClient()
 
     // Fetch purchase order with details
     const { data: order, error } = await supabase
@@ -261,7 +261,7 @@ export async function PATCH(
     
     console.log('Updating purchase order:', orderId, body)
 
-    const supabase = await createClient()
+    const supabase = await createCurrentTenantClient()
 
     const { data: existingOrder, error: existingError } = await supabase
       .from('purchase_orders')
@@ -566,7 +566,7 @@ export async function PUT(
       }
     }
 
-    const supabase = await createClient()
+    const supabase = await createCurrentTenantClient()
 
     const { data: existingOrder, error: fetchError } = await supabase
       .from('purchase_orders')
@@ -748,7 +748,7 @@ export async function DELETE(
 
     console.log('Deleting purchase order:', orderId)
 
-    const supabase = await createClient()
+    const supabase = await createCurrentTenantClient()
 
     // Check if order can be deleted (only draft orders)
     const { data: order, error: checkError } = await supabase

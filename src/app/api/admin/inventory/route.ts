@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { createCurrentTenantClient } from '@/lib/supabase/server'
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     }
     console.log('Admin fetching inventory items...')
 
-    const supabase = await createClient()
+    const supabase = await createCurrentTenantClient()
     const { searchParams } = new URL(request.url)
     const includeArchived = searchParams.get('includeArchived') === '1'
 
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
 
     console.log('Creating new inventory item:', { square_item_id: finalSquareId, item_name, current_stock })
 
-    const supabase = await createClient()
+    const supabase = await createCurrentTenantClient()
 
     // Insert new inventory item
     const { data: newItem, error } = await supabase
@@ -220,7 +220,7 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    const supabase = await createClient()
+    const supabase = await createCurrentTenantClient()
 
     // Load current values for change tracking (unit_cost, pack_size)
     const { data: existing, error: existingError } = await supabase
@@ -328,7 +328,7 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    const supabase = await createClient()
+    const supabase = await createCurrentTenantClient()
     const { data, error } = await supabase
       .from('inventory_items')
       .update({ deleted_at: new Date().toISOString() })

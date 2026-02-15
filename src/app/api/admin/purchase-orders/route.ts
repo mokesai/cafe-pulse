@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/admin/middleware'
 import type { AdminAuthSuccess } from '@/lib/admin/middleware'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createCurrentTenantClient, createServiceClient } from '@/lib/supabase/server'
 import { canonicalStatus, insertStatusHistory } from './status-utils'
 
 interface SupplierProfileInfo {
@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status')
     const dateFilter = searchParams.get('dateFilter')
 
-    const supabase = await createClient()
+    const supabase = await createCurrentTenantClient()
 
     // Build query with supplier information
     let query = supabase
@@ -306,7 +306,7 @@ export async function POST(request: NextRequest) {
 
     console.log('Creating new purchase order:', order_number)
 
-    const supabase = await createClient()
+    const supabase = await createCurrentTenantClient()
 
     // Fetch pack sizes from inventory for missing values
     const inventoryIds = Array.from(new Set(itemInputs.map(item => item.inventory_item_id).filter(Boolean)))

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { createCurrentTenantClient } from '@/lib/supabase/server'
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = await createClient()
+    const supabase = await createCurrentTenantClient()
     const { data: currentItem, error: fetchError } = await supabase
       .from('inventory_items')
       .select('id, item_name, current_stock, unit_cost, minimum_threshold, reorder_point, square_item_id, pack_size, deleted_at')
