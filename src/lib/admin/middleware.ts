@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { User } from '@supabase/supabase-js'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
 import { rateLimiters } from '@/lib/security/rate-limiter'
 import { addSecurityHeaders } from '@/lib/security/headers'
 
 export interface AdminAuthSuccess {
   user: User
-  profile: { role: unknown }
+  membership: { role: string }
   userId: string
+  tenantId: string
   sessionInfo: {
     age: number
     ip: string
@@ -66,37 +67,42 @@ export async function requireAdminAuth(request: NextRequest): Promise<AdminAuthR
     }
 
     const supabase = await createClient()
-    
+
     // Get the user from the request (using cookies)
     const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
+
     if (authError || !user) {
       return addSecurityHeaders(NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       ))
     }
-    
-    // Check if user has admin role with additional validation
-    const serviceSupabase = createServiceClient()
-    const { data: profile, error: profileError } = await serviceSupabase
-      .from('profiles')
+
+    // Get tenant context from cookie
+    const { getCurrentTenantId } = await import('@/lib/tenant/context')
+    const tenantId = await getCurrentTenantId()
+
+    // Check tenant membership with owner/admin role
+    const { data: membership, error: membershipError } = await supabase
+      .from('tenant_memberships')
       .select('role')
-      .eq('id', user.id)
+      .eq('tenant_id', tenantId)
+      .eq('user_id', user.id)
+      .in('role', ['owner', 'admin'])
       .single()
-    
-    if (profileError || profile?.role !== 'admin') {
+
+    if (membershipError || !membership) {
       return addSecurityHeaders(NextResponse.json(
         { error: 'Admin access required' },
         { status: 403 }
       ))
     }
-    
-    // Check for suspicious activity (optional additional validation)
-    return { 
-      user, 
-      profile,
-      userId: user.id, // Helper for convenience
+
+    return {
+      user,
+      membership,
+      userId: user.id,
+      tenantId,
       sessionInfo: {
         age: 0,
         ip: getClientIP(request)
