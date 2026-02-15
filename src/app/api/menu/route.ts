@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { listCatalogObjects, searchAllCatalogItems } from '@/lib/square/fetch-client'
 import { sortMenuItems, sortMenuCategories } from '@/lib/constants/menu'
+import { getCurrentTenantId } from '@/lib/tenant/context'
+import { getTenantSquareConfig } from '@/lib/square/config'
+import type { SquareConfig } from '@/lib/square/types'
 import type { MenuCategory, MenuItem as CanonicalMenuItem, MenuSubcategory as CanonicalMenuSubcategory } from '@/types/menu'
 
 interface MenuResponse {
@@ -12,33 +15,34 @@ interface MenuResponse {
   lastUpdated?: string
 }
 
-// In-memory cache for menu data
-let menuCache: {
+// Tenant-scoped in-memory cache for menu data
+const menuCacheByTenant = new Map<string, {
   data: MenuResponse
   timestamp: number
   ttl: number
-} | null = null
+}>()
 
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes in milliseconds
 
-function isCacheValid(): boolean {
-  return menuCache !== null && Date.now() - menuCache.timestamp < menuCache.ttl
+function isCacheValid(tenantId: string): boolean {
+  const cache = menuCacheByTenant.get(tenantId)
+  return cache !== null && cache !== undefined && Date.now() - cache.timestamp < cache.ttl
 }
 
-function getCachedMenu(): MenuResponse | null {
-  if (isCacheValid()) {
+function getCachedMenu(tenantId: string): MenuResponse | null {
+  if (isCacheValid(tenantId)) {
     console.log('✅ Serving menu from cache')
-    return menuCache!.data
+    return menuCacheByTenant.get(tenantId)!.data
   }
   return null
 }
 
-function setCachedMenu(data: MenuResponse) {
-  menuCache = {
+function setCachedMenu(tenantId: string, data: MenuResponse) {
+  menuCacheByTenant.set(tenantId, {
     data,
     timestamp: Date.now(),
     ttl: CACHE_TTL
-  }
+  })
   console.log('💾 Menu data cached for 5 minutes')
 }
 
@@ -88,8 +92,20 @@ function isCategoryObject(obj: CatalogObject): obj is CatalogObject & { category
 
 export async function GET() {
   try {
+    // Resolve tenant and load Square config
+    const tenantId = await getCurrentTenantId()
+    const squareConfig = await getTenantSquareConfig(tenantId)
+    if (!squareConfig) {
+      return NextResponse.json({
+        categories: [],
+        items: [],
+        fallback: true,
+        message: 'Square integration not configured for this tenant'
+      })
+    }
+
     // Check cache first
-    const cachedMenu = getCachedMenu()
+    const cachedMenu = getCachedMenu(tenantId)
     if (cachedMenu) {
       return NextResponse.json(cachedMenu, {
         headers: {
@@ -102,8 +118,8 @@ export async function GET() {
     // Fetch items via search (to get all items including those missing from list API)
     // and categories via list API
     const [itemsData, categoriesData] = await Promise.all([
-      searchAllCatalogItems(),
-      listCatalogObjects(['CATEGORY'])
+      searchAllCatalogItems(squareConfig),
+      listCatalogObjects(squareConfig, ['CATEGORY'])
     ])
     
     // Combine the results (search returns different structure)
@@ -147,7 +163,7 @@ export async function GET() {
     )
 
     // Filter items for location availability and status
-    const locationId = process.env.SQUARE_LOCATION_ID
+    const locationId = squareConfig.locationId
     const availableItems = items.filter(item => {
       const itemData = item.item_data
       
@@ -364,7 +380,7 @@ export async function GET() {
     }
 
     // Cache the menu data
-    setCachedMenu(menuData)
+    setCachedMenu(tenantId, menuData)
 
     return NextResponse.json(menuData, {
       headers: {
