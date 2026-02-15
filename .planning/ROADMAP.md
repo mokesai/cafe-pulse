@@ -48,7 +48,7 @@ Refactor Square client to parameterized pattern with Vault-encrypted credential 
 
 **Goal:** Every Square API call uses the correct tenant's credentials loaded from Supabase Vault (with env var fallback for default tenant). Webhooks resolve tenant from merchant_id. Frontend config is server-rendered.
 
-**Plans:** 12 plans
+**Plans:** 13 plans
 
 Plans:
 - [x] 40-01-PLAN.md — Vault infrastructure: migration, SECURITY DEFINER functions, audit table, merchant_id index
@@ -62,11 +62,12 @@ Plans:
 - [x] 40-09-PLAN.md — Dead code cleanup: remove client.ts, simple-client.ts, and consumer routes
 - [x] 40-10-PLAN.md — Tenant-flag support for setup scripts (sync-square-catalog, seed-inventory, setup-square-webhooks)
 - [x] 40-11-PLAN.md — Gap closure: fix menu categories and items admin routes (missed in 40-06)
-- [ ] 40-12-PLAN.md — Gap closure: fix customer cards route (missed in 40-05 and 40-06)
+- [x] 40-12-PLAN.md — Gap closure: fix customer cards routes (missed in 40-05 and 40-06)
+- [ ] 40-13-PLAN.md — Gap closure: fix test/debug routes (tax-config, test-catalog, validate-catalog, test-order)
 
 **Testable:** Two tenants with different Square sandbox accounts show different catalogs.
 
-**Verified:** 10/10 must-haves passed. All Square API calls use tenant credentials via getTenantSquareConfig(). Webhooks resolve tenant from merchant_id. Frontend config server-rendered.
+**Verified:** 9/10 must-haves passed. TypeScript build blocker identified in test/debug routes.
 
 ---
 
