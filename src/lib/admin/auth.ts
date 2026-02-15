@@ -1,90 +1,40 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createTenantClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 import { redirect } from 'next/navigation'
 
 /**
  * Server-side admin authentication check
- * Redirects to /admin/login if not authenticated or not admin
+ * Redirects to /admin/login if not authenticated or not admin of the current tenant
  */
 export async function requireAdmin() {
   const supabase = await createClient()
-  
-  // Check if user is authenticated
+
+  // 1. Check authentication
   const { data: { user }, error: authError } = await supabase.auth.getUser()
-  
+
   if (authError || !user) {
     redirect('/admin/login')
   }
-  
-  // Check if user has admin role
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-  
-  if (profileError || profile?.role !== 'admin') {
-    redirect('/admin/login')
-  }
-  
-  return { user, profile }
-}
 
-/**
- * Client-side admin check hook - enhanced with security
- */
-export async function checkAdminRole(): Promise<boolean> {
-  try {
-    const response = await fetch('/api/admin/check-role', {
-      method: 'GET',
-      headers: { 
-        'Content-Type': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest' // CSRF protection
-      },
-      credentials: 'include' // Include cookies for auth
-    })
-    
-    if (!response.ok) {
-      return false
-    }
-    
-    const data = await response.json()
-    return data.isAdmin || false
-  } catch (error) {
-    console.error('Error checking admin role:', error)
-    return false
-  }
-}
+  // 2. Get tenant context from cookie (set by middleware)
+  const tenantId = await getCurrentTenantId()
 
-/**
- * Admin authentication for API routes
- */
-export async function requireAdminAPI(request: Request) {
-  const supabase = await createClient()
-  
-  // Get auth token from request headers
-  const authorization = request.headers.get('authorization')
-  if (!authorization) {
-    return { error: 'No authorization header', status: 401 }
-  }
-  
-  // Set the auth token
-  const token = authorization.replace('Bearer ', '')
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-  
-  if (authError || !user) {
-    return { error: 'Invalid authentication', status: 401 }
-  }
-  
-  // Check admin role
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
+  // 3. Check tenant membership with owner/admin role
+  const { data: membership, error: membershipError } = await supabase
+    .from('tenant_memberships')
     .select('role')
-    .eq('id', user.id)
+    .eq('tenant_id', tenantId)
+    .eq('user_id', user.id)
+    .in('role', ['owner', 'admin'])
     .single()
-  
-  if (profileError || profile?.role !== 'admin') {
-    return { error: 'Admin access required', status: 403 }
+
+  if (membershipError || !membership) {
+    // User authenticated but not admin of this tenant
+    redirect('/admin/login?error=no-access')
   }
-  
-  return { user, profile }
+
+  // 4. Create tenant-scoped client (calls set_tenant_context RPC)
+  const tenantClient = await createTenantClient(tenantId)
+
+  return { user, membership, tenantClient, tenantId }
 }
