@@ -12,26 +12,10 @@ interface TestResult {
 }
 
 export default function TestPage() {
-  const [squareTest, setSquareTest] = useState<TestResult | null>(null)
   const [supabaseTest, setSupabaseTest] = useState<TestResult | null>(null)
   const [catalogTest, setCatalogTest] = useState<TestResult | null>(null)
-  const [configTest, setConfigTest] = useState<TestResult | null>(null)
   const [databaseTest, setDatabaseTest] = useState<TestResult | null>(null)
   const [loading, setLoading] = useState(false)
-
-  const testSquare = async () => {
-    setLoading(true)
-    try {
-      const response = await fetch('/api/test-square-simple')
-      const result = await response.json() as TestResult
-      setSquareTest(result)
-    } catch (error) {
-      console.error('Square test failed:', error)
-      setSquareTest({ success: false, error: 'Failed to test Square' })
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const testSupabase = async () => {
     setLoading(true)
@@ -61,20 +45,6 @@ export default function TestPage() {
     }
   }
 
-  const testConfig = async () => {
-    setLoading(true)
-    try {
-      const response = await fetch('/api/test-simple')
-      const result = await response.json() as TestResult
-      setConfigTest(result)
-    } catch (error) {
-      console.error('Config test failed:', error)
-      setConfigTest({ success: false, error: 'Failed to test Config' })
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const testDatabase = async () => {
     setLoading(true)
     try {
@@ -90,8 +60,6 @@ export default function TestPage() {
   }
 
   const runAllTests = async () => {
-    await testConfig()
-    await testSquare()
     await testSupabase()
     await testCatalog()
     await testDatabase()
@@ -113,39 +81,6 @@ export default function TestPage() {
         </div>
         
         <div className="grid md:grid-cols-2 gap-8">
-          {/* Square Test */}
-          <div className="bg-white rounded-lg p-6 shadow-md">
-            <h2 className="text-xl font-semibold mb-4">Square API Test</h2>
-            <button
-              onClick={testSquare}
-              disabled={loading}
-              className="bg-amber-600 text-white px-4 py-2 rounded hover:bg-amber-700 disabled:opacity-50"
-            >
-              {loading ? 'Testing...' : 'Test Square Connection'}
-            </button>
-            
-            {squareTest && (
-              <div className="mt-4 p-4 rounded bg-gray-50">
-                <div className={`font-semibold ${squareTest.success ? 'text-green-600' : 'text-red-600'}`}>
-                  {squareTest.success ? '✅ Success' : '❌ Failed'}
-                </div>
-                <div className="text-sm text-gray-600 mt-2">
-                  {squareTest.message}
-                </div>
-                {squareTest.locations && (
-                  <div className="text-sm text-gray-600 mt-2">
-                    Locations found: {Array.isArray(squareTest.locations) ? squareTest.locations.length : 0}
-                  </div>
-                )}
-                {squareTest.error && (
-                  <div className="text-sm text-red-600 mt-2">
-                    Error: {squareTest.error}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
           {/* Supabase Test */}
           <div className="bg-white rounded-lg p-6 shadow-md">
             <h2 className="text-xl font-semibold mb-4">Supabase Test</h2>
@@ -189,7 +124,7 @@ export default function TestPage() {
             >
               {loading ? 'Testing...' : 'Test Catalog API'}
             </button>
-            
+
             {catalogTest && (
               <div className="mt-4 p-4 rounded bg-gray-50">
                 <div className={`font-semibold ${catalogTest.success ? 'text-green-600' : 'text-red-600'}`}>
@@ -206,41 +141,6 @@ export default function TestPage() {
                 {catalogTest.error && (
                   <div className="text-sm text-red-600 mt-2">
                     Error: {catalogTest.error}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Config Test */}
-          <div className="bg-white rounded-lg p-6 shadow-md">
-            <h2 className="text-xl font-semibold mb-4">Configuration Test</h2>
-            <button
-              onClick={testConfig}
-              disabled={loading}
-              className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 disabled:opacity-50"
-            >
-              {loading ? 'Testing...' : 'Test Configuration'}
-            </button>
-            
-            {configTest && (
-              <div className="mt-4 p-4 rounded bg-gray-50">
-                <div className={`font-semibold ${configTest.success ? 'text-green-600' : 'text-red-600'}`}>
-                  {configTest.success ? '✅ Success' : '❌ Failed'}
-                </div>
-                {typeof configTest.environment === 'string' && (
-                  <div className="text-sm text-gray-600 mt-2">
-                    Environment: {configTest.environment}
-                  </div>
-                )}
-                {configTest.square && typeof configTest.square === 'object' && 'configured' in configTest.square && (
-                  <div className="text-sm text-gray-600 mt-2">
-                    Square: {(configTest.square as { configured?: boolean }).configured ? '✓ Configured' : '✗ Not configured'}
-                  </div>
-                )}
-                {configTest.supabase && typeof configTest.supabase === 'object' && 'configured' in configTest.supabase && (
-                  <div className="text-sm text-gray-600 mt-2">
-                    Supabase: {(configTest.supabase as { configured?: boolean }).configured ? '✓ Configured' : '✗ Not configured'}
                   </div>
                 )}
               </div>
