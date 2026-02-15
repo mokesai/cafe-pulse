@@ -9,11 +9,11 @@
 ## Progress
 
 Phase: 40 of 70 (Tenant-Aware Square Integration)
-Plan: 10 of 10 in Phase 40
+Plan: 5 of 10 in Phase 40
 Status: In progress
-Last activity: 2026-02-14 - Completed 40-10-PLAN.md
+Last activity: 2026-02-15 - Completed 40-05-PLAN.md
 
-Progress: █████████░ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 started (10/10 plans)
+Progress: █████████░ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 started (5/10 plans)
 
 ## Completed
 - [x] PROJECT.md created
@@ -38,12 +38,15 @@ Progress: █████████░ Phase 10 complete, Phase 20 complete, P
 - [x] 40-02: SquareConfig type and credential loading layer — getTenantSquareConfig() with Vault RPC + env fallback, resolveTenantFromMerchantId() for webhooks
 - [x] 40-03: Parameterize fetch-client.ts — all 14 functions accept SquareConfig as first parameter, zero env var reads remain
 - [x] 40-04: Domain layer parameterization — catalog.ts, orders.ts, tax-validation.ts, customers.ts accept SquareConfig, tenant-scoped catalog cache, tenant-neutral source name
+- [x] 40-05: Customer-facing API routes tenant-aware — menu, config, payment, order-preview resolve tenant and use getTenantSquareConfig(), menu cache keyed by tenantId
 - [x] 40-06: Admin routes refactored — 7 admin API routes (sync-square, push-to-square, sales-sync, square-search, menu items, menu availability, COGS sync) resolve tenant and use getTenantSquareConfig()
 - [x] 40-07: Webhook tenant resolution — catalog and inventory webhooks resolve tenant from merchant_id, verify signatures with tenant keys, use tenant credentials for API calls
 - [x] 40-08: Server-rendered Square config — site layout calls getTenantSquareConfig, DynamicSquareProvider accepts props, CheckoutModal uses context (no env vars)
 - [x] 40-10: Tenant-flag support for setup scripts — sync-square-catalog, seed-inventory, setup-square-webhooks accept --tenant-id and --tenant-slug flags, load credentials from Vault via service_role RPC
 
 ### Decisions Made
+- **Menu cache keyed by tenantId**: Prevents cross-tenant data leakage; single-object cache would serve tenant A's menu to tenant B (Phase 40-05)
+- **503 for unconfigured tenants**: Customer-facing routes return 503 when Square not configured for tenant (Phase 40-05)
 - **Vault with fallback for Square credentials**: New tenants store credentials in Supabase Vault (vault.secrets), default tenant falls back to env vars (Phase 40-01)
 - **Owner-only credential access**: Only tenant owners can read/write Square credentials via SECURITY DEFINER functions; API routes use service_role internal function (Phase 40-01)
 - **Audit write operations only**: credential_audit_log tracks create/update/delete, not routine reads (Phase 40-01)
@@ -90,9 +93,9 @@ Progress: █████████░ Phase 10 complete, Phase 20 complete, P
 
 ## Session Continuity
 
-Last session: 2026-02-14
-Stopped at: Completed 40-06-PLAN.md (Admin routes refactored)
+Last session: 2026-02-15
+Stopped at: Completed 40-05-PLAN.md (Customer-facing API routes tenant-aware)
 Resume file: None
 
 ## Next Action
-Continue Phase 40 — Plan 40-05 or 40-09 (remaining customer-facing routes and cleanup)
+Continue Phase 40 — Plan 40-09 (dead code cleanup: remove client.ts, simple-client.ts, and consumer routes)
