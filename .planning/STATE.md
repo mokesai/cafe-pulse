@@ -9,11 +9,11 @@
 ## Progress
 
 Phase: 50 of 70 (Tenant-Aware Auth & Business Identity)
-Plan: 1 of 8 in Phase 50
+Plan: 2 of 8 in Phase 50
 Status: In progress
-Last activity: 2026-02-15 - Completed 50-01-PLAN.md (tenant identity loading)
+Last activity: 2026-02-15 - Completed 50-02-PLAN.md (React Email templates)
 
-Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete, Phase 50 (1/8 plans)
+Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete, Phase 50 (2/8 plans)
 
 ## Completed
 - [x] PROJECT.md created
@@ -51,6 +51,7 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - [x] Phase 50 researched (50-RESEARCH.md)
 - [x] Phase 50 planned — 8 plans across 3 waves
 - [x] 50-01: Tenant identity loading infrastructure — getTenantIdentity() cached function, branding fields added to Tenant type (logo_url, primary_color, secondary_color)
+- [x] 50-02: React Email templates — OrderConfirmation and OrderStatusUpdate templates with tenant branding props, react-email dependencies installed
 
 ### Decisions Made
 - **Menu cache keyed by tenantId**: Prevents cross-tenant data leakage; single-object cache would serve tenant A's menu to tenant B (Phase 40-05)
@@ -73,6 +74,8 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - **Service-role RPC for script credential access**: Scripts use get_tenant_square_credentials_internal with service_role client to bypass RLS (Phase 40-10)
 - **React cache() for getTenantIdentity**: Request-level deduplication prevents redundant database queries when multiple components need tenant identity (Phase 50-01)
 - **Service client for reading tenant identity**: Tenant table data is public (non-sensitive fields) and needs to be readable before user auth context exists (Phase 50-01)
+- **--legacy-peer-deps for React Email**: Zod version conflict between openai@5.12.2 (requires zod ^3.23.8) and project's zod@4.0.5 necessitates legacy peer deps flag (Phase 50-02)
+- **Match existing email template structure**: React Email templates mirror existing HTML string generators for visual consistency during multi-tenant transition (Phase 50-02)
 - **Tenant context via custom header**: Pass `x-tenant-id` header to Supabase client; `db-pre-request` function reads it and calls `set_config('app.tenant_id', ...)`
 - **Subdomain routing**: `slug.localhost:3000` for dev (no /etc/hosts needed)
 - **Caching**: Follow existing `globalThis` + TTL pattern from `siteSettings.edge.ts`, 60s TTL
@@ -104,8 +107,8 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 ## Session Continuity
 
 Last session: 2026-02-15
-Stopped at: Completed 50-01-PLAN.md — tenant identity loading infrastructure
+Stopped at: Completed 50-02-PLAN.md — React Email templates
 Resume file: None
 
 ## Next Action
-Phase 50-01 complete. getTenantIdentity() function ready for use in email templates (50-02), TenantProvider (50-03), and Business Profile UI (50-04).
+Phase 50-02 complete. React Email templates created with tenant branding props. Ready for 50-03 (TenantProvider) and 50-04 (Business Profile UI).
