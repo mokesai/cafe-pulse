@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
+import { getCurrentTenantId } from '@/lib/tenant/context'
+import { getTenantSquareConfig } from '@/lib/square/config'
+import type { SquareConfig } from '@/lib/square/types'
 
 type ImpactType = 'auto' | 'manual' | 'ignored'
 
@@ -33,26 +36,7 @@ interface SyncMetrics {
   nextCursor?: string | null
 }
 
-function getSquareConfig() {
-  const token = process.env.SQUARE_ACCESS_TOKEN
-  const environment = (process.env.SQUARE_ENVIRONMENT || 'sandbox').toLowerCase()
-  const locationId = process.env.SQUARE_LOCATION_ID
-
-  if (!token || !locationId) {
-    throw new Error('Missing Square configuration environment variables')
-  }
-
-  const baseUrl = environment === 'production'
-    ? 'https://connect.squareup.com'
-    : 'https://connect.squareupsandbox.com'
-
-  return {
-    token,
-    baseUrl,
-    locationId,
-    version: '2024-12-18'
-  }
-}
+const SQUARE_VERSION = '2024-12-18'
 
 async function getLastSuccessfulRun(supabase: SupabaseClient) {
   const { data } = await supabase
@@ -209,9 +193,13 @@ type SquareOrdersResponse = {
 }
 
 async function fetchSquareOrders(
+  config: SquareConfig,
   since?: string | null
 ): Promise<SquareOrdersResponse> {
-  const { token, baseUrl, locationId, version } = getSquareConfig()
+  const baseUrl = config.environment === 'production'
+    ? 'https://connect.squareup.com'
+    : 'https://connect.squareupsandbox.com'
+
   const orders: SquareOrder[] = []
   let cursor: string | undefined
   let nextCursor: string | null | undefined
@@ -222,7 +210,7 @@ async function fetchSquareOrders(
       query: Record<string, unknown>
       cursor?: string
     } = {
-      location_ids: [locationId],
+      location_ids: [config.locationId],
       query: {
         sort: { sort_field: 'CREATED_AT', sort_order: 'ASC' }
       }
@@ -245,8 +233,8 @@ async function fetchSquareOrders(
     const response = await fetch(`${baseUrl}/v2/orders/search`, {
       method: 'POST',
       headers: {
-        'Square-Version': version,
-        'Authorization': `Bearer ${token}`,
+        'Square-Version': SQUARE_VERSION,
+        'Authorization': `Bearer ${config.accessToken}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(body)
@@ -436,6 +424,13 @@ export async function POST(request: NextRequest) {
     return authResult
   }
 
+  // Resolve tenant and load Square config
+  const tenantId = await getCurrentTenantId()
+  const squareConfig = await getTenantSquareConfig(tenantId)
+  if (!squareConfig) {
+    return NextResponse.json({ error: 'Square not configured' }, { status: 503 })
+  }
+
   const supabase = createServiceClient()
   let currentRunId: string | null = null
 
@@ -450,7 +445,7 @@ export async function POST(request: NextRequest) {
       ? new Date(new Date(lastRun.last_synced_at).getTime() - 60 * 1000).toISOString()
       : undefined
 
-    const { orders, cursor } = await fetchSquareOrders(sinceTimestamp)
+    const { orders, cursor } = await fetchSquareOrders(squareConfig, sinceTimestamp)
     const inventoryMap = await fetchInventoryMap(supabase)
 
     const metrics: SyncMetrics = {

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
 import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
+import { getTenantSquareConfig } from '@/lib/square/config'
 import { listCatalogObjects } from '@/lib/square/fetch-client'
 
 type SquareCatalogObject = {
@@ -22,14 +24,16 @@ type SquareCatalogObject = {
   }
 }
 
-async function fetchAllSquareCatalogObjects(objectTypes: string[]) {
+async function fetchAllSquareCatalogObjects(config: ReturnType<typeof getTenantSquareConfig> extends Promise<infer T> ? T : never, objectTypes: string[]) {
+  if (!config) return []
+
   const objects: SquareCatalogObject[] = []
   let cursor: string | undefined
   let pages = 0
 
   while (pages < 25) {
     pages += 1
-    const payload = (await listCatalogObjects(objectTypes, cursor)) as { objects?: unknown[]; cursor?: unknown }
+    const payload = (await listCatalogObjects(config, objectTypes, cursor)) as { objects?: unknown[]; cursor?: unknown }
 
     const batch = Array.isArray(payload.objects) ? (payload.objects as SquareCatalogObject[]) : []
     objects.push(...batch)
@@ -58,18 +62,18 @@ export async function POST(request: NextRequest) {
   const authResult = await requireAdminAuth(request)
   if (!isAdminAuthSuccess(authResult)) return authResult
 
+  // Resolve tenant and load Square config
+  const tenantId = await getCurrentTenantId()
+  const squareConfig = await getTenantSquareConfig(tenantId)
+  if (!squareConfig) {
+    return NextResponse.json({ error: 'Square not configured' }, { status: 503 })
+  }
+
   const url = new URL(request.url)
   const dryRun = url.searchParams.get('dryRun') === '1'
 
-  if (!process.env.SQUARE_ACCESS_TOKEN) {
-    return NextResponse.json({ error: 'Missing SQUARE_ACCESS_TOKEN; Square sync is not configured.' }, { status: 500 })
-  }
-  if (!process.env.SQUARE_LOCATION_ID) {
-    return NextResponse.json({ error: 'Missing SQUARE_LOCATION_ID; Square sync is not configured.' }, { status: 500 })
-  }
-
   try {
-    const objects = await fetchAllSquareCatalogObjects(['ITEM', 'ITEM_VARIATION', 'CATEGORY'])
+    const objects = await fetchAllSquareCatalogObjects(squareConfig, ['ITEM', 'ITEM_VARIATION', 'CATEGORY'])
 
     const categoryNameById = new Map<string, string>()
     for (const obj of objects) {
