@@ -9,11 +9,11 @@
 ## Progress
 
 Phase: 40 of 70 (Tenant-Aware Square Integration)
-Plan: 11 of 11 in Phase 40
-Status: Phase complete, verified
-Last activity: 2026-02-15 - Phase 40 verified (10/10 must-haves passed)
+Plan: 12 of 12 in Phase 40
+Status: Phase complete, UAT gap closed
+Last activity: 2026-02-15 - Completed 40-12-PLAN.md (customer routes gap closure)
 
-Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (11/11 plans)
+Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (12/12 plans)
 
 ## Completed
 - [x] PROJECT.md created
@@ -45,6 +45,7 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - [x] 40-09: Dead code cleanup — deleted client.ts, simple-client.ts, test-connection, test-square-simple, debug-tax, test-simple routes; updated test page; cleaned .next cache
 - [x] 40-10: Tenant-flag support for setup scripts — sync-square-catalog, seed-inventory, setup-square-webhooks accept --tenant-id and --tenant-slug flags, load credentials from Vault via service_role RPC
 - [x] 40-11: Admin menu routes gap closure — categories and items routes refactored to load per-tenant Square credentials via getTenantSquareConfig(), closing 40-06 gap
+- [x] 40-12: Customer routes gap closure — cards, delete-card, save-card routes refactored to load per-tenant Square credentials via getTenantSquareConfig(), removing UAT TypeScript blocker
 - [x] Phase 40 verified — 10/10 must-haves passed, all Square API calls use tenant credentials, webhooks resolve tenant from merchant_id, frontend config server-rendered
 
 ### Decisions Made
@@ -97,8 +98,8 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 ## Session Continuity
 
 Last session: 2026-02-15
-Stopped at: Phase 40 verified and complete (10/10 must-haves passed)
+Stopped at: Completed 40-12-PLAN.md — customer routes gap closure (UAT blocker removed)
 Resume file: None
 
 ## Next Action
-Phase 40 complete and verified. Ready for Phase 50: Tenant-Aware Auth & Business Identity.
+Phase 40 complete and verified. All 14 Square API routes now tenant-aware. Ready for Phase 50: Tenant-Aware Auth & Business Identity.
