@@ -57,21 +57,15 @@ export function createServiceClient() {
 
 /**
  * Create a Supabase client scoped to a specific tenant.
- * Passes x-tenant-id header which the PostgreSQL pre-request function
- * reads to set app.tenant_id session variable for RLS policies.
+ * Calls set_tenant_context RPC to set app.tenant_id session variable for RLS policies.
  */
 export async function createTenantClient(tenantId: string) {
   const cookieStore = await cookies()
 
-  return createServerClient(
+  const client = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
-      global: {
-        headers: {
-          'x-tenant-id': tenantId,
-        },
-      },
       cookies: {
         getAll() {
           return cookieStore.getAll()
@@ -90,6 +84,11 @@ export async function createTenantClient(tenantId: string) {
       },
     }
   )
+
+  // Set tenant context explicitly via RPC call
+  await client.rpc('set_tenant_context', { p_tenant_id: tenantId })
+
+  return client
 }
 
 /**
