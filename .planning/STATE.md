@@ -9,11 +9,11 @@
 ## Progress
 
 Phase: 40 of 70 (Tenant-Aware Square Integration)
-Plan: 12 of 12 in Phase 40
-Status: Phase complete, UAT gap closed
-Last activity: 2026-02-15 - Completed 40-12-PLAN.md (customer routes gap closure)
+Plan: 13 of 13 in Phase 40
+Status: Phase complete, all gaps closed
+Last activity: 2026-02-15 - Completed 40-13-PLAN.md (test/debug routes gap closure)
 
-Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (12/12 plans)
+Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans)
 
 ## Completed
 - [x] PROJECT.md created
@@ -46,7 +46,8 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - [x] 40-10: Tenant-flag support for setup scripts — sync-square-catalog, seed-inventory, setup-square-webhooks accept --tenant-id and --tenant-slug flags, load credentials from Vault via service_role RPC
 - [x] 40-11: Admin menu routes gap closure — categories and items routes refactored to load per-tenant Square credentials via getTenantSquareConfig(), closing 40-06 gap
 - [x] 40-12: Customer routes gap closure — cards, delete-card, save-card routes refactored to load per-tenant Square credentials via getTenantSquareConfig(), removing UAT TypeScript blocker
-- [x] Phase 40 verified — 10/10 must-haves passed, all Square API calls use tenant credentials, webhooks resolve tenant from merchant_id, frontend config server-rendered
+- [x] 40-13: Test/debug routes gap closure — 6 test/debug routes (tax-config, test-catalog, validate-catalog, test-order, test-catalog, test-square) refactored to load per-tenant Square credentials, TypeScript build passes
+- [x] Phase 40 verified — 10/10 must-haves passed, all 23 Square API routes use tenant credentials, webhooks resolve tenant from merchant_id, frontend config server-rendered, zero TypeScript errors
 
 ### Decisions Made
 - **Menu cache keyed by tenantId**: Prevents cross-tenant data leakage; single-object cache would serve tenant A's menu to tenant B (Phase 40-05)
@@ -98,8 +99,8 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 ## Session Continuity
 
 Last session: 2026-02-15
-Stopped at: Completed 40-12-PLAN.md — customer routes gap closure (UAT blocker removed)
+Stopped at: Completed 40-13-PLAN.md — test/debug routes gap closure (TypeScript build blocker removed)
 Resume file: None
 
 ## Next Action
-Phase 40 complete and verified. All 14 Square API routes now tenant-aware. Ready for Phase 50: Tenant-Aware Auth & Business Identity.
+Phase 40 complete and verified. All 23 Square API routes now tenant-aware. TypeScript build passes. Ready for Phase 50: Tenant-Aware Auth & Business Identity.
