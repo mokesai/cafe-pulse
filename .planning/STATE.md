@@ -9,10 +9,10 @@
 ## Progress
 
 Phase: 40 of 70 (Tenant-Aware Square Integration)
-Plan: 2 of 10 in Phase 40
+Plan: 3 of 10 in Phase 40
 Status: In progress
 
-Progress: █████████░ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 started (2/10 plans)
+Progress: █████████░ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 started (3/10 plans)
 
 ## Completed
 - [x] PROJECT.md created
@@ -35,6 +35,7 @@ Progress: █████████░ Phase 10 complete, Phase 20 complete, P
 - [x] Phase 40 planned — 10 plans across 4 waves
 - [x] 40-01: Vault infrastructure — vault_secret_id columns, SECURITY DEFINER credential functions, audit table, merchant_id index
 - [x] 40-02: SquareConfig type and credential loading layer — getTenantSquareConfig() with Vault RPC + env fallback, resolveTenantFromMerchantId() for webhooks
+- [x] 40-03: Parameterize fetch-client.ts — all 14 functions accept SquareConfig as first parameter, zero env var reads remain
 
 ### Decisions Made
 - **Vault with fallback for Square credentials**: New tenants store credentials in Supabase Vault (vault.secrets), default tenant falls back to env vars (Phase 40-01)
@@ -43,6 +44,7 @@ Progress: █████████░ Phase 10 complete, Phase 20 complete, P
 - **RPC returns array for RETURNS TABLE**: Supabase RPC for RETURNS TABLE functions returns an array; access via data[0] (Phase 40-02)
 - **60-second credential cache TTL**: Matches existing tenant cache TTL for consistency (Phase 40-02)
 - **Sandbox as default environment**: Safer default for development; production must be explicit (Phase 40-02)
+- **Per-call base URL derivation**: Environment can vary per tenant; base URL must be derived from config at call time, not module level (Phase 40-03)
 - **Tenant context via custom header**: Pass `x-tenant-id` header to Supabase client; `db-pre-request` function reads it and calls `set_config('app.tenant_id', ...)`
 - **Subdomain routing**: `slug.localhost:3000` for dev (no /etc/hosts needed)
 - **Caching**: Follow existing `globalThis` + TTL pattern from `siteSettings.edge.ts`, 60s TTL
@@ -74,8 +76,8 @@ Progress: █████████░ Phase 10 complete, Phase 20 complete, P
 ## Session Continuity
 
 Last session: 2026-02-14
-Stopped at: Completed 40-02-PLAN.md (SquareConfig type and credential loading layer)
+Stopped at: Completed 40-03-PLAN.md (Parameterize fetch-client.ts)
 Resume file: None
 
 ## Next Action
-Continue Phase 40 — Plan 40-03: Parameterize fetch-client.ts
+Continue Phase 40 — Plan 40-04: Update domain layers (catalog.ts, orders.ts, tax-validation.ts, customers.ts)
