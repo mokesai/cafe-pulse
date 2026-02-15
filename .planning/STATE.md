@@ -9,11 +9,11 @@
 ## Progress
 
 Phase: 40 of 70 (Tenant-Aware Square Integration)
-Plan: 5 of 10 in Phase 40
+Plan: 9 of 10 in Phase 40
 Status: In progress
-Last activity: 2026-02-15 - Completed 40-05-PLAN.md
+Last activity: 2026-02-15 - Completed 40-09-PLAN.md
 
-Progress: █████████░ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 started (5/10 plans)
+Progress: █████████░ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 started (9/10 plans)
 
 ## Completed
 - [x] PROJECT.md created
@@ -42,6 +42,7 @@ Progress: █████████░ Phase 10 complete, Phase 20 complete, P
 - [x] 40-06: Admin routes refactored — 7 admin API routes (sync-square, push-to-square, sales-sync, square-search, menu items, menu availability, COGS sync) resolve tenant and use getTenantSquareConfig()
 - [x] 40-07: Webhook tenant resolution — catalog and inventory webhooks resolve tenant from merchant_id, verify signatures with tenant keys, use tenant credentials for API calls
 - [x] 40-08: Server-rendered Square config — site layout calls getTenantSquareConfig, DynamicSquareProvider accepts props, CheckoutModal uses context (no env vars)
+- [x] 40-09: Dead code cleanup — deleted client.ts, simple-client.ts, test-connection, test-square-simple, debug-tax, test-simple routes; updated test page; cleaned .next cache
 - [x] 40-10: Tenant-flag support for setup scripts — sync-square-catalog, seed-inventory, setup-square-webhooks accept --tenant-id and --tenant-slug flags, load credentials from Vault via service_role RPC
 
 ### Decisions Made
@@ -94,8 +95,8 @@ Progress: █████████░ Phase 10 complete, Phase 20 complete, P
 ## Session Continuity
 
 Last session: 2026-02-15
-Stopped at: Completed 40-05-PLAN.md (Customer-facing API routes tenant-aware)
+Stopped at: Completed 40-09-PLAN.md (Dead code cleanup)
 Resume file: None
 
 ## Next Action
-Continue Phase 40 — Plan 40-09 (dead code cleanup: remove client.ts, simple-client.ts, and consumer routes)
+Phase 40 nearly complete — only 1 remaining plan (40-06: Admin routes refactored)
