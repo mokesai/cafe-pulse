@@ -113,7 +113,7 @@ Recursive RLS policy on `tenant_memberships` table ("Admins can read tenant memb
 
 ---
 
-## Phase 60: Platform Control Plane
+## Phase 60: Platform Control Plane ✓
 
 Build the super-admin interface for managing tenants. Onboarding flow for new cafes. Tenant status monitoring.
 
@@ -122,15 +122,17 @@ Build the super-admin interface for managing tenants. Onboarding flow for new ca
 **Plans:** 7 plans in 4 waves
 
 Plans:
-- [ ] 60-01-PLAN.md — Database foundation: tenant_status ENUM, platform_admins table, soft delete with pg_cron cleanup
-- [ ] 60-02-PLAN.md — Platform auth infrastructure: requirePlatformAdmin, MFA middleware, platform layout
-- [ ] 60-03-PLAN.md — Dashboard UI: landing page with stats, tenant list with search/sort, shadcn components
-- [ ] 60-04-PLAN.md — Square OAuth integration: authorize and callback routes, Vault credential storage
-- [ ] 60-05-PLAN.md — Onboarding wizard: multi-step form (basic info → Square OAuth), Server Actions with Zod validation
-- [ ] 60-06-PLAN.md — Tenant detail and edit: full config display, edit form, updateTenant Server Action
-- [ ] 60-07-PLAN.md — Lifecycle management: status transitions, soft delete/restore, pg_cron trial expiration
+- [x] 60-01-PLAN.md — Database foundation: tenant_status ENUM, platform_admins table, soft delete with pg_cron cleanup
+- [x] 60-02-PLAN.md — Platform auth infrastructure: requirePlatformAdmin, MFA middleware, platform layout
+- [x] 60-03-PLAN.md — Dashboard UI: landing page with stats, tenant list with search/sort, shadcn components
+- [x] 60-04-PLAN.md — Square OAuth integration: authorize and callback routes, Vault credential storage
+- [x] 60-05-PLAN.md — Onboarding wizard: multi-step form (basic info → Square OAuth), Server Actions with Zod validation
+- [x] 60-06-PLAN.md — Tenant detail and edit: full config display, edit form, updateTenant Server Action
+- [x] 60-07-PLAN.md — Lifecycle management: status transitions, soft delete/restore, pg_cron trial expiration
 
 **Testable:** Onboard a new tenant via the platform admin wizard, verify Square OAuth stores credentials, manage tenant status lifecycle, soft delete and restore tenant.
+
+**Verified:** 42/42 must-haves passed. All platform admin features functional. MFA enforcement active. Square OAuth integration complete. TypeScript build clean.
 
 ---
 
