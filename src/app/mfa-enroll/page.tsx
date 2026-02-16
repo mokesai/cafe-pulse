@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
+import Button from '@/components/ui/Button'
+import Input from '@/components/ui/Input'
 
-export default function MFAEnrollPage() {
+function MFAEnrollContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const returnUrl = searchParams.get('return') || '/platform'
@@ -158,5 +158,17 @@ export default function MFAEnrollPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function MFAEnrollPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-gray-600">Loading...</div>
+      </div>
+    }>
+      <MFAEnrollContent />
+    </Suspense>
   )
 }
