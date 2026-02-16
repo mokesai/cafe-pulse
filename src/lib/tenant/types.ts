@@ -1,6 +1,16 @@
 // Tenant system type definitions
 // These interfaces mirror the tenants and tenant_memberships database tables
 
+/**
+ * Tenant lifecycle states with enforced state machine transitions:
+ * - trial → active, paused, deleted
+ * - active → paused, suspended, deleted
+ * - paused → active, suspended, deleted
+ * - suspended → active, deleted
+ * - deleted (final state, cannot transition away)
+ */
+export type TenantStatus = 'trial' | 'active' | 'paused' | 'suspended' | 'deleted'
+
 export interface Tenant {
   id: string
   slug: string
@@ -25,6 +35,11 @@ export interface Tenant {
   email_sender_address: string | null
   is_active: boolean
   features: Record<string, unknown>
+  status: TenantStatus
+  status_changed_at: string
+  trial_expires_at: string | null
+  trial_days: number
+  deleted_at: string | null
   created_at: string
   updated_at: string
 }
@@ -37,6 +52,17 @@ export interface TenantMembership {
   user_id: string
   role: TenantRole
   created_at: string
+}
+
+/**
+ * Platform super-admin who can manage all tenants.
+ * Separate from tenant-level roles (owner, admin, staff).
+ */
+export interface PlatformAdmin {
+  id: string
+  user_id: string
+  created_at: string
+  created_by: string | null
 }
 
 /**
