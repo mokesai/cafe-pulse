@@ -9,11 +9,11 @@
 ## Progress
 
 Phase: 60 of 70 (Platform Control Plane)
-Plan: 6 of 8 in Phase 60
-Status: In progress - Tenant detail and edit pages complete
-Last activity: 2026-02-16 - Completed 60-06: Tenant detail and edit pages
+Plan: 5 of 8 in Phase 60
+Status: In progress - Tenant onboarding wizard complete
+Last activity: 2026-02-16 - Completed 60-05: Tenant onboarding wizard
 
-Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 (6/8 plans)
+Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 (5/8 plans)
 
 ## Completed
 - [x] PROJECT.md created
@@ -67,11 +67,14 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - [x] 60-02: Platform admin authentication — requirePlatformAdmin() checks platform_admins table, middleware enforces auth + MFA + role checks on /platform routes, MFA enrollment/challenge pages with Supabase TOTP
 - [x] 60-03: Platform dashboard UI — Dashboard with tenant stats (total, active, trial, paused, suspended), tenant list with search/sort, shadcn Table component, placeholder pages for onboarding and detail
 - [x] 60-04: Square OAuth integration — OAuth Code Flow with authorize/callback routes, Vault storage functions for encrypted credentials, CSRF-safe state parameter, multi-environment support (sandbox + production)
-- [x] 60-06: Tenant detail and edit pages — Detail view with Basic Info/Square Config/Branding sections, edit form with React Hook Form + Zod validation, updateTenant Server Action, hex color validation
+- [x] 60-05: Tenant onboarding wizard — Multi-step form (Basic Info → Square OAuth), React Hook Form + Zod validation, createTenant Server Action with slug uniqueness check, success/error handling via query params
 
 ### Decisions Made
-- **React Hook Form with Zod for edit forms**: Client-side validation with same schema as server-side provides better UX than pure Server Actions (Phase 60-06)
-- **Separate server page from client form component**: Next.js 15 best practice - server fetches data, client handles interactivity (Phase 60-06)
+- **Direct Server Action invocation for onboarding**: useActionState returns void; need direct return value for multi-step wizard logic (Phase 60-05)
+- **Slug uniqueness check in Server Action**: Prevent duplicate tenants with same subdomain by querying before insert (Phase 60-05)
+- **Success/error state via URL query params**: OAuth callback redirects preserve state when returning to onboarding page (Phase 60-05)
+- **--legacy-peer-deps for react-hook-form install**: Zod version conflict between openai@5.12.2 (requires zod ^3.23.8) and project's zod@4.0.5 (Phase 60-05)
+- **Omit 'size' from SelectProps**: Prevent TypeScript conflict between HTML size (number) and custom size prop (string) (Phase 60-05)
 - **Hex color validation for branding**: Regex pattern ensures consistent color format, prevents invalid CSS values (Phase 60-06)
 - **Service client for platform dashboard queries**: Platform admins use createServiceClient() to bypass RLS and see all tenants regardless of their own tenant memberships (Phase 60-03)
 - **Status badge color mapping**: TenantStatus mapped to Badge variants (trial=blue, active=green, paused=yellow, suspended=red, deleted=gray) for quick visual identification (Phase 60-03)
@@ -144,7 +147,8 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - Platform dashboard manual testing requires bootstrap: Platform admin must be created via psql before testing /platform routes (60-02 bootstrap script needed)
 - Pagination not implemented on tenant list: Will need pagination when tenant count grows beyond ~50 (deferred to Phase 60+)
 - OAuth state verification storage not implemented: TODO in authorize route for server-side state storage and verification in callback (Phase 60-04 follow-up)
-- Square token refresh automation needed: Access tokens expire after 30 days, need pg_cron job (deferred to Phase 60-05+)
+- Square token refresh automation needed: Access tokens expire after 30 days, need pg_cron job (deferred to Phase 60+)
+- Admin user creation in onboarding: Server Action includes TODO for creating admin user account via Supabase Admin API or invite link (60-05 follow-up)
 - 15+ tables have single-column UNIQUE constraints that will block multi-tenant data (deferred to Phase 60+)
 - site_settings singleton pattern (`id = 1`) will conflict with second tenant (deferred to Phase 60+)
 - Database views need tenant_id filtering (deferred to Phase 60)
@@ -156,8 +160,8 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed Phase 60-06 — Tenant detail and edit pages
+Stopped at: Completed Phase 60-05 — Tenant onboarding wizard
 Resume file: None
 
 ## Next Action
-Phase 60-06 complete. Proceed to Plan 60-05: Tenant onboarding wizard or Plan 60-07: Tenant status management.
+Phase 60-05 complete. Proceed to Plan 60-07: Tenant status management or Plan 60-08: Platform admin assignment.
