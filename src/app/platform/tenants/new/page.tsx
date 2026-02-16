@@ -1,12 +1,202 @@
-import { requirePlatformAdmin } from '@/lib/platform/auth';
+'use client'
 
-export default async function OnboardTenantPage() {
-  await requirePlatformAdmin();
+import { useState } from 'react'
+import { useActionState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { createTenant } from '../actions'
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
+import { Button } from '@/components/ui/button'
+import Input from '@/components/ui/Input'
+
+// Step 1 schema - same as Server Action
+const step1Schema = z.object({
+  slug: z.string()
+    .min(3, 'Slug must be at least 3 characters')
+    .max(50, 'Slug must be less than 50 characters')
+    .regex(/^[a-z0-9-]+$/, 'Slug can only contain lowercase letters, numbers, and hyphens')
+    .refine(s => !s.startsWith('-') && !s.endsWith('-'), 'Slug cannot start or end with hyphen'),
+  name: z.string()
+    .min(1, 'Business name is required')
+    .max(200, 'Business name must be less than 200 characters'),
+  admin_email: z.string()
+    .email('Invalid email address')
+    .max(255, 'Email must be less than 255 characters'),
+})
+
+type Step1FormData = z.infer<typeof step1Schema>
+
+export default function OnboardNewTenantPage() {
+  const [currentStep, setCurrentStep] = useState(1)
+  const [formData, setFormData] = useState<Step1FormData & { tenantId?: string }>({
+    slug: '',
+    name: '',
+    admin_email: '',
+  })
+  const [actionState, formAction] = useActionState(createTenant, { errors: {} })
+  const router = useRouter()
+
+  // React Hook Form for Step 1
+  const form = useForm<Step1FormData>({
+    resolver: zodResolver(step1Schema),
+    defaultValues: {
+      slug: formData.slug || '',
+      name: formData.name || '',
+      admin_email: formData.admin_email || '',
+    },
+  })
+
+  // Step 1 submit handler
+  const onStep1Submit = async (data: Step1FormData) => {
+    // Call Server Action
+    const formDataObj = new FormData()
+    formDataObj.append('slug', data.slug)
+    formDataObj.append('name', data.name)
+    formDataObj.append('admin_email', data.admin_email)
+
+    const result = await formAction(formDataObj)
+
+    if (result.success && result.tenantId) {
+      // Save tenant ID and move to step 2
+      setFormData({ ...data, tenantId: result.tenantId })
+      setCurrentStep(2)
+    } else if (result.errors) {
+      // Set form errors from server
+      if (result.errors.slug) {
+        form.setError('slug', { message: result.errors.slug[0] })
+      }
+      if (result.errors.name) {
+        form.setError('name', { message: result.errors.name[0] })
+      }
+      if (result.errors.admin_email) {
+        form.setError('admin_email', { message: result.errors.admin_email[0] })
+      }
+    }
+  }
+
+  // Step 2 Square OAuth handler
+  const initiateSquareOAuth = (environment: 'sandbox' | 'production') => {
+    const tenantId = formData.tenantId
+    router.push(`/api/platform/square-oauth/authorize?tenant_id=${tenantId}&environment=${environment}`)
+  }
 
   return (
-    <div className="p-8">
-      <h1 className="text-2xl font-bold mb-4">Onboard New Tenant</h1>
-      <p className="text-gray-600">Onboarding wizard coming in Plan 60-05</p>
+    <div className="max-w-2xl mx-auto p-8">
+      <h1 className="text-2xl font-bold mb-6">Onboard New Tenant</h1>
+
+      {/* Progress indicator */}
+      <div className="flex items-center mb-8 gap-2">
+        <div className={`flex-1 h-1 rounded ${currentStep >= 1 ? 'bg-blue-500' : 'bg-gray-300'}`} />
+        <div className={`flex-1 h-1 rounded ${currentStep >= 2 ? 'bg-blue-500' : 'bg-gray-300'}`} />
+      </div>
+
+      {/* Step 1: Basic Info */}
+      {currentStep === 1 && (
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onStep1Submit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="slug"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tenant Slug</FormLabel>
+                  <FormControl>
+                    <Input placeholder="my-cafe" {...field} />
+                  </FormControl>
+                  <FormDescription>
+                    Subdomain for this tenant (e.g., my-cafe.yourdomain.com)
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Business Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="My Coffee Shop" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="admin_email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Admin Email</FormLabel>
+                  <FormControl>
+                    <Input type="email" placeholder="admin@mycafe.com" {...field} />
+                  </FormControl>
+                  <FormDescription>
+                    Account will be created for this email address
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {actionState.errors?._form && (
+              <p className="text-sm text-red-500 bg-red-50 border border-red-200 rounded p-3">
+                {actionState.errors._form[0]}
+              </p>
+            )}
+
+            <Button type="submit" isLoading={form.formState.isSubmitting}>
+              Next: Connect Square
+            </Button>
+          </form>
+        </Form>
+      )}
+
+      {/* Step 2: Square OAuth */}
+      {currentStep === 2 && (
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">Connect Square Account</h2>
+          <p className="text-gray-600">
+            Choose the Square environment to connect:
+          </p>
+
+          <div className="space-y-2">
+            <Button
+              onClick={() => initiateSquareOAuth('sandbox')}
+              variant="outline"
+              fullWidth
+            >
+              Connect Sandbox (Testing)
+            </Button>
+            <Button
+              onClick={() => initiateSquareOAuth('production')}
+              fullWidth
+            >
+              Connect Production (Live)
+            </Button>
+          </div>
+
+          <Button
+            onClick={() => setCurrentStep(1)}
+            variant="ghost"
+          >
+            Back
+          </Button>
+        </div>
+      )}
     </div>
-  );
+  )
 }
