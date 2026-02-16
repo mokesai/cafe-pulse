@@ -1,5 +1,6 @@
 import { requirePlatformAdmin } from '@/lib/platform/auth'
 import Link from 'next/link'
+import { LogoutButton } from './LogoutButton'
 
 export default async function PlatformAdminLayout({
   children,
@@ -41,12 +42,7 @@ export default async function PlatformAdminLayout({
         </nav>
 
         <div className="p-4 border-t border-gray-200">
-          <a
-            href="/api/auth/logout"
-            className="block px-4 py-2 text-sm font-medium text-red-600 rounded-lg hover:bg-red-50 transition-colors"
-          >
-            Logout
-          </a>
+          <LogoutButton />
         </div>
       </aside>
 

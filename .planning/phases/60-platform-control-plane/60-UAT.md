@@ -40,11 +40,11 @@
 - **Notes:** Bug fixed in commit 78c0fdc - middleware was redirecting to non-existent /login page
 
 #### T-60-02-02: Non-Platform-Admin Access
-- **Status:** ✅ passed
-- **Severity:** -
+- **Status:** ✅ passed (after critical fix)
+- **Severity:** critical (blocking)
 - **Expected:** Login as regular user (not platform admin) redirects to /unauthorized
-- **Actual:** Non-platform-admin correctly redirected to /unauthorized with reason parameter
-- **Notes:** -
+- **Actual:** Initially blocked by RLS chicken-and-egg bug. Fixed in migration 20260216300000 - changed policy to allow users to check own status. Now works correctly.
+- **Notes:** Critical bug - RLS policy prevented middleware from checking platform admin status (commit 7a36cda)
 
 #### T-60-02-03: MFA Enrollment Flow
 - **Status:** pending
