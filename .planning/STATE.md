@@ -9,11 +9,11 @@
 ## Progress
 
 Phase: 60 of 70 (Platform Control Plane)
-Plan: 2 of 8 in Phase 60
-Status: In progress - platform admin auth and MFA complete
-Last activity: 2026-02-16 - Completed 60-02: Platform admin authentication with MFA enforcement
+Plan: 4 of 8 in Phase 60
+Status: In progress - Square OAuth integration complete
+Last activity: 2026-02-16 - Completed 60-04: Square OAuth integration with Vault credential storage
 
-Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 (2/8 plans)
+Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 (4/8 plans)
 
 ## Completed
 - [x] PROJECT.md created
@@ -65,8 +65,12 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - [x] Phase 60 planned — 8 plans across 3 waves (database foundation, platform UI, tenant onboarding)
 - [x] 60-01: Database foundation — tenant_status ENUM with state machine validation, platform_admins table with bootstrap function, soft delete with 30-day pg_cron cleanup
 - [x] 60-02: Platform admin authentication — requirePlatformAdmin() checks platform_admins table, middleware enforces auth + MFA + role checks on /platform routes, MFA enrollment/challenge pages with Supabase TOTP
+- [x] 60-04: Square OAuth integration — OAuth Code Flow with authorize/callback routes, Vault storage functions for encrypted credentials, CSRF-safe state parameter, multi-environment support (sandbox + production)
 
 ### Decisions Made
+- **OAuth state format for CSRF protection**: State parameter formatted as tenantId:randomToken:environment with 32-byte random token; embeds context for callback while preventing CSRF attacks (Phase 60-04)
+- **Separate platform admin and internal Vault functions**: store_square_credentials checks platform_admins, store_square_credentials_internal bypasses check for service_role API routes (Phase 60-04)
+- **Vault naming convention for Square credentials**: square_{environment}_{type}_{tenant_id} format supports dual sandbox+production per tenant, consistent with Phase 40 patterns (Phase 60-04)
 - **Platform route protection before tenant resolution**: Platform routes are tenant-agnostic; middleware returns early for /platform, bypassing tenant middleware logic (Phase 60-02)
 - **Three-layer platform security**: Defense in depth for super-admin access; users must be authenticated, have MFA enabled/verified, and be in platform_admins table (Phase 60-02)
 - **Separate MFA enrollment vs challenge pages**: Different user journeys; /mfa-enroll shows QR code for first-time setup, /mfa-challenge only accepts code (Phase 60-02)
@@ -128,6 +132,8 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - **Rollback scripts in supabase/rollback/**: Not in migrations/ to prevent accidental application by `supabase db push`
 
 ### Known Issues
+- OAuth state verification storage not implemented: TODO in authorize route for server-side state storage and verification in callback (Phase 60-04 follow-up)
+- Square token refresh automation needed: Access tokens expire after 30 days, need pg_cron job (deferred to Phase 60-05+)
 - Manual testing of platform admin auth flow blocked until bootstrap script created (Plan 60-03)
 - First platform admin must be created via bootstrap before /platform can be accessed (Plan 60-03)
 - 15+ tables have single-column UNIQUE constraints that will block multi-tenant data (deferred to Phase 60+)
@@ -141,8 +147,8 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed Phase 60-02 — Platform admin authentication with MFA enforcement
+Stopped at: Completed Phase 60-04 — Square OAuth integration with Vault credential storage
 Resume file: None
 
 ## Next Action
-Phase 60-02 complete. Proceed to Plan 60-03: Platform admin bootstrap script and onboarding flow.
+Phase 60-04 complete. Proceed to Plan 60-05: Tenant CRUD operations and onboarding wizard UI.
