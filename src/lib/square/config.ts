@@ -1,6 +1,7 @@
 // Square credential loading layer
 // Provides tenant-aware credential resolution from Vault with env var fallback
 
+import { randomBytes } from 'crypto'
 import { createServiceClient } from '@/lib/supabase/server'
 import { DEFAULT_TENANT_ID } from '@/lib/tenant/types'
 import type { SquareConfig } from './types'
@@ -125,4 +126,45 @@ export async function resolveTenantFromMerchantId(
   }
 
   return data.id
+}
+
+/**
+ * Generate a cryptographically secure OAuth state parameter for CSRF protection.
+ * Format: tenantId:randomToken:environment
+ * The random token should be stored server-side and verified in the callback.
+ */
+export function generateOAuthState(
+  tenantId: string,
+  environment: 'sandbox' | 'production'
+): string {
+  const randomToken = randomBytes(32).toString('hex')
+  return `${tenantId}:${randomToken}:${environment}`
+}
+
+/**
+ * Parse OAuth state parameter back into its components.
+ * Returns null if the state format is invalid.
+ */
+export function parseOAuthState(state: string): {
+  tenantId: string
+  stateToken: string
+  environment: 'sandbox' | 'production'
+} | null {
+  const parts = state.split(':')
+  if (parts.length !== 3) {
+    return null
+  }
+
+  const [tenantId, stateToken, environment] = parts
+
+  // Validate environment
+  if (environment !== 'sandbox' && environment !== 'production') {
+    return null
+  }
+
+  return {
+    tenantId,
+    stateToken,
+    environment,
+  }
 }
