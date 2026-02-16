@@ -32,6 +32,8 @@
     "test:ai": "node scripts/test-ai-invoice-parsing.js"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.2.2",
+    "@radix-ui/react-slot": "^1.2.4",
     "@react-email/components": "^1.0.7",
     "@square/web-payments-sdk-types": "^1.75.1",
     "@supabase/ssr": "^0.6.1",
@@ -53,6 +55,7 @@
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "react-email": "^5.2.8",
+    "react-hook-form": "^7.71.1",
     "react-hot-toast": "^2.5.2",
     "react-square-web-payments-sdk": "^3.2.4-beta.1",
     "resend": "^4.8.0",
