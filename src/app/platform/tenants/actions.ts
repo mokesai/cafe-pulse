@@ -13,6 +13,7 @@ export type ActionState = {
   };
   success?: boolean;
   tenantId?: string;
+  deleted?: boolean;
 };
 
 // Schema for creating a new tenant
@@ -166,4 +167,144 @@ export async function updateTenant(
   return {
     success: true,
   };
+}
+
+/**
+ * Change tenant status
+ * Server Action for tenant lifecycle management (Plan 60-07)
+ *
+ * Updates tenant status. Database trigger validates state machine transitions.
+ */
+export async function changeStatus(
+  tenantId: string,
+  newStatus: 'trial' | 'active' | 'paused' | 'suspended',
+  prevState: ActionState
+): Promise<ActionState> {
+  try {
+    const supabase = createServiceClient();
+
+    // Update status - database trigger validates transition
+    const { error: updateError } = await supabase
+      .from('tenants')
+      .update({ status: newStatus })
+      .eq('id', tenantId);
+
+    if (updateError) {
+      // Check if error is from state machine validation
+      if (updateError.message.includes('Invalid transition')) {
+        return {
+          errors: {
+            _form: [`Invalid status transition: ${updateError.message}`],
+          },
+        };
+      }
+      return {
+        errors: {
+          _form: ['Failed to update status: ' + updateError.message],
+        },
+      };
+    }
+
+    // Revalidate pages
+    revalidatePath('/platform/tenants');
+    revalidatePath(`/platform/tenants/${tenantId}`);
+
+    return {
+      success: true,
+    };
+  } catch (error: any) {
+    return {
+      errors: {
+        _form: ['Unexpected error: ' + error.message],
+      },
+    };
+  }
+}
+
+/**
+ * Soft delete a tenant
+ * Server Action for tenant lifecycle management (Plan 60-07)
+ *
+ * Sets deleted_at timestamp and status='deleted'. Tenant data retained for 30 days.
+ */
+export async function deleteTenant(
+  tenantId: string,
+  prevState: ActionState
+): Promise<ActionState> {
+  try {
+    const supabase = createServiceClient();
+
+    // Soft delete by setting deleted_at timestamp
+    const { error: deleteError } = await supabase
+      .from('tenants')
+      .update({
+        deleted_at: new Date().toISOString(),
+        status: 'deleted',
+      })
+      .eq('id', tenantId);
+
+    if (deleteError) {
+      return {
+        errors: {
+          _form: ['Failed to delete tenant: ' + deleteError.message],
+        },
+      };
+    }
+
+    // Revalidate tenant list
+    revalidatePath('/platform/tenants');
+
+    return {
+      success: true,
+      deleted: true,
+    };
+  } catch (error: any) {
+    return {
+      errors: {
+        _form: ['Unexpected error: ' + error.message],
+      },
+    };
+  }
+}
+
+/**
+ * Restore a soft-deleted tenant
+ * Server Action for tenant lifecycle management (Plan 60-07)
+ *
+ * Calls RPC function to restore tenant (platform admin check, clears deleted_at).
+ */
+export async function restoreTenant(
+  tenantId: string,
+  prevState: ActionState
+): Promise<ActionState> {
+  try {
+    const supabase = createServiceClient();
+
+    // Call restore function created in 60-01
+    const { error: restoreError } = await supabase.rpc('restore_tenant', {
+      tenant_id: tenantId,
+    });
+
+    if (restoreError) {
+      return {
+        errors: {
+          _form: ['Failed to restore tenant: ' + restoreError.message],
+        },
+      };
+    }
+
+    // Revalidate pages
+    revalidatePath('/platform/tenants');
+    revalidatePath(`/platform/tenants/${tenantId}`);
+
+    return {
+      success: true,
+    };
+  } catch (error: any) {
+    return {
+      errors: {
+        _form: ['Unexpected error: ' + error.message],
+      },
+    };
+  }
 }
