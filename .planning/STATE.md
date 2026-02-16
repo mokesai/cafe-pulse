@@ -9,11 +9,11 @@
 ## Progress
 
 Phase: 60 of 70 (Platform Control Plane)
-Plan: 5 of 8 in Phase 60
-Status: In progress - Tenant onboarding wizard complete
-Last activity: 2026-02-16 - Completed 60-05: Tenant onboarding wizard
+Plan: 6 of 8 in Phase 60
+Status: In progress - Tenant lifecycle management complete
+Last activity: 2026-02-16 - Completed 60-07: Tenant status management
 
-Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 (5/8 plans)
+Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 (6/8 plans)
 
 ## Completed
 - [x] PROJECT.md created
@@ -68,8 +68,12 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - [x] 60-03: Platform dashboard UI — Dashboard with tenant stats (total, active, trial, paused, suspended), tenant list with search/sort, shadcn Table component, placeholder pages for onboarding and detail
 - [x] 60-04: Square OAuth integration — OAuth Code Flow with authorize/callback routes, Vault storage functions for encrypted credentials, CSRF-safe state parameter, multi-environment support (sandbox + production)
 - [x] 60-05: Tenant onboarding wizard — Multi-step form (Basic Info → Square OAuth), React Hook Form + Zod validation, createTenant Server Action with slug uniqueness check, success/error handling via query params
+- [x] 60-07: Tenant status management — Status change and delete Server Actions (changeStatus, deleteTenant, restoreTenant), StatusManager UI with conditional buttons, automated trial expiration via hourly pg_cron job, daily trial expiration warnings
 
 ### Decisions Made
+- **Status changes via Server Actions with database validation**: Database trigger enforces state machine rules, prevents invalid transitions at data layer; changeStatus() catches and displays validation errors (Phase 60-07)
+- **Hourly pg_cron job for trial expiration**: Balances system load vs responsiveness, prevents long delays after expiration; trials auto-transition to paused within 1 hour (Phase 60-07)
+- **Daily trial expiration warnings at 9 AM**: Business-hours timing for platform admin review, foundation for future email notifications (Phase 60-07)
 - **Direct Server Action invocation for onboarding**: useActionState returns void; need direct return value for multi-step wizard logic (Phase 60-05)
 - **Slug uniqueness check in Server Action**: Prevent duplicate tenants with same subdomain by querying before insert (Phase 60-05)
 - **Success/error state via URL query params**: OAuth callback redirects preserve state when returning to onboarding page (Phase 60-05)
@@ -160,8 +164,8 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed Phase 60-05 — Tenant onboarding wizard
+Stopped at: Completed Phase 60-07 — Tenant status management
 Resume file: None
 
 ## Next Action
-Phase 60-05 complete. Proceed to Plan 60-07: Tenant status management or Plan 60-08: Platform admin assignment.
+Phase 60-07 complete. Proceed to Plan 60-08: Platform admin assignment.
