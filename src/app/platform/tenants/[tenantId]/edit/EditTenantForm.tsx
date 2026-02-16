@@ -1,6 +1,5 @@
 'use client';
 
-import { useActionState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -42,10 +41,6 @@ interface EditTenantFormProps {
 
 export default function EditTenantForm({ tenant }: EditTenantFormProps) {
   const router = useRouter();
-  const [state, formAction] = useActionState(
-    updateTenant.bind(null, tenant.id),
-    { errors: {} }
-  );
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -65,7 +60,7 @@ export default function EditTenantForm({ tenant }: EditTenantFormProps) {
       formDataObj.append(key, String(value));
     });
 
-    const result = await formAction(formDataObj);
+    const result = await updateTenant(tenant.id, { errors: {} }, formDataObj);
     if (result.success) {
       router.push(`/platform/tenants/${tenant.id}`);
     }
@@ -165,10 +160,6 @@ export default function EditTenantForm({ tenant }: EditTenantFormProps) {
               </FormItem>
             )}
           />
-
-          {state.errors?._form && (
-            <p className="text-red-500">{state.errors._form[0]}</p>
-          )}
 
           <div className="flex gap-2">
             <Button type="submit">Save Changes</Button>
