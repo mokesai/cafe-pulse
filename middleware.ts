@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { createServerClient } from '@supabase/ssr'
 import { updateSession } from '@/lib/supabase/middleware'
 import { getCachedSiteStatus } from '@/lib/services/siteSettings.edge'
 import { extractSubdomain, resolveTenantBySlug } from '@/lib/tenant/context'
@@ -38,6 +39,69 @@ function applyRewriteWithCookies(
 }
 
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
+  // Platform route protection (before session refresh)
+  if (pathname.startsWith('/platform')) {
+    // Create Supabase client for auth checks
+    let supabaseResponse = NextResponse.next({ request })
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll()
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+            supabaseResponse = NextResponse.next({ request })
+            cookiesToSet.forEach(({ name, value, options }) =>
+              supabaseResponse.cookies.set(name, value, options)
+            )
+          },
+        },
+      }
+    )
+
+    // 1. Check if user is authenticated
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.redirect(new URL('/login?return=/platform', request.url))
+    }
+
+    // 2. Check MFA status
+    const { data: mfaData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+
+    if (mfaData) {
+      const { currentLevel, nextLevel } = mfaData
+
+      if (nextLevel === 'aal2' && currentLevel !== 'aal2') {
+        // User has MFA enrolled but hasn't verified this session
+        return NextResponse.redirect(new URL('/mfa-challenge?return=/platform', request.url))
+      }
+
+      if (currentLevel !== 'aal2' && nextLevel !== 'aal2') {
+        // User has NO MFA enrolled - require enrollment
+        return NextResponse.redirect(new URL('/mfa-enroll?return=/platform', request.url))
+      }
+    }
+
+    // 3. Verify platform admin role
+    const { data: platformAdmin } = await supabase
+      .from('platform_admins')
+      .select('id')
+      .eq('user_id', user.id)
+      .single()
+
+    if (!platformAdmin) {
+      return NextResponse.redirect(new URL('/unauthorized?reason=not-platform-admin', request.url))
+    }
+
+    // All checks passed - allow access
+    return supabaseResponse
+  }
+
   // 1. Refresh Supabase auth session
   const sessionResponse = await updateSession(request)
 
