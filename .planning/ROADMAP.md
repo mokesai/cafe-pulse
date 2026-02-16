@@ -139,10 +139,13 @@ Plans:
 ## Phase 70: Integration Testing & Hardening
 Comprehensive cross-tenant isolation tests. Performance testing with indexes. Security audit of all service-role queries.
 
-**Deliverables:**
-- [ ] Cross-tenant isolation test suite
-- [ ] Service-role query audit (all explicitly filter by tenant_id)
-- [ ] localStorage key prefixing verified
-- [ ] Module-level cache audit (no cross-tenant pollution)
+**Goal:** Verify multi-tenant isolation through automated E2E tests, audit all service-role queries for explicit tenant filtering, fix localStorage cross-tenant pollution, and ensure module-level caches use tenant-scoped keys.
 
-**Testable:** Full E2E flow: two tenants, independent orders, payments, admin access.
+**Plans:** 3 plans in 2 waves
+
+Plans:
+- [ ] 70-01-PLAN.md — E2E testing setup: Playwright installation, multi-tenant isolation tests (menu, checkout, admin)
+- [ ] 70-02-PLAN.md — Security audits: service-role query audit script, cache audit script, AUDIT_RESULTS.md report
+- [ ] 70-03-PLAN.md — localStorage fix: tenant-aware localStorage utility, refactor cart hooks, verification documentation
+
+**Testable:** Full E2E flow: two tenants, independent orders, payments, admin access. Service-role queries verified. localStorage isolation confirmed.
