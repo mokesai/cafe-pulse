@@ -67,7 +67,7 @@ export async function middleware(request: NextRequest) {
     // 1. Check if user is authenticated
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      return NextResponse.redirect(new URL('/login?return=/platform', request.url))
+      return NextResponse.redirect(new URL('/auth?return=/platform', request.url))
     }
 
     // 2. Check MFA status
