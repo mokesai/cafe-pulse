@@ -5,6 +5,7 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import type { Tenant } from '@/lib/tenant/types';
 import { notFound } from 'next/navigation';
+import { StatusManager } from './StatusManager';
 
 export default async function TenantDetailPage({
   params,
@@ -102,7 +103,7 @@ export default async function TenantDetailPage({
       </div>
 
       {/* Branding */}
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-lg shadow p-6 mb-4">
         <h2 className="text-lg font-semibold mb-4">Branding</h2>
         <dl className="grid grid-cols-2 gap-4">
           <div>
@@ -134,6 +135,16 @@ export default async function TenantDetailPage({
             </dd>
           </div>
         </dl>
+      </div>
+
+      {/* Lifecycle Management */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-lg font-semibold mb-4">Lifecycle Management</h2>
+        <StatusManager
+          tenantId={tenant.id}
+          currentStatus={tenant.status}
+          isDeleted={!!tenant.deleted_at}
+        />
       </div>
     </div>
   );
