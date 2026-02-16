@@ -1,19 +1,19 @@
 # Project State
 
-## Current Status: Phase 50.1 Complete (OrdersManagement Bug Fixed)
+## Current Status: Phase 60 In Progress (Platform Control Plane)
 ## Current Milestone: 1.0 - Multi-Tenant MVP
-## Current Phase: 50.1 — Fix OrdersManagement Loading (COMPLETE)
-## Last Updated: 2026-02-15
+## Current Phase: 60 — Platform Control Plane
+## Last Updated: 2026-02-16
 ## Branch: features/multi-tenant-saas
 
 ## Progress
 
-Phase: 50.1 of 70 (Fix OrdersManagement Loading)
-Plan: 1 of 1 in Phase 50.1
-Status: Phase complete, admin orders page working
-Last activity: 2026-02-15 - Completed 50.1-01: Re-enabled OrdersManagement component
+Phase: 60 of 70 (Platform Control Plane)
+Plan: 1 of 8 in Phase 60
+Status: In progress - database foundation complete, platform UI next
+Last activity: 2026-02-16 - Completed 60-01: Database foundation (tenant lifecycle, platform admins, soft delete)
 
-Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan)
+Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 (1/8 plans)
 
 ## Completed
 - [x] PROJECT.md created
@@ -62,8 +62,15 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - [x] Fixed RLS recursion bug — dropped "Admins can read tenant memberships" policy that caused infinite recursion when requireAdmin() queried tenant_memberships; "Users can read own memberships" policy sufficient
 - [x] Fixed admin login issue — created tenant membership for jerry.mccommas@gmail.com on default tenant (owner role)
 - [x] Phase 50.1 verified — 3/3 automated checks + 6/6 human verification items passed, admin orders page loads without errors, OrdersManagement component fully functional (filtering, pagination, details modal)
+- [x] Phase 60 planned — 8 plans across 3 waves (database foundation, platform UI, tenant onboarding)
+- [x] 60-01: Database foundation — tenant_status ENUM with state machine validation, platform_admins table with bootstrap function, soft delete with 30-day pg_cron cleanup
 
 ### Decisions Made
+- **PostgreSQL ENUM for tenant status**: Database-level state machine enforcement prevents invalid transitions; ENUMs are 4 bytes vs VARCHAR (Phase 60-01)
+- **Separate platform_admins table**: Platform admins can also be tenant members; clean separation for /platform route authorization (Phase 60-01)
+- **pg_cron for tenant cleanup**: Native Postgres extension, no external infrastructure, purges soft-deleted tenants after 30 days (Phase 60-01)
+- **30-day tenant retention**: Industry standard (Google/Microsoft), balances recovery window vs data retention costs (Phase 60-01)
+- **postgres-only platform admin inserts**: Prevents self-promotion via RLS; bootstrap function required for first admin (Phase 60-01)
 - **Drop recursive admin membership policy**: "Admins can read tenant memberships" policy created infinite recursion; "Users can read own memberships" sufficient for requireAdmin() (Phase 50.1)
 - **Nullable branding columns**: Allows gradual tenant onboarding without requiring branding config upfront (Phase 50-06)
 - **Default tenant brand colors**: Little Cafe gets primary_color=#f59e0b and secondary_color=#0f172a set immediately (Phase 50-06)
@@ -126,9 +133,9 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 
 ## Session Continuity
 
-Last session: 2026-02-15
-Stopped at: Completed Phase 50.1-01 — OrdersManagement component re-enabled
+Last session: 2026-02-16
+Stopped at: Completed Phase 60-01 — Platform Control Plane database foundation
 Resume file: None
 
 ## Next Action
-Phase 50.1 complete. Proceed to Phase 60: Platform Control Plane.
+Phase 60-01 complete. Proceed to Plan 60-02: Platform admin middleware and authentication.
