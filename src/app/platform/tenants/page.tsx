@@ -25,27 +25,30 @@ function getStatusBadgeVariant(status: TenantStatus): 'default' | 'secondary' | 
 export default async function TenantsListPage({
   searchParams,
 }: {
-  searchParams: { q?: string; sort?: string }
+  searchParams: Promise<{ q?: string; sort?: string }>
 }) {
   // Verify platform admin authentication
   await requirePlatformAdmin()
-  
+
   // Use service client to bypass RLS and see all tenants
   const supabase = createServiceClient()
-  
+
+  // Await searchParams
+  const params = await searchParams
+
   // Build query with filters
   let query = supabase
     .from('tenants')
     .select('id, slug, name, status, created_at, trial_expires_at')
     .is('deleted_at', null)
-  
+
   // Search filter
-  if (searchParams.q) {
-    query = query.or(`slug.ilike.%${searchParams.q}%,name.ilike.%${searchParams.q}%`)
+  if (params.q) {
+    query = query.or(`slug.ilike.%${params.q}%,name.ilike.%${params.q}%`)
   }
-  
+
   // Sort
-  const sortField = searchParams.sort === 'status' ? 'status' : 'created_at'
+  const sortField = params.sort === 'status' ? 'status' : 'created_at'
   query = query.order(sortField, { ascending: false })
   
   const { data: tenants, error } = await query
@@ -79,14 +82,14 @@ export default async function TenantsListPage({
               type="text"
               name="q"
               placeholder="Search by name or slug..."
-              defaultValue={searchParams.q}
+              defaultValue={params.q}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
           <div className="w-48">
             <select
               name="sort"
-              defaultValue={searchParams.sort ?? 'created_at'}
+              defaultValue={params.sort ?? 'created_at'}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="created_at">Created Date</option>
@@ -157,8 +160,8 @@ export default async function TenantsListPage({
       ) : (
         <div className="bg-white rounded-lg shadow p-12 text-center">
           <p className="text-gray-600">
-            {searchParams.q
-              ? `No tenants found matching "${searchParams.q}"`
+            {params.q
+              ? `No tenants found matching "${params.q}"`
               : 'No tenants found'}
           </p>
         </div>
