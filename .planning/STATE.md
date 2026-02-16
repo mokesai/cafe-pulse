@@ -9,11 +9,11 @@
 ## Progress
 
 Phase: 60 of 70 (Platform Control Plane)
-Plan: 4 of 8 in Phase 60
-Status: In progress - Square OAuth integration complete
-Last activity: 2026-02-16 - Completed 60-04: Square OAuth integration with Vault credential storage
+Plan: 5 of 8 in Phase 60
+Status: In progress - Platform dashboard UI complete
+Last activity: 2026-02-16 - Completed 60-03: Platform dashboard with tenant list, search, and sort
 
-Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 (4/8 plans)
+Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 (5/8 plans)
 
 ## Completed
 - [x] PROJECT.md created
@@ -65,9 +65,14 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - [x] Phase 60 planned — 8 plans across 3 waves (database foundation, platform UI, tenant onboarding)
 - [x] 60-01: Database foundation — tenant_status ENUM with state machine validation, platform_admins table with bootstrap function, soft delete with 30-day pg_cron cleanup
 - [x] 60-02: Platform admin authentication — requirePlatformAdmin() checks platform_admins table, middleware enforces auth + MFA + role checks on /platform routes, MFA enrollment/challenge pages with Supabase TOTP
+- [x] 60-03: Platform dashboard UI — Dashboard with tenant stats (total, active, trial, paused, suspended), tenant list with search/sort, shadcn Table component, placeholder pages for onboarding and detail
 - [x] 60-04: Square OAuth integration — OAuth Code Flow with authorize/callback routes, Vault storage functions for encrypted credentials, CSRF-safe state parameter, multi-environment support (sandbox + production)
 
 ### Decisions Made
+- **Service client for platform dashboard queries**: Platform admins use createServiceClient() to bypass RLS and see all tenants regardless of their own tenant memberships (Phase 60-03)
+- **Status badge color mapping**: TenantStatus mapped to Badge variants (trial=blue, active=green, paused=yellow, suspended=red, deleted=gray) for quick visual identification (Phase 60-03)
+- **Search via client-side form with query params**: Search form uses client-side submission with query params to keep page as Server Component while supporting search functionality (Phase 60-03)
+- **Next.js 15 async params pattern**: params and searchParams are Promise types in Next.js 15; must await before accessing to support streaming (Phase 60-03)
 - **OAuth state format for CSRF protection**: State parameter formatted as tenantId:randomToken:environment with 32-byte random token; embeds context for callback while preventing CSRF attacks (Phase 60-04)
 - **Separate platform admin and internal Vault functions**: store_square_credentials checks platform_admins, store_square_credentials_internal bypasses check for service_role API routes (Phase 60-04)
 - **Vault naming convention for Square credentials**: square_{environment}_{type}_{tenant_id} format supports dual sandbox+production per tenant, consistent with Phase 40 patterns (Phase 60-04)
@@ -132,10 +137,10 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - **Rollback scripts in supabase/rollback/**: Not in migrations/ to prevent accidental application by `supabase db push`
 
 ### Known Issues
+- Platform dashboard manual testing requires bootstrap: Platform admin must be created via psql before testing /platform routes (60-02 bootstrap script needed)
+- Pagination not implemented on tenant list: Will need pagination when tenant count grows beyond ~50 (deferred to Phase 60+)
 - OAuth state verification storage not implemented: TODO in authorize route for server-side state storage and verification in callback (Phase 60-04 follow-up)
 - Square token refresh automation needed: Access tokens expire after 30 days, need pg_cron job (deferred to Phase 60-05+)
-- Manual testing of platform admin auth flow blocked until bootstrap script created (Plan 60-03)
-- First platform admin must be created via bootstrap before /platform can be accessed (Plan 60-03)
 - 15+ tables have single-column UNIQUE constraints that will block multi-tenant data (deferred to Phase 60+)
 - site_settings singleton pattern (`id = 1`) will conflict with second tenant (deferred to Phase 60+)
 - Database views need tenant_id filtering (deferred to Phase 60)
@@ -147,8 +152,8 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed Phase 60-04 — Square OAuth integration with Vault credential storage
+Stopped at: Completed Phase 60-03 — Platform dashboard UI with tenant list, search, and sort
 Resume file: None
 
 ## Next Action
-Phase 60-04 complete. Proceed to Plan 60-05: Tenant CRUD operations and onboarding wizard UI.
+Phase 60-03 complete. Proceed to Plan 60-05: Tenant onboarding wizard (note: 60-03 and 60-04 completed out of sequence).
