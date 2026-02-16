@@ -2,7 +2,7 @@ import { requirePlatformAdmin } from '@/lib/platform/auth'
 import { createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table'
-import Badge from '@/components/ui/badge'
+import Badge from '@/components/ui/Badge'
 import type { Tenant, TenantStatus } from '@/lib/tenant/types'
 
 function getStatusBadgeVariant(status: TenantStatus): 'default' | 'secondary' | 'success' | 'warning' | 'danger' {
