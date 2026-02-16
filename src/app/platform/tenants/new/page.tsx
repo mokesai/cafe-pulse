@@ -1,8 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useActionState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -43,8 +42,12 @@ export default function OnboardNewTenantPage() {
     name: '',
     admin_email: '',
   })
-  const [actionState, formAction] = useActionState(createTenant, { errors: {} })
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // Check for OAuth callback success/error
+  const success = searchParams.get('success')
+  const error = searchParams.get('error')
 
   // React Hook Form for Step 1
   const form = useForm<Step1FormData>({
@@ -58,13 +61,13 @@ export default function OnboardNewTenantPage() {
 
   // Step 1 submit handler
   const onStep1Submit = async (data: Step1FormData) => {
-    // Call Server Action
+    // Call Server Action directly
     const formDataObj = new FormData()
     formDataObj.append('slug', data.slug)
     formDataObj.append('name', data.name)
     formDataObj.append('admin_email', data.admin_email)
 
-    const result = await formAction(formDataObj)
+    const result = await createTenant({ errors: {} }, formDataObj)
 
     if (result.success && result.tenantId) {
       // Save tenant ID and move to step 2
@@ -90,9 +93,42 @@ export default function OnboardNewTenantPage() {
     router.push(`/api/platform/square-oauth/authorize?tenant_id=${tenantId}&environment=${environment}`)
   }
 
+  // Success state after OAuth callback
+  if (success === 'square_connected') {
+    return (
+      <div className="max-w-2xl mx-auto text-center py-12">
+        <div className="mb-6">
+          <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold text-green-600 mb-4">
+            Tenant Onboarded Successfully
+          </h1>
+          <p className="text-gray-600 mb-6">
+            Square account connected. The tenant is now ready to accept orders.
+          </p>
+          <Button onClick={() => router.push('/platform/tenants')}>
+            View All Tenants
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-2xl mx-auto p-8">
       <h1 className="text-2xl font-bold mb-6">Onboard New Tenant</h1>
+
+      {/* Error alert */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded p-4 mb-6">
+          <p className="text-red-800">
+            OAuth Error: {error.replace(/_/g, ' ')}
+          </p>
+        </div>
+      )}
 
       {/* Progress indicator */}
       <div className="flex items-center mb-8 gap-2">
@@ -151,12 +187,6 @@ export default function OnboardNewTenantPage() {
                 </FormItem>
               )}
             />
-
-            {actionState.errors?._form && (
-              <p className="text-sm text-red-500 bg-red-50 border border-red-200 rounded p-3">
-                {actionState.errors._form[0]}
-              </p>
-            )}
 
             <Button type="submit" isLoading={form.formState.isSubmitting}>
               Next: Connect Square
