@@ -15,7 +15,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
-import { Button } from '@/components/ui/button'
+import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 
 // Step 1 schema - same as Server Action
