@@ -7,7 +7,7 @@
 ## Test Results Summary
 
 - **Total Tests:** 24
-- **Passed:** 2
+- **Passed:** 4
 - **Failed:** 0
 - **Blocked:** 0
 - **In Progress:** 1
@@ -33,17 +33,17 @@
 ### 60-02: Platform Auth & MFA
 
 #### T-60-02-01: Unauthenticated Access
-- **Status:** pending
-- **Severity:** -
-- **Expected:** Accessing /platform without login redirects to /login with return URL preserved
-- **Actual:** -
-- **Notes:** -
+- **Status:** ✅ passed (after fix)
+- **Severity:** critical (blocking)
+- **Expected:** Accessing /platform without login redirects to /auth with return URL preserved
+- **Actual:** Initially redirected to /login (404). Fixed middleware to redirect to /auth instead.
+- **Notes:** Bug fixed in commit 78c0fdc - middleware was redirecting to non-existent /login page
 
 #### T-60-02-02: Non-Platform-Admin Access
-- **Status:** pending
+- **Status:** ✅ passed
 - **Severity:** -
 - **Expected:** Login as regular user (not platform admin) redirects to /unauthorized
-- **Actual:** -
+- **Actual:** Non-platform-admin correctly redirected to /unauthorized with reason parameter
 - **Notes:** -
 
 #### T-60-02-03: MFA Enrollment Flow
