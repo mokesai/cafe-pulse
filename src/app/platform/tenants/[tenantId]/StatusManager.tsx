@@ -1,8 +1,8 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
+import Button from '@/components/ui/Button';
 import { changeStatus, deleteTenant } from '../actions';
 import type { TenantStatus } from '@/lib/tenant/types';
 
@@ -16,13 +16,14 @@ export function StatusManager({
   isDeleted: boolean;
 }) {
   const router = useRouter();
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [statusState, statusAction] = useActionState(
     (prev: any, formData: FormData) =>
-      changeStatus(tenantId, formData.get('status') as TenantStatus, prev),
-    { errors: {} }
-  );
-  const [deleteState, deleteAction] = useActionState(
-    () => deleteTenant(tenantId, { errors: {} }),
+      changeStatus(
+        tenantId,
+        formData.get('status') as 'trial' | 'active' | 'paused' | 'suspended',
+        prev
+      ),
     { errors: {} }
   );
 
@@ -34,9 +35,12 @@ export function StatusManager({
 
   const handleDelete = async () => {
     if (confirm('Are you sure you want to delete this tenant? It can be restored within 30 days.')) {
-      const result = await deleteAction();
+      setDeleteError(null);
+      const result = await deleteTenant(tenantId, { errors: {} });
       if (result.success) {
         router.push('/platform/tenants');
+      } else if (result.errors?._form) {
+        setDeleteError(result.errors._form[0]);
       }
     }
   };
@@ -77,7 +81,7 @@ export function StatusManager({
             <Button
               onClick={() => handleStatusChange('suspended')}
               size="sm"
-              variant="destructive"
+              variant="danger"
             >
               Suspend
             </Button>
@@ -93,11 +97,11 @@ export function StatusManager({
 
       <div>
         <h3 className="text-sm font-medium mb-2 text-red-600">Danger Zone</h3>
-        <Button onClick={handleDelete} variant="destructive" size="sm">
+        <Button onClick={handleDelete} variant="danger" size="sm">
           Delete Tenant
         </Button>
-        {deleteState.errors?._form && (
-          <p className="text-red-500 text-sm mt-2">{deleteState.errors._form[0]}</p>
+        {deleteError && (
+          <p className="text-red-500 text-sm mt-2">{deleteError}</p>
         )}
       </div>
     </div>
