@@ -1,5 +1,6 @@
 export interface SiteSettings {
-  id: number
+  id: string
+  tenant_id: string
   is_customer_app_live: boolean
   maintenance_title: string | null
   maintenance_message: string | null
