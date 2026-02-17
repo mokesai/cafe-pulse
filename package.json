@@ -29,7 +29,9 @@
     "db:reset": "npx supabase db reset",
     "db:generate": "npx supabase gen types typescript --local",
     "db:link": "npx supabase link",
-    "test:ai": "node scripts/test-ai-invoice-parsing.js"
+    "test:ai": "node scripts/test-ai-invoice-parsing.js",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
