@@ -67,6 +67,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.58.2",
     "@react-email/render": "^2.0.4",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
