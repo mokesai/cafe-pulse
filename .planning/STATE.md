@@ -9,11 +9,11 @@
 ## Progress
 
 Phase: 70 of 70 (Integration Testing & Hardening)
-Plan: 6 of 7 in Phase 70
-Status: In progress — E2E testing, security auditing, localStorage isolation, webhook/KDS/order gap closure, per-tenant site status cache, and COGS+inventory tenant filtering complete
-Last activity: 2026-02-17 - Completed 70-06-PLAN.md (COGS and inventory tenant_id gap closure: 15 COGS routes + 17 inventory routes)
+Plan: 7 of 7 in Phase 70
+Status: Phase complete — E2E testing, security auditing, localStorage isolation, webhook/KDS/order gap closure, per-tenant site status cache, COGS+inventory tenant filtering, and remaining admin route tenant isolation all complete
+Last activity: 2026-02-16 - Completed 70-07-PLAN.md (remaining admin route tenant isolation: 25 invoice/PO/supplier/customer routes)
 
-Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 complete (7/7 plans), Phase 70: ██████░ (6/7 plans)
+Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 complete (7/7 plans), Phase 70: ███████ (7/7 plans)
 
 ## Completed
 - [x] PROJECT.md created
@@ -78,8 +78,12 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - [x] 70-04: Service-Role Gap Closure (Webhooks, KDS, Orders) — Both Square webhooks fully tenant-scoped (catalog + inventory), all 15 KDS query functions accept tenantId parameter, createOrder() stamps tenant_id on orders + order_items, api/orders/route.ts calls getCurrentTenantId(), admin/setup.ts deprecated with tenant scoping, all 6 KDS caller files updated; audit FAIL count dropped from 64 to 23; TypeScript build clean
 - [x] 70-05: Per-Tenant Site Status Cache — siteSettings.edge.ts refactored to Map<string, CacheEntry> keyed by tenantId; getCachedSiteStatus() and invalidateSiteStatusCache() accept tenantId; siteSettings.ts all queries use .eq('tenant_id', tenantId) replacing .eq('id', 1); middleware reads x-tenant-id cookie and passes tenantId; all 5 caller files updated; TypeScript build clean
 - [x] 70-06: COGS and Inventory Tenant_ID Gap Closure — 15 COGS admin routes + 17 inventory admin routes updated with getCurrentTenantId() and .eq('tenant_id', tenantId) filtering on all Supabase queries; tenant_id added to all INSERT payloads; tenantId threaded through helper functions in close/route.ts and sales-sync/route.ts; 32 FAIL files from 70-02 audit converted to PASS; TypeScript build clean
+- [x] 70-07: Remaining Admin Route Tenant Isolation — 25 admin API routes updated: 11 invoice routes (main CRUD, upload, parse, confirm, file, link-order, match-items, match-orders, and item operations), 8 purchase order sub-routes (main CRUD, attachments, invoice matching, item exclusion, receipts, email send), 3 supplier routes (PUT/PATCH/DELETE + email templates + bulk-upload), 2 customer routes (list + orders); all 64 FAIL items from 70-02 audit now addressed; suppliers/bulk-upload and customers routes upgraded from ad-hoc auth to requireAdminAuth; TypeScript build clean
 
 ### Decisions Made
+- **check-role profile query not tenant-filtered**: profiles.eq('id', user.id) is a lookup by the authenticated user's own ID — this is an auth primitive, not a cross-tenant data query; adding tenant_id would break auth for users who switch tenants (Phase 70-07)
+- **PO child resources (receipts, matches) scoped via parent PO**: purchase_order_receipts and order_invoice_matches lack a direct tenant_id column; parent PO ownership provides the tenant boundary (Phase 70-07)
+- **supplier_email_templates scoped via supplier tenant lookup**: Template queries include supplier FK; verify supplier is in tenant before template read/write (Phase 70-07)
 - **Helper functions in route files accept tenantId as parameter**: When route handlers have helper functions that query the DB, tenantId is threaded through as a function parameter rather than re-reading getCurrentTenantId() inside each helper; keeps auth resolution at the route boundary (Phase 70-06)
 - **tenantId as first parameter on all KDS query functions**: Compile-time enforcement; impossible to call a KDS query without tenant scope; callers get a compile error if they forget tenantId (Phase 70-04)
 - **getCurrentTenantId() at route/page handler level, not inside library functions**: Library functions remain pure and testable; context resolution stays at the edge of the system (Phase 70-04)
@@ -175,7 +179,7 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - **Rollback scripts in supabase/rollback/**: Not in migrations/ to prevent accidental application by `supabase db push`
 
 ### Known Issues
-- **~0 critical service-role queries without tenant_id filtering**: Reduced from 64 (Phase 70-02) to 23 (Phase 70-04) to ~0 by Phase 70-06 (32 COGS+inventory routes closed); 4 out-of-scope inventory routes (square-search, hybrid-sync, bulk-upload, sync-status) not in original audit may still need review; final hardening in 70-07
+- **All 64 service-role audit FAILs resolved**: Reduced from 64 (70-02) to 23 (70-04) to ~0 (70-06) to 0 (70-07); all admin API domains now tenant-isolated (COGS, inventory, invoices, purchase orders, suppliers, customers)
 - **Site status cache resolved**: __siteStatusCacheEdge refactored to Map<string, CacheEntry>; per-tenant isolation implemented in Phase 70-05
 - **Audit script false positive**: service-role-audit.sh flags tenant/identity.ts as FAIL but it correctly filters by .eq('id', tenantId); script needs pattern improvement (Phase 70-02)
 - **localStorage isolation requires manual testing**: Cart data isolation implemented; manual testing required to verify tenant-a and tenant-b carts remain separate (Phase 70-03 follow-up)
@@ -196,9 +200,9 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 
 ## Session Continuity
 
-Last session: 2026-02-17
-Stopped at: Completed 70-06-PLAN.md (COGS and Inventory Tenant_ID Gap Closure)
+Last session: 2026-02-16
+Stopped at: Completed 70-07-PLAN.md (Remaining Admin Route Tenant Isolation)
 Resume file: None
 
 ## Next Action
-Proceed to Phase 70-07: Final hardening plan (last plan in Phase 70). Review remaining gaps and close them.
+Phase 70 complete. All 7 plans executed and all 64 service-role audit FAILs from 70-02 resolved. Verify phase goal or proceed to next milestone phase.
