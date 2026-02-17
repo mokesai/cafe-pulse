@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 function roundMoney(value: number) {
   return Math.round(value * 100) / 100
@@ -17,6 +18,7 @@ function parseDateRange(period: { start_at: string; end_at: string }) {
 
 async function computePurchasesValue(
   supabase: ReturnType<typeof createServiceClient>,
+  tenantId: string,
   start: Date,
   end: Date
 ) {
@@ -26,6 +28,7 @@ async function computePurchasesValue(
   const { data: invoices, error } = await supabase
     .from('invoices')
     .select('id, total_amount, status, invoice_date, confirmed_at')
+    .eq('tenant_id', tenantId)
     .eq('status', 'confirmed')
 
   if (error) {
@@ -50,11 +53,13 @@ async function computePurchasesValue(
 
 async function snapshotInventory(
   supabase: ReturnType<typeof createServiceClient>,
+  tenantId: string,
   periodId: string
 ) {
   const { data: inventoryItems, error } = await supabase
     .from('inventory_items')
     .select('id, current_stock, unit_cost')
+    .eq('tenant_id', tenantId)
     .is('deleted_at', null)
 
   if (error) {
@@ -67,6 +72,7 @@ async function snapshotInventory(
     const value = roundMoney(qtyOnHand * unitCost)
 
     return {
+      tenant_id: tenantId,
       period_id: periodId,
       inventory_item_id: item.id,
       qty_on_hand: qtyOnHand,
@@ -91,11 +97,13 @@ async function snapshotInventory(
 
 async function getBeginInventoryValue(
   supabase: ReturnType<typeof createServiceClient>,
+  tenantId: string,
   startAt: string
 ) {
   const { data: priorPeriods, error } = await supabase
     .from('cogs_periods')
     .select('id, end_at')
+    .eq('tenant_id', tenantId)
     .eq('status', 'closed')
     .lt('end_at', startAt)
     .order('end_at', { ascending: false })
@@ -108,6 +116,7 @@ async function getBeginInventoryValue(
   const { data: report, error: reportError } = await supabase
     .from('cogs_reports')
     .select('end_inventory_value')
+    .eq('tenant_id', tenantId)
     .eq('period_id', priorPeriod.id)
     .maybeSingle()
 
@@ -119,6 +128,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   const authResult = await requireAdminAuth(request)
   if (!isAdminAuthSuccess(authResult)) return authResult
 
+  const tenantId = await getCurrentTenantId()
   const { id: periodId } = await context.params
   if (!periodId) {
     return NextResponse.json({ error: 'Missing period id' }, { status: 400 })
@@ -129,6 +139,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   const { data: period, error: periodError } = await supabase
     .from('cogs_periods')
     .select('id, period_type, start_at, end_at, status')
+    .eq('tenant_id', tenantId)
     .eq('id', periodId)
     .single()
 
@@ -142,14 +153,15 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   try {
     const { start, end } = parseDateRange(period)
 
-    const beginInventoryValue = await getBeginInventoryValue(supabase, period.start_at)
-    const endInventoryValue = await snapshotInventory(supabase, period.id)
-    const purchasesValue = await computePurchasesValue(supabase, start, end)
+    const beginInventoryValue = await getBeginInventoryValue(supabase, tenantId, period.start_at)
+    const endInventoryValue = await snapshotInventory(supabase, tenantId, period.id)
+    const purchasesValue = await computePurchasesValue(supabase, tenantId, start, end)
     const periodicCogsValue = roundMoney(beginInventoryValue + purchasesValue - endInventoryValue)
 
     const { error: reportError } = await supabase
       .from('cogs_reports')
       .insert([{
+        tenant_id: tenantId,
         period_id: period.id,
         begin_inventory_value: beginInventoryValue,
         purchases_value: purchasesValue,
@@ -173,6 +185,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
         closed_at: new Date().toISOString(),
         closed_by: authResult.userId ?? null
       })
+      .eq('tenant_id', tenantId)
       .eq('id', period.id)
 
     if (closeError) {

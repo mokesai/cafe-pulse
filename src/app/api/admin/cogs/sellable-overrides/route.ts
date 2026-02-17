@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 function normalizeText(value: unknown) {
   return typeof value === 'string' ? value.trim() : ''
@@ -106,6 +107,7 @@ export async function GET(request: NextRequest) {
   const authResult = await requireAdminAuth(request)
   if (!isAdminAuthSuccess(authResult)) return authResult
 
+  const tenantId = await getCurrentTenantId()
   const url = new URL(request.url)
   const sellableId = normalizeText(url.searchParams.get('sellableId'))
   if (!sellableId) {
@@ -116,6 +118,7 @@ export async function GET(request: NextRequest) {
   const { data, error } = await supabase
     .from('cogs_sellable_recipe_overrides')
     .select('id, sellable_id, version, effective_from, effective_to, notes, created_at, updated_at')
+    .eq('tenant_id', tenantId)
     .eq('sellable_id', sellableId)
     .order('effective_from', { ascending: false })
 
@@ -126,6 +129,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const authResult = await requireAdminAuth(request)
   if (!isAdminAuthSuccess(authResult)) return authResult
+
+  const tenantId = await getCurrentTenantId()
 
   const body = (await request.json().catch(() => ({}))) as {
     sellable_id?: unknown
@@ -155,6 +160,7 @@ export async function POST(request: NextRequest) {
   const { data: override, error: overrideError } = await supabase
     .from('cogs_sellable_recipe_overrides')
     .insert([{
+      tenant_id: tenantId,
       sellable_id: sellableId,
       effective_from: effectiveFrom,
       effective_to: effectiveTo,
@@ -171,6 +177,7 @@ export async function POST(request: NextRequest) {
   const { error: opsError } = await supabase
     .from('cogs_sellable_recipe_override_ops')
     .insert(ops.map(op => ({
+      tenant_id: tenantId,
       override_id: override.id,
       op_type: op.op_type,
       target_inventory_item_id: op.target_inventory_item_id ?? null,
@@ -187,4 +194,3 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({ overrideId: override.id })
 }
-

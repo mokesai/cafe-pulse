@@ -202,7 +202,7 @@ export async function POST(request: NextRequest) {
     if (productsToUpsert.length > 0) {
       const { error } = await supabase
         .from('cogs_products')
-        .upsert(productsToUpsert, { onConflict: 'square_item_id' })
+        .upsert(productsToUpsert.map(p => ({ ...p, tenant_id: tenantId })), { onConflict: 'square_item_id' })
 
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     }
@@ -213,6 +213,7 @@ export async function POST(request: NextRequest) {
       : await supabase
         .from('cogs_products')
         .select('id,square_item_id')
+        .eq('tenant_id', tenantId)
         .in('square_item_id', squareItemIds)
 
     if (productMapError) return NextResponse.json({ error: productMapError.message }, { status: 500 })
@@ -230,6 +231,7 @@ export async function POST(request: NextRequest) {
         const productId = productIdBySquareItemId.get(v.square_item_id)
         if (!productId) return null
         return {
+          tenant_id: tenantId,
           square_variation_id: v.square_variation_id,
           product_id: productId,
           name: v.name,

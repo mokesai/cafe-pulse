@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -110,6 +111,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const authResult = await requireAdminAuth(request)
   if (!isAdminAuthSuccess(authResult)) return authResult
 
+  const tenantId = await getCurrentTenantId()
   const { id } = await context.params
   if (!id) return NextResponse.json({ error: 'Missing override id' }, { status: 400 })
 
@@ -117,6 +119,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const { data: override, error: overrideError } = await supabase
     .from('cogs_sellable_recipe_overrides')
     .select('id, sellable_id, version, effective_from, effective_to, notes, created_at, updated_at, cogs_sellables(id, name, square_variation_id)')
+    .eq('tenant_id', tenantId)
     .eq('id', id)
     .single()
 
@@ -127,6 +130,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const { data: ops, error: opsError } = await supabase
     .from('cogs_sellable_recipe_override_ops')
     .select('id, op_type, target_inventory_item_id, new_inventory_item_id, qty, unit, multiplier, loss_pct, created_at, inventory_items!cogs_sellable_recipe_override_ops_target_inventory_item_id_fkey(item_name), inventory_items!cogs_sellable_recipe_override_ops_new_inventory_item_id_fkey(item_name)')
+    .eq('tenant_id', tenantId)
     .eq('override_id', id)
     .order('created_at', { ascending: true })
 
@@ -141,6 +145,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   const authResult = await requireAdminAuth(request)
   if (!isAdminAuthSuccess(authResult)) return authResult
 
+  const tenantId = await getCurrentTenantId()
   const { id } = await context.params
   if (!id) return NextResponse.json({ error: 'Missing override id' }, { status: 400 })
 
@@ -171,6 +176,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   const { data: existing, error: existingError } = await supabase
     .from('cogs_sellable_recipe_overrides')
     .select('id')
+    .eq('tenant_id', tenantId)
     .eq('id', id)
     .maybeSingle()
 
@@ -187,6 +193,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
       approved_by: authResult.userId ?? null,
       updated_at: new Date().toISOString(),
     })
+    .eq('tenant_id', tenantId)
     .eq('id', id)
 
   if (updateError) {
@@ -196,6 +203,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   const { error: deleteError } = await supabase
     .from('cogs_sellable_recipe_override_ops')
     .delete()
+    .eq('tenant_id', tenantId)
     .eq('override_id', id)
 
   if (deleteError) {
@@ -205,6 +213,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   const { error: insertError } = await supabase
     .from('cogs_sellable_recipe_override_ops')
     .insert(ops.map(op => ({
+      tenant_id: tenantId,
       override_id: id,
       op_type: op.op_type,
       target_inventory_item_id: op.target_inventory_item_id ?? null,
@@ -221,4 +230,3 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
   return NextResponse.json({ success: true })
 }
-
