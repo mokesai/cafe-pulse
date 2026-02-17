@@ -1,17 +1,17 @@
 # Project State
 
-## Current Status: Phase 85 Complete — Multi-Tenant Schema Constraint Migration
+## Current Status: Phase 85 Complete ✓ — Multi-Tenant Schema Constraint Migration
 ## Current Milestone: 1.0 - Multi-Tenant MVP
-## Current Phase: 85 — Multi-Tenant Schema Constraint Migration (Complete)
-## Last Updated: 2026-02-16
+## Current Phase: 85 — Multi-Tenant Schema Constraint Migration (COMPLETE)
+## Last Updated: 2026-02-17
 ## Branch: features/multi-tenant-saas
 
 ## Progress
 
 Phase: 85 of 85+ (Multi-Tenant Schema Constraint Migration)
 Plan: 4 of 4 in Phase 85
-Status: Phase complete — All 4 plans delivered; all composite (tenant_id, field) DB constraints live; all app-layer onConflict clauses updated
-Last activity: 2026-02-16 - Completed 85-04-PLAN.md; updated 5 files with composite onConflict strings; added tenant_id to 3 script upsert payloads
+Status: Complete — All 4 plans executed, verified 18/18 must-haves passed; composite (tenant_id, field) constraints live on 13 tables; all app-layer onConflict clauses updated; GAP-2 from v1.0 audit fully remediated
+Last activity: 2026-02-17 - Phase 85 verified complete; 18/18 must-haves passed
 
 Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 complete (7/7 plans), Phase 70 complete (7/7 plans), Phase 80: ██ (2/2 plans), Phase 85: ████ (4/4 plans)
 
@@ -83,6 +83,7 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - [x] 80-01: Checkout Tenant Attribution Fix — createTenantClient imported in process-payment route; tenantSupabase created after getUser(); orders INSERT stamped with tenant_id: tenantId; order_items map stamped with tenant_id: tenantId; both INSERTs use tenantSupabase; auth-only createClient preserved for getUser(); TypeScript build clean
 - [x] 80-02: site_settings PK Fix — migration 20260216400000_fix_site_settings_pk.sql adds uuid column, drops integer PK, renames uuid column to id, restores PK constraint, adds UNIQUE(tenant_id); existing default tenant row preserved; SiteSettings TypeScript interface updated to id: string + tenant_id: string; TypeScript build clean
 - [x] Phase 80 verified — 9/9 must-haves passed; GAP-1 and GAP-3 from v1.0 audit fully remediated
+- [x] Phase 85 verified — 18/18 must-haves passed; GAP-2 from v1.0 audit fully remediated; all composite (tenant_id, field) constraints live on 13 tables; app code and scripts updated
 - [x] Phase 85 planned — 4 plans across 3 waves (KDS, COGS, Operational, App code fixes)
 - [x] 85-01: KDS domain composite constraints — kds_settings, kds_images, kds_menu_items single-column UNIQUEs replaced with composite (tenant_id, field) constraints
 - [x] 85-02: COGS/Square domain composite constraints — cogs_products (×2), cogs_sellables, cogs_sellable_aliases, cogs_modifier_sets, cogs_modifier_options single-column UNIQUEs replaced with composite (tenant_id, field) constraints
@@ -218,9 +219,9 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 
 ## Session Continuity
 
-Last session: 2026-02-16
-Stopped at: Completed 85-04-PLAN.md (app-layer ON CONFLICT clause updates — 5 files, 3 scripts with tenant_id payloads)
+Last session: 2026-02-17
+Stopped at: Phase 85 verified complete — 18/18 must-haves passed; GAP-2 from v1.0 audit remediated
 Resume file: None
 
 ## Next Action
-Phase 85 complete. All composite (tenant_id, field) DB constraints are live and all app-layer upsert calls use matching composite onConflict strings. GAP-2 from v1.0 milestone audit is fully remediated. Ready for next phase planning.
+Phase 85 verified complete. Ready for Phase 90: Platform Completion & Security Hardening (GAP-4 + SEC-1 + SEC-2).

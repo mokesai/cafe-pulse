@@ -177,7 +177,7 @@ Plans:
 
 ---
 
-## Phase 85: Multi-Tenant Schema Constraint Migration
+## Phase 85: Multi-Tenant Schema Constraint Migration ✓
 Gap closure from v1.0 audit — final SC1 blocker.
 
 **Goal:** Replace single-column UNIQUE constraints with composite `(tenant_id, field)` constraints across 12 tables (plus cogs_sellable_aliases) so two tenants can simultaneously store data with the same names/codes without conflicts. Update all ON CONFLICT upsert clauses in app code and scripts to reference the new composite constraints.
@@ -188,10 +188,12 @@ Gap closure from v1.0 audit — final SC1 blocker.
 **Plans:** 4 plans
 
 Plans:
-- [ ] 85-01-PLAN.md — KDS domain DDL: composite constraints for kds_settings, kds_images, kds_menu_items
-- [ ] 85-02-PLAN.md — COGS/Square domain DDL: composite constraints for cogs_products, cogs_sellables, cogs_sellable_aliases, cogs_modifier_sets, cogs_modifier_options
-- [ ] 85-03-PLAN.md — Operational domain DDL: composite constraints for inventory_items, suppliers, inventory_unit_types, purchase_orders
-- [ ] 85-04-PLAN.md — App code: update ON CONFLICT strings in src/ routes, src/lib/kds/queries.ts, and scripts/; add tenant_id to script upsert payloads
+- [x] 85-01-PLAN.md — KDS domain DDL: composite constraints for kds_settings, kds_images, kds_menu_items
+- [x] 85-02-PLAN.md — COGS/Square domain DDL: composite constraints for cogs_products, cogs_sellables, cogs_sellable_aliases, cogs_modifier_sets, cogs_modifier_options
+- [x] 85-03-PLAN.md — Operational domain DDL: composite constraints for inventory_items, suppliers, inventory_unit_types, purchase_orders
+- [x] 85-04-PLAN.md — App code: update ON CONFLICT strings in src/ routes, src/lib/kds/queries.ts, and scripts/; add tenant_id to script upsert payloads
+
+**Verified:** 18/18 must-haves passed. All composite constraints applied. App code and scripts updated. TypeScript build clean.
 
 ---
 
