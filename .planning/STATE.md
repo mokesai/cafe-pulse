@@ -1,17 +1,17 @@
 # Project State
 
-## Current Status: Phase 70 Complete ✓ — Milestone 1.0 Ready for Audit
+## Current Status: Phase 80 In Progress — Critical Checkout & Settings Fixes
 ## Current Milestone: 1.0 - Multi-Tenant MVP
-## Current Phase: 70 — Integration Testing & Hardening (COMPLETE)
-## Last Updated: 2026-02-16
+## Current Phase: 80 — Critical Checkout & Settings Fixes
+## Last Updated: 2026-02-17
 ## Branch: features/multi-tenant-saas
 
 ## Progress
 
-Phase: 70 of 70 (Integration Testing & Hardening)
-Plan: 7 of 7 in Phase 70
-Status: Complete — All 7 plans executed, verified 12/12 must-haves passed; service-role audit 79 PASS / 3 documented false positives
-Last activity: 2026-02-16 - Phase 70 verified complete; all 64 service-role FAIL findings remediated
+Phase: 80 of 80+ (Critical Checkout & Settings Fixes)
+Plan: 2 of ? in Phase 80
+Status: In progress — 80-02 complete (site_settings uuid PK migration + TypeScript type update)
+Last activity: 2026-02-17 - Completed 80-02-PLAN.md (site_settings PK fix)
 
 Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 complete (7/7 plans), Phase 70: ███████ (7/7 plans)
 
@@ -81,6 +81,8 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - [x] 70-07: Remaining Admin Route Tenant Isolation — 25 admin API routes updated: 11 invoice routes (main CRUD, upload, parse, confirm, file, link-order, match-items, match-orders, and item operations), 8 purchase order sub-routes (main CRUD, attachments, invoice matching, item exclusion, receipts, email send), 3 supplier routes (PUT/PATCH/DELETE + email templates + bulk-upload), 2 customer routes (list + orders); all 64 FAIL items from 70-02 audit now addressed; suppliers/bulk-upload and customers routes upgraded from ad-hoc auth to requireAdminAuth; TypeScript build clean
 
 ### Decisions Made
+- **site_settings PK migrated via add/drop/rename pattern**: PostgreSQL cannot ALTER a PK column type in-place; adding uuid column, dropping PK + integer column, then renaming is transactional and safe (Phase 80-02)
+- **UNIQUE(tenant_id) enforces one settings row per tenant**: App queries by tenant_id; uuid remains the row PK; constraint prevents duplicate inserts without changing PK structure (Phase 80-02)
 - **check-role profile query not tenant-filtered**: profiles.eq('id', user.id) is a lookup by the authenticated user's own ID — this is an auth primitive, not a cross-tenant data query; adding tenant_id would break auth for users who switch tenants (Phase 70-07)
 - **PO child resources (receipts, matches) scoped via parent PO**: purchase_order_receipts and order_invoice_matches lack a direct tenant_id column; parent PO ownership provides the tenant boundary (Phase 70-07)
 - **supplier_email_templates scoped via supplier tenant lookup**: Template queries include supplier FK; verify supplier is in tenant before template read/write (Phase 70-07)
@@ -200,9 +202,9 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 
 ## Session Continuity
 
-Last session: 2026-02-16
-Stopped at: Completed 70-07-PLAN.md (Remaining Admin Route Tenant Isolation)
+Last session: 2026-02-17
+Stopped at: Completed 80-02-PLAN.md (site_settings PK fix — uuid PK + UNIQUE(tenant_id))
 Resume file: None
 
 ## Next Action
-Phase 70 complete. All 7 plans executed and all 64 service-role audit FAILs from 70-02 resolved. Verify phase goal or proceed to next milestone phase.
+80-02 complete. site_settings uuid PK migration applied, TypeScript type updated, build clean. Continue with next Phase 80 plan.
