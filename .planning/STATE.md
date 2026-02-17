@@ -9,11 +9,11 @@
 ## Progress
 
 Phase: 85 of 85+ (Multi-Tenant Schema Constraint Migration)
-Plan: 1 of 4 in Phase 85
-Status: In progress — Plan 85-01 complete; KDS domain composite constraints applied; plan 85-02 migration also applied incidentally
-Last activity: 2026-02-17 - Completed 85-01-PLAN.md; KDS composite unique constraints migration applied to dev Supabase
+Plan: 2 of 4 in Phase 85
+Status: In progress — Plans 85-01 and 85-02 complete; KDS and COGS/Square domain composite constraints applied
+Last activity: 2026-02-17 - Completed 85-02-PLAN.md; COGS/Square composite unique constraints migration applied to dev Supabase
 
-Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 complete (7/7 plans), Phase 70 complete (7/7 plans), Phase 80: ██ (2/2 plans), Phase 85: █░░░ (1/4 plans)
+Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 complete (7/7 plans), Phase 70 complete (7/7 plans), Phase 80: ██ (2/2 plans), Phase 85: ██░░ (2/4 plans)
 
 ## Completed
 - [x] PROJECT.md created
@@ -85,8 +85,10 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - [x] Phase 80 verified — 9/9 must-haves passed; GAP-1 and GAP-3 from v1.0 audit fully remediated
 - [x] Phase 85 planned — 4 plans across 3 waves (KDS, COGS, Operational, App code fixes)
 - [x] 85-01: KDS domain composite constraints — kds_settings, kds_images, kds_menu_items single-column UNIQUEs replaced with composite (tenant_id, field) constraints
+- [x] 85-02: COGS/Square domain composite constraints — cogs_products (×2), cogs_sellables, cogs_sellable_aliases, cogs_modifier_sets, cogs_modifier_options single-column UNIQUEs replaced with composite (tenant_id, field) constraints
 
 ### Decisions Made
+- **cogs_sellable_aliases included in 85-02 despite not being in CONTEXT.md**: Has same square_variation_id text not null unique pattern as other COGS tables — same multi-tenant blocker; RESEARCH.md noted it as implicit scope (Phase 85-02)
 - **KDS composite constraints use ALTER TABLE DROP CONSTRAINT vs DROP INDEX pattern**: kds_settings.key was inline UNIQUE (auto-named _key_key), kds_images.filename was a named CONSTRAINT, kds_menu_items.square_variation_id was a partial CREATE UNIQUE INDEX — each requires a different drop command (Phase 85-01)
 - **Preserve partial index condition on composite replacement**: kds_menu_items partial index retains WHERE square_variation_id IS NOT NULL — NULL variation IDs are valid for items not linked to Square (Phase 85-01)
 - **site_settings PK migrated via add/drop/rename pattern**: PostgreSQL cannot ALTER a PK column type in-place; adding uuid column, dropping PK + integer column, then renaming is transactional and safe (Phase 80-02)
@@ -200,7 +202,7 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - OAuth state verification storage not implemented: TODO in authorize route for server-side state storage and verification in callback (Phase 60-04 follow-up)
 - Square token refresh automation needed: Access tokens expire after 30 days, need pg_cron job (deferred to Phase 60+)
 - Admin user creation in onboarding: Server Action includes TODO for creating admin user account via Supabase Admin API or invite link (60-05 follow-up)
-- 15+ tables have single-column UNIQUE constraints that block multi-tenant data — Phase 85 migrating them; KDS domain done (85-01), COGS migration applied (85-02 pending verify), Operational migration applied (85-03 pending verify), app code ON CONFLICT updates needed (85-04)
+- Remaining single-column UNIQUE constraints block multi-tenant data — Operational domain still to migrate (85-03: inventory_items, suppliers, inventory_unit_types, purchase_orders); app code ON CONFLICT clauses still need updating (85-04: sync-square/route.ts, seed-cogs-recipes.ts, simulate-cogs-sales.ts, import-kds-menu-from-sheets.js)
 - site_settings singleton pattern (`id = 1`) will conflict with second tenant (deferred to Phase 60+)
 - Database views need tenant_id filtering (deferred to Phase 60)
 - `db-pre-request` hook not yet configured for `x-tenant-id` header (Phase 60)
@@ -211,8 +213,8 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 85-01-PLAN.md (KDS composite unique constraints migration)
+Stopped at: Completed 85-02-PLAN.md (COGS/Square composite unique constraints migration)
 Resume file: None
 
 ## Next Action
-85-01 complete. KDS composite unique constraints applied. Migration 20260217100000 (COGS) and 20260217200000 (Operational) also applied incidentally. Continue with plan 85-02 to verify COGS constraints and update ON CONFLICT clauses, then 85-03 for Operational, then 85-04 for app code fixes.
+85-02 complete. COGS/Square composite unique constraints applied and verified (5 new constraints + 1 expression index confirmed, 5 old constraints confirmed gone). Continue with plan 85-03 (Operational domain: inventory_items, suppliers, inventory_unit_types, purchase_orders), then 85-04 (app code ON CONFLICT clause updates).
