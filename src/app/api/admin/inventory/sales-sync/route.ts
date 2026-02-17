@@ -38,10 +38,11 @@ interface SyncMetrics {
 
 const SQUARE_VERSION = '2024-12-18'
 
-async function getLastSuccessfulRun(supabase: SupabaseClient) {
+async function getLastSuccessfulRun(supabase: SupabaseClient, tenantId: string) {
   const { data } = await supabase
     .from('inventory_sales_sync_runs')
     .select('id, square_cursor, last_synced_at')
+    .eq('tenant_id', tenantId)
     .eq('status', 'success')
     .order('finished_at', { ascending: false })
     .limit(1)
@@ -51,11 +52,13 @@ async function getLastSuccessfulRun(supabase: SupabaseClient) {
 
 async function createSyncRun(
   supabase: SupabaseClient,
+  tenantId: string,
   adminId: string | null
 ) {
   const { data, error } = await supabase
     .from('inventory_sales_sync_runs')
     .insert([{
+      tenant_id: tenantId,
       status: 'pending',
       created_by: adminId
     }])
@@ -82,6 +85,7 @@ type SyncRunUpdate = {
 
 async function updateSyncRun(
   supabase: SupabaseClient,
+  tenantId: string,
   runId: string,
   updates: SyncRunUpdate
 ) {
@@ -91,6 +95,7 @@ async function updateSyncRun(
       ...updates,
       finished_at: updates.finished_at ?? new Date().toISOString()
     })
+    .eq('tenant_id', tenantId)
     .eq('id', runId)
 
   if (error) {
@@ -98,10 +103,11 @@ async function updateSyncRun(
   }
 }
 
-async function fetchInventoryMap(supabase: SupabaseClient) {
+async function fetchInventoryMap(supabase: SupabaseClient, tenantId: string) {
   const { data, error } = await supabase
     .from('inventory_items')
     .select('id, square_item_id, item_name, current_stock, pack_size, item_type, auto_decrement')
+    .eq('tenant_id', tenantId)
 
   if (error) {
     throw new Error(`Failed to load inventory items: ${error.message}`)
@@ -259,6 +265,7 @@ async function fetchSquareOrders(
 
 async function insertSalesTransaction(
   supabase: SupabaseClient,
+  tenantId: string,
   order: SquareOrder,
   syncRunId: string,
   dryRun: boolean
@@ -270,6 +277,7 @@ async function insertSalesTransaction(
   const existing = await supabase
     .from('sales_transactions')
     .select('id')
+    .eq('tenant_id', tenantId)
     .eq('square_order_id', squareOrderId)
     .maybeSingle()
 
@@ -291,6 +299,7 @@ async function insertSalesTransaction(
   const { data, error } = await supabase
     .from('sales_transactions')
     .insert([{
+      tenant_id: tenantId,
       square_order_id: squareOrderId,
       location_id: order.location_id,
       order_number: order.order_number,
@@ -323,6 +332,7 @@ function parseQuantity(quantity: string | number | undefined): number {
 
 async function insertTransactionItems(
   supabase: SupabaseClient,
+  tenantId: string,
   transactionId: string,
   items: Array<{
     inventory_item_id?: string | null
@@ -341,6 +351,7 @@ async function insertTransactionItems(
   }
 
   const payload = items.map(item => ({
+    tenant_id: tenantId,
     transaction_id: transactionId,
     inventory_item_id: item.inventory_item_id ?? null,
     square_catalog_object_id: item.square_catalog_object_id,
@@ -363,6 +374,7 @@ async function insertTransactionItems(
 
 async function applyAutoDecrements(
   supabase: SupabaseClient,
+  tenantId: string,
   autoItems: Array<{
     inventory: InventoryRow
     quantity: number
@@ -388,6 +400,7 @@ async function applyAutoDecrements(
         current_stock: newStock,
         updated_at: new Date().toISOString()
       })
+      .eq('tenant_id', tenantId)
       .eq('id', autoItem.inventory.id)
 
     if (error) {
@@ -397,6 +410,7 @@ async function applyAutoDecrements(
     autoItem.inventory.current_stock = newStock
 
     stockMovements.push({
+      tenant_id: tenantId,
       inventory_item_id: autoItem.inventory.id,
       movement_type: 'sale',
       quantity_change: -quantityDelta,
@@ -437,8 +451,8 @@ export async function POST(request: NextRequest) {
   try {
     const body = (await request.json().catch(() => ({}))) as SalesSyncRequestBody
 
-    const lastRun = await getLastSuccessfulRun(supabase)
-    const syncRun = await createSyncRun(supabase, authResult.userId ?? null)
+    const lastRun = await getLastSuccessfulRun(supabase, tenantId)
+    const syncRun = await createSyncRun(supabase, tenantId, authResult.userId ?? null)
     currentRunId = syncRun.id
 
     const sinceTimestamp = lastRun?.last_synced_at
@@ -446,7 +460,7 @@ export async function POST(request: NextRequest) {
       : undefined
 
     const { orders, cursor } = await fetchSquareOrders(squareConfig, sinceTimestamp)
-    const inventoryMap = await fetchInventoryMap(supabase)
+    const inventoryMap = await fetchInventoryMap(supabase, tenantId)
 
     const metrics: SyncMetrics = {
       ordersProcessed: 0,
@@ -474,6 +488,7 @@ export async function POST(request: NextRequest) {
 
       const transactionResult = await insertSalesTransaction(
         supabase,
+        tenantId,
         order,
         syncRun.id,
         Boolean(body.dryRun)
@@ -551,17 +566,18 @@ export async function POST(request: NextRequest) {
 
       await insertTransactionItems(
         supabase,
+        tenantId,
         transactionResult.id,
         lineItemsPayload,
         Boolean(body.dryRun)
       )
     }
 
-    await applyAutoDecrements(supabase, autoItemsForAdjustment, Boolean(body.dryRun))
+    await applyAutoDecrements(supabase, tenantId, autoItemsForAdjustment, Boolean(body.dryRun))
 
     metrics.lastOrderedAt = latestOrderedAt
 
-    await updateSyncRun(supabase, syncRun.id, {
+    await updateSyncRun(supabase, tenantId, syncRun.id, {
       status: 'success',
       square_cursor: cursor ?? null,
       last_synced_at: latestOrderedAt ?? lastRun?.last_synced_at ?? null,
@@ -588,7 +604,7 @@ export async function POST(request: NextRequest) {
       try {
         const runId = currentRunId
         if (runId) {
-          await updateSyncRun(supabase, runId, {
+          await updateSyncRun(supabase, tenantId, runId, {
             status: 'error',
             error_message: error.message
           })

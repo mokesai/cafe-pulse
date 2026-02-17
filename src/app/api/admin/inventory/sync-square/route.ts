@@ -113,10 +113,11 @@ async function getSupplierMappings(supabase: ReturnType<typeof createServiceClie
   return (suppliers ?? []) as SupplierRow[]
 }
 
-async function getExistingInventoryItems(supabase: ReturnType<typeof createServiceClient>) {
+async function getExistingInventoryItems(supabase: ReturnType<typeof createServiceClient>, tenantId: string) {
   const { data: items, error } = await supabase
     .from('inventory_items')
     .select('square_item_id, item_name')
+    .eq('tenant_id', tenantId)
 
   if (error) {
     console.warn('Warning: Could not fetch existing inventory items')
@@ -369,14 +370,14 @@ function processSquareCatalog(
   return { newItems, stats }
 }
 
-async function syncInventoryItems(supabase: ReturnType<typeof createServiceClient>, items: InventoryItemInput[], dryRun: boolean) {
+async function syncInventoryItems(supabase: ReturnType<typeof createServiceClient>, tenantId: string, items: InventoryItemInput[], dryRun: boolean) {
   if (dryRun || items.length === 0) {
     return { inserted: items, movements: [] }
   }
 
   const { data, error } = await supabase
     .from('inventory_items')
-    .insert(items)
+    .insert(items.map(item => ({ ...item, tenant_id: tenantId })))
     .select('id, item_name, current_stock')
 
   if (error) {
@@ -387,6 +388,7 @@ async function syncInventoryItems(supabase: ReturnType<typeof createServiceClien
   const stockMovements = data
     .filter(item => item.current_stock > 0)
     .map(item => ({
+      tenant_id: tenantId,
       inventory_item_id: item.id,
       movement_type: 'purchase',
       quantity_change: item.current_stock,
@@ -443,13 +445,13 @@ export async function POST(request: NextRequest) {
     const suppliers = await getSupplierMappings(supabase)
 
     // Get existing inventory items
-    const existingSquareIds = await getExistingInventoryItems(supabase)
+    const existingSquareIds = await getExistingInventoryItems(supabase, tenantId)
 
     // Process catalog and generate inventory items
     const { newItems, stats } = processSquareCatalog(catalogData, suppliers, existingSquareIds)
 
     // Sync items to database
-    const syncResult = await syncInventoryItems(supabase, newItems, dryRun)
+    const syncResult = await syncInventoryItems(supabase, tenantId, newItems, dryRun)
 
     // Calculate summary
     const summary = {

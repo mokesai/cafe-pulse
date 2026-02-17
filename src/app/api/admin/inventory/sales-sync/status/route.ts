@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 export async function GET(request: NextRequest) {
   const authResult = await requireAdminAuth(request)
@@ -8,6 +9,7 @@ export async function GET(request: NextRequest) {
     return authResult
   }
 
+  const tenantId = await getCurrentTenantId()
   const supabase = createServiceClient()
 
   try {
@@ -15,6 +17,7 @@ export async function GET(request: NextRequest) {
       supabase
         .from('inventory_sales_sync_runs')
         .select('*')
+        .eq('tenant_id', tenantId)
         .order('started_at', { ascending: false })
         .limit(1),
       supabase
@@ -23,6 +26,7 @@ export async function GET(request: NextRequest) {
       supabase
         .from('inventory_sales_sync_runs')
         .select('*')
+        .eq('tenant_id', tenantId)
         .order('started_at', { ascending: false })
         .limit(5)
     ])

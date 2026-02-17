@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
 import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 export async function GET(request: NextRequest) {
   const auth = await requireAdminAuth(request)
   if (!isAdminAuthSuccess(auth)) return auth
+
+  const tenantId = await getCurrentTenantId()
 
   const { searchParams } = new URL(request.url)
   const id = searchParams.get('id')
@@ -18,6 +21,7 @@ export async function GET(request: NextRequest) {
   const { data, error } = await supabase
     .from('inventory_item_cost_history')
     .select('*')
+    .eq('tenant_id', tenantId)
     .eq('inventory_item_id', id)
     .order('changed_at', { ascending: false })
     .limit(Math.min(limit, 20))

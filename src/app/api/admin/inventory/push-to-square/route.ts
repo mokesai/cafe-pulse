@@ -50,10 +50,11 @@ function getSquareHeaders(config: SquareConfig) {
   }
 }
 
-async function getInventoryItemsToPush(supabase: ReturnType<typeof createServiceClient>, itemIds?: string[]): Promise<InventoryItemToPush[]> {
+async function getInventoryItemsToPush(supabase: ReturnType<typeof createServiceClient>, tenantId: string, itemIds?: string[]): Promise<InventoryItemToPush[]> {
   let query = supabase
     .from('inventory_items')
     .select('id, square_item_id, item_name, current_stock, unit_cost, notes')
+    .eq('tenant_id', tenantId)
     .not('square_item_id', 'is', null) // Only items with Square IDs
 
   if (itemIds && itemIds.length > 0) {
@@ -69,7 +70,7 @@ async function getInventoryItemsToPush(supabase: ReturnType<typeof createService
   return (items ?? []) as InventoryItemToPush[]
 }
 
-async function pushInventoryCountsToSquare(config: SquareConfig, supabase: ReturnType<typeof createServiceClient>, items: InventoryItemToPush[], dryRun: boolean) {
+async function pushInventoryCountsToSquare(config: SquareConfig, supabase: ReturnType<typeof createServiceClient>, items: InventoryItemToPush[], dryRun: boolean, tenantId: string) {
   const baseUrl = config.environment === 'production'
     ? 'https://connect.squareup.com'
     : 'https://connect.squareupsandbox.com'
@@ -172,6 +173,7 @@ async function pushInventoryCountsToSquare(config: SquareConfig, supabase: Retur
         .from('stock_movements')
         .insert(
           inventoryChanges.map(change => ({
+            tenant_id: tenantId,
             inventory_item_id: items.find(item => item.square_item_id === change.physical_count.catalog_object_id)?.id,
             movement_type: 'adjustment',
             quantity_change: 0, // Net change is 0 since we're syncing
@@ -232,7 +234,7 @@ export async function POST(request: NextRequest) {
     await validateAdminAccess(supabase, body.adminEmail)
 
     // Get inventory items to push
-    const items = await getInventoryItemsToPush(supabase, body.itemIds)
+    const items = await getInventoryItemsToPush(supabase, tenantId, body.itemIds)
 
     if (items.length === 0) {
       return NextResponse.json({
@@ -246,10 +248,10 @@ export async function POST(request: NextRequest) {
 
     if (pushType === 'stock_only') {
       // Push inventory counts only
-      results = await pushInventoryCountsToSquare(squareConfig, supabase, items, dryRun)
+      results = await pushInventoryCountsToSquare(squareConfig, supabase, items, dryRun, tenantId)
     } else {
       // Full sync (item details + inventory)
-      const stockResults = await pushInventoryCountsToSquare(squareConfig, supabase, items, dryRun)
+      const stockResults = await pushInventoryCountsToSquare(squareConfig, supabase, items, dryRun, tenantId)
       const detailResults = await syncItemDetailsToSquare(items)
 
       results = {
