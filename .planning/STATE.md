@@ -9,11 +9,11 @@
 ## Progress
 
 Phase: 70 of 70 (Integration Testing & Hardening)
-Plan: 2 of 8 in Phase 70
-Status: In progress — E2E testing and security auditing complete, gap closure next
-Last activity: 2026-02-17 - Completed 70-02-PLAN.md (Service-Role & Cache Security Audit)
+Plan: 3 of 8 in Phase 70
+Status: In progress — E2E testing, security auditing, and localStorage isolation complete
+Last activity: 2026-02-17 - Completed 70-03-PLAN.md (localStorage Cross-Tenant Isolation)
 
-Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 complete (7/7 plans), Phase 70: ██░░░░░░ (2/8 plans)
+Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 complete (7/7 plans), Phase 70: ███░░░░░ (3/8 plans)
 
 ## Completed
 - [x] PROJECT.md created
@@ -74,8 +74,13 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - [x] Phase 70 planned — 8 plans across 3 waves (E2E testing, security auditing, hardening)
 - [x] 70-01: E2E Multi-Tenant Isolation Testing — Playwright 1.58.2 installed with parallel workers (workers: 2), 11 isolation tests across 3 suites (menu, checkout, admin), subdomain routing patterns, comprehensive README documentation, npm scripts added (test:e2e, test:e2e:ui)
 - [x] 70-02: Service-Role & Cache Security Audit — Automated bash audit scripts (service-role-audit.sh, cache-audit.sh), comprehensive AUDIT_RESULTS.md report, 82 service-role usages analyzed (18 pass, 64 fail), 3 caches analyzed (2 pass, 1 warning), HIGH risk level with 64 files lacking tenant_id filtering, priority-ordered remediation roadmap
+- [x] 70-03: localStorage Cross-Tenant Isolation — Tenant-aware localStorage utility module (src/lib/utils/localStorage.ts), cart hooks refactored to use tenant-scoped keys (tenantSlug:key format), all localStorage access goes through wrapper functions, zero hardcoded keys remain, verification documentation with manual testing steps
 
 ### Decisions Made
+- **Tenant-scoped localStorage keys with ${tenantSlug}:${key} format**: Browser localStorage is domain-scoped on localhost (tenant-a.localhost and tenant-b.localhost share storage); prefixing prevents cross-tenant pollution (Phase 70-03)
+- **Created utility module instead of inline tenant-scoping**: Centralized utility enforces consistent key formatting, provides SSR guards, makes future changes easier (Phase 70-03)
+- **UserOnboarding.tsx remains tenant-agnostic**: User should see onboarding tour once per browser, not once per tenant; per-tenant onboarding would be repetitive UX (Phase 70-03)
+- **useCallback for loadCartFromStorage**: Function depends on tenantSlug; useCallback prevents lint warning and ensures correct dependency tracking (Phase 70-03)
 - **Automated bash scripts for security audits**: Repeatable, version-controlled, CI/CD-ready; catches regressions automatically vs manual code review (Phase 70-02)
 - **grep-based pattern matching for service-role detection**: Simple and sufficient for detecting createServiceClient() patterns; AST-based tools add unnecessary complexity (Phase 70-02)
 - **Three-tier categorization (PASS/WARNING/FAIL) for audit findings**: Clear priority levels for remediation; distinguishes secure, needs-review, and critical issues (Phase 70-02)
@@ -161,9 +166,10 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - **Rollback scripts in supabase/rollback/**: Not in migrations/ to prevent accidental application by `supabase db push`
 
 ### Known Issues
-- **64 service-role queries without tenant_id filtering**: CRITICAL cross-tenant data leakage risk; 2 webhook routes (HIGH PRIORITY), 4 shared library modules (HIGH PRIORITY), 54 admin API routes, 1 admin utility (Phase 70-02 audit findings - requires 70-03 gap closure)
+- **64 service-role queries without tenant_id filtering**: CRITICAL cross-tenant data leakage risk; 2 webhook routes (HIGH PRIORITY), 4 shared library modules (HIGH PRIORITY), 54 admin API routes, 1 admin utility (Phase 70-02 audit findings - requires gap closure in future plans)
 - **Site status cache architecture unclear**: __siteStatusCacheEdge uses singleton pattern; needs review to determine if per-tenant or intentionally global (Phase 70-02 audit finding)
 - **Audit script false positive**: service-role-audit.sh flags tenant/identity.ts as FAIL but it correctly filters by .eq('id', tenantId); script needs pattern improvement (Phase 70-02)
+- **localStorage isolation requires manual testing**: Cart data isolation implemented; manual testing required to verify tenant-a and tenant-b carts remain separate (Phase 70-03 follow-up)
 - Test tenants for E2E tests: tenant-a and tenant-b must be created in database before E2E tests can verify isolation (Phase 70-01 prerequisite)
 - E2E tests currently fail: Expected behavior without test tenants; 8/11 tests fail, 3/11 pass (admin protection tests) (Phase 70-01)
 - Platform dashboard manual testing requires bootstrap: Platform admin must be created via psql before testing /platform routes (60-02 bootstrap script needed)
@@ -182,8 +188,8 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 70-02-PLAN.md (Service-Role & Cache Security Audit)
+Stopped at: Completed 70-03-PLAN.md (localStorage Cross-Tenant Isolation)
 Resume file: None
 
 ## Next Action
-Proceed to Phase 70-03: Gap Closure (Fix webhook routes and shared library modules identified in security audit).
+Proceed to Phase 70-04: Continue gap closure and hardening work based on security audit findings.
