@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
 import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -22,11 +23,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
 
     const { data: invoice, error } = await supabase
       .from('invoices')
       .select('file_path, file_url')
       .eq('id', id)
+      .eq('tenant_id', tenantId)
       .single()
 
     if (error || !invoice) {

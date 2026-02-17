@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/admin/middleware'
 import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -25,11 +26,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
 
     const { data: invoice, error: invoiceError } = await supabase
       .from('invoices')
       .select('id, supplier_id')
       .eq('id', id)
+      .eq('tenant_id', tenantId)
       .single()
 
     if (invoiceError || !invoice) {
@@ -43,6 +46,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .from('purchase_orders')
       .select('id, supplier_id')
       .eq('id', purchase_order_id)
+      .eq('tenant_id', tenantId)
       .single()
 
     if (orderError || !purchaseOrder) {

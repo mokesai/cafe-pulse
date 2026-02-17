@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/admin/middleware'
 import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 import { findItemMatches, type InventoryItem as MatchingInventoryItem, type InvoiceItem as MatchingInvoiceItem, type ItemMatch } from '@/lib/matching/item-matcher'
 
 interface RouteContext {
@@ -82,6 +83,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const resolvedParams = await context.params
     const { id } = resolvedParams
     const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
 
     console.log('🔍 Starting item matching for invoice:', id)
 
@@ -108,6 +110,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         )
       `)
       .eq('id', id)
+      .eq('tenant_id', tenantId)
       .single()
 
     if (invoiceError || !invoice) {
@@ -141,6 +144,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           name
         )
       `)
+      .eq('tenant_id', tenantId)
 
     if (inventoryError) {
       console.error('Error fetching inventory items:', inventoryError)
@@ -279,6 +283,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const resolvedParams = await context.params
     const { id } = resolvedParams
     const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
 
     // Get existing matches for the invoice
     const { data: invoice, error } = await supabase
@@ -306,6 +311,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         )
       `)
       .eq('id', id)
+      .eq('tenant_id', tenantId)
       .single()
 
     if (error || !invoice) {
