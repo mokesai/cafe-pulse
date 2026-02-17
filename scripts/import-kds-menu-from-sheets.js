@@ -35,6 +35,8 @@ const fs = require('fs')
 const path = require('path')
 const { createClient } = require('@supabase/supabase-js')
 
+const DEFAULT_TENANT_ID = '00000000-0000-0000-0000-000000000001'
+
 // Local file paths
 const LOCAL_MENU_FILE = path.join('data', 'kds-menu-export.csv')
 const LOCAL_CATEGORIES_FILE = path.join('data', 'kds-categories-export.csv')
@@ -278,6 +280,7 @@ function transformImage(row) {
   const isActive = row.is_active === 'true' || row.is_active === 'TRUE' || row.is_active === '1' || row.is_active === true
 
   return {
+    tenant_id: DEFAULT_TENANT_ID,
     screen: row.screen,
     filename: row.filename,
     alt_text: row.alt_text || null,
@@ -299,6 +302,7 @@ function transformSetting(row) {
   }
 
   return {
+    tenant_id: DEFAULT_TENANT_ID,
     key: row.key,
     value: value,
   }
@@ -480,7 +484,7 @@ async function importImages(supabase, rows, clearFirst) {
   for (const image of images) {
     const { error } = await supabase
       .from('kds_images')
-      .upsert(image, { onConflict: 'filename' })
+      .upsert(image, { onConflict: 'tenant_id,filename' })
 
     if (error) {
       console.error(`❌ Failed to upsert image "${image.filename}":`, error.message)
@@ -504,7 +508,7 @@ async function importSettings(supabase, rows, clearFirst) {
   for (const setting of settings) {
     const { error } = await supabase
       .from('kds_settings')
-      .upsert(setting, { onConflict: 'key' })
+      .upsert(setting, { onConflict: 'tenant_id,key' })
 
     if (error) {
       console.error(`❌ Failed to upsert setting "${setting.key}":`, error.message)

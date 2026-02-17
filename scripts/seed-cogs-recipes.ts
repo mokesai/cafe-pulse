@@ -31,6 +31,8 @@ import dotenv from 'dotenv'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { createRequire } from 'module'
 
+const DEFAULT_TENANT_ID = '00000000-0000-0000-0000-000000000001'
+
 type Unit = 'each' | 'lb' | 'oz' | 'gallon' | 'liter' | 'ml'
 
 type Options = {
@@ -536,7 +538,8 @@ async function seedProductRecipes(
 async function seedModifierRecipes(
   supabase: SupabaseClient,
   inventoryItems: InventoryItem[],
-  options: Options
+  options: Options,
+  tenantId: string = DEFAULT_TENANT_ID
 ) {
   const effectiveFrom = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString()
 
@@ -560,9 +563,10 @@ async function seedModifierRecipes(
     const { data: setRow, error: setError } = await supabase
       .from('cogs_modifier_sets')
       .upsert([{
+        tenant_id: tenantId,
         square_modifier_list_id: setId,
         name: set.setName,
-      }], { onConflict: 'square_modifier_list_id' })
+      }], { onConflict: 'tenant_id,square_modifier_list_id' })
       .select('id')
       .single()
 
@@ -572,10 +576,11 @@ async function seedModifierRecipes(
       const { data: optionRow, error: optionError } = await supabase
         .from('cogs_modifier_options')
         .upsert([{
+          tenant_id: tenantId,
           modifier_set_id: setRow.id,
           square_modifier_id: opt.square_modifier_id,
           name: opt.name,
-        }], { onConflict: 'square_modifier_id' })
+        }], { onConflict: 'tenant_id,square_modifier_id' })
         .select('id')
         .single()
 

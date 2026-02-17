@@ -56,6 +56,8 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { createRequire } from 'module'
 import { Client as SquareClient, Environment as SquareEnvironment } from 'square/legacy'
 
+const DEFAULT_TENANT_ID = '00000000-0000-0000-0000-000000000001'
+
 type Mode = 'db' | 'square'
 
 type SimulatorItem = {
@@ -408,11 +410,12 @@ async function fetchExistingOrderIds(supabase: SupabaseClient, ids: string[]) {
   return existing
 }
 
-async function seedCogsCatalogForSimulator(supabase: SupabaseClient, config: SimulatorConfig, seed: string) {
+async function seedCogsCatalogForSimulator(supabase: SupabaseClient, config: SimulatorConfig, seed: string, tenantId: string = DEFAULT_TENANT_ID) {
   const templates = config.items.filter(item => item.variationId && item.key && item.name)
   if (templates.length === 0) return
 
   const productRows = templates.map(item => ({
+    tenant_id: tenantId,
     square_item_id: `SIM-COGS-ITEM-${seed}-${item.key}`,
     name: item.name,
     category: item.category ?? null,
@@ -421,7 +424,7 @@ async function seedCogsCatalogForSimulator(supabase: SupabaseClient, config: Sim
 
   const { data: upsertedProducts, error: productError } = await supabase
     .from('cogs_products')
-    .upsert(productRows, { onConflict: 'square_item_id' })
+    .upsert(productRows, { onConflict: 'tenant_id,square_item_id' })
     .select('id,square_item_id')
 
   if (productError) throw new Error(`Failed seeding cogs_products: ${productError.message}`)
@@ -437,6 +440,7 @@ async function seedCogsCatalogForSimulator(supabase: SupabaseClient, config: Sim
     if (!productId) return []
     return [
       {
+        tenant_id: tenantId,
         square_variation_id: item.variationId,
         product_id: productId,
         name: item.name,
@@ -447,7 +451,7 @@ async function seedCogsCatalogForSimulator(supabase: SupabaseClient, config: Sim
 
   const { error: sellableError } = await supabase
     .from('cogs_sellables')
-    .upsert(sellableRows, { onConflict: 'square_variation_id' })
+    .upsert(sellableRows, { onConflict: 'tenant_id,square_variation_id' })
 
   if (sellableError) throw new Error(`Failed seeding cogs_sellables: ${sellableError.message}`)
 }
