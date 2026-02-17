@@ -3,17 +3,17 @@
 ## Current Status: Phase 70 In Progress (Integration Testing & Hardening)
 ## Current Milestone: 1.0 - Multi-Tenant MVP
 ## Current Phase: 70 — Integration Testing & Hardening
-## Last Updated: 2026-02-17
+## Last Updated: 2026-02-16
 ## Branch: features/multi-tenant-saas
 
 ## Progress
 
 Phase: 70 of 70 (Integration Testing & Hardening)
-Plan: 3 of 8 in Phase 70
-Status: In progress — E2E testing, security auditing, and localStorage isolation complete
-Last activity: 2026-02-17 - Completed 70-03-PLAN.md (localStorage Cross-Tenant Isolation)
+Plan: 5 of 7 in Phase 70
+Status: In progress — E2E testing, security auditing, localStorage isolation, and per-tenant site status cache complete
+Last activity: 2026-02-16 - Completed 70-05-PLAN.md (per-tenant site status cache refactor)
 
-Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 complete (7/7 plans), Phase 70: ███░░░░░ (3/8 plans)
+Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 complete (7/7 plans), Phase 70: █████░░ (5/7 plans)
 
 ## Completed
 - [x] PROJECT.md created
@@ -75,8 +75,10 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - [x] 70-01: E2E Multi-Tenant Isolation Testing — Playwright 1.58.2 installed with parallel workers (workers: 2), 11 isolation tests across 3 suites (menu, checkout, admin), subdomain routing patterns, comprehensive README documentation, npm scripts added (test:e2e, test:e2e:ui)
 - [x] 70-02: Service-Role & Cache Security Audit — Automated bash audit scripts (service-role-audit.sh, cache-audit.sh), comprehensive AUDIT_RESULTS.md report, 82 service-role usages analyzed (18 pass, 64 fail), 3 caches analyzed (2 pass, 1 warning), HIGH risk level with 64 files lacking tenant_id filtering, priority-ordered remediation roadmap
 - [x] 70-03: localStorage Cross-Tenant Isolation — Tenant-aware localStorage utility module (src/lib/utils/localStorage.ts), cart hooks refactored to use tenant-scoped keys (tenantSlug:key format), all localStorage access goes through wrapper functions, zero hardcoded keys remain, verification documentation with manual testing steps
+- [x] 70-05: Per-Tenant Site Status Cache — siteSettings.edge.ts refactored to Map<string, CacheEntry> keyed by tenantId; getCachedSiteStatus() and invalidateSiteStatusCache() accept tenantId; siteSettings.ts all queries use .eq('tenant_id', tenantId) replacing .eq('id', 1); middleware reads x-tenant-id cookie and passes tenantId; all 5 caller files updated; TypeScript build clean
 
 ### Decisions Made
+- **Site status cache is per-tenant (Map<string, CacheEntry> keyed by tenantId)**: Each tenant independently controls maintenance mode; singleton cache would bleed one tenant's maintenance state to all tenants; site_settings.tenant_id column from Phase 20 now properly used (Phase 70-05)
 - **Tenant-scoped localStorage keys with ${tenantSlug}:${key} format**: Browser localStorage is domain-scoped on localhost (tenant-a.localhost and tenant-b.localhost share storage); prefixing prevents cross-tenant pollution (Phase 70-03)
 - **Created utility module instead of inline tenant-scoping**: Centralized utility enforces consistent key formatting, provides SSR guards, makes future changes easier (Phase 70-03)
 - **UserOnboarding.tsx remains tenant-agnostic**: User should see onboarding tour once per browser, not once per tenant; per-tenant onboarding would be repetitive UX (Phase 70-03)
@@ -167,7 +169,7 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 
 ### Known Issues
 - **64 service-role queries without tenant_id filtering**: CRITICAL cross-tenant data leakage risk; 2 webhook routes (HIGH PRIORITY), 4 shared library modules (HIGH PRIORITY), 54 admin API routes, 1 admin utility (Phase 70-02 audit findings - requires gap closure in future plans)
-- **Site status cache architecture unclear**: __siteStatusCacheEdge uses singleton pattern; needs review to determine if per-tenant or intentionally global (Phase 70-02 audit finding)
+- **Site status cache resolved**: __siteStatusCacheEdge refactored to Map<string, CacheEntry>; per-tenant isolation implemented in Phase 70-05
 - **Audit script false positive**: service-role-audit.sh flags tenant/identity.ts as FAIL but it correctly filters by .eq('id', tenantId); script needs pattern improvement (Phase 70-02)
 - **localStorage isolation requires manual testing**: Cart data isolation implemented; manual testing required to verify tenant-a and tenant-b carts remain separate (Phase 70-03 follow-up)
 - Test tenants for E2E tests: tenant-a and tenant-b must be created in database before E2E tests can verify isolation (Phase 70-01 prerequisite)
@@ -187,9 +189,9 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 
 ## Session Continuity
 
-Last session: 2026-02-17
-Stopped at: Completed 70-03-PLAN.md (localStorage Cross-Tenant Isolation)
+Last session: 2026-02-16
+Stopped at: Completed 70-05-PLAN.md (Per-Tenant Site Status Cache)
 Resume file: None
 
 ## Next Action
-Proceed to Phase 70-04: Continue gap closure and hardening work based on security audit findings.
+Proceed to Phase 70-04 and 70-06/70-07: Continue gap closure and hardening work based on security audit findings (service-role tenant filtering).
