@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import UnderConstruction from '@/components/maintenance/UnderConstruction'
 import { getSiteStatusUsingServiceClient } from '@/lib/services/siteSettings'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 export const metadata: Metadata = {
   title: 'Little Cafe – Under Construction',
@@ -8,7 +9,8 @@ export const metadata: Metadata = {
 }
 
 export default async function UnderConstructionPage() {
-  const status = await getSiteStatusUsingServiceClient()
+  const tenantId = await getCurrentTenantId()
+  const status = await getSiteStatusUsingServiceClient(tenantId)
 
   return <UnderConstruction status={status} />
 }

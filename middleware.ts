@@ -154,7 +154,12 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
-    const status = await getCachedSiteStatus(request)
+    // Read the tenant ID from the cookie just set on sessionResponse, or fall back to
+    // the incoming request cookie (set in a prior request), or the default tenant.
+    const tenantId = sessionResponse.cookies.get('x-tenant-id')?.value
+      ?? request.cookies.get('x-tenant-id')?.value
+      ?? DEFAULT_TENANT_ID
+    const status = await getCachedSiteStatus(request, tenantId)
     if (!status.isCustomerAppLive) {
       const maintenanceUrl = request.nextUrl.clone()
       maintenanceUrl.pathname = '/under-construction'

@@ -4,22 +4,22 @@ import { DEFAULT_SITE_STATUS, mapSiteSettingsToStatus } from './siteSettings.sha
 
 export { DEFAULT_SITE_STATUS } from './siteSettings.shared'
 
-async function invalidateEdgeCache() {
+async function invalidateEdgeCache(tenantId: string) {
   try {
     const edgeModule = await import('./siteSettings.edge')
-    edgeModule.invalidateSiteStatusCache()
+    edgeModule.invalidateSiteStatusCache(tenantId)
   } catch (error) {
     console.warn('Unable to invalidate edge site status cache', error)
   }
 }
 
-export async function getSiteSettings(): Promise<SiteSettings | null> {
+export async function getSiteSettings(tenantId: string): Promise<SiteSettings | null> {
   const supabase = await createClient()
 
   const { data, error } = await supabase
     .from('site_settings')
     .select('*')
-    .eq('id', 1)
+    .eq('tenant_id', tenantId)
     .maybeSingle()
 
   if (error) {
@@ -30,8 +30,8 @@ export async function getSiteSettings(): Promise<SiteSettings | null> {
   return (data as SiteSettings | null) ?? null
 }
 
-export async function getSiteStatus(): Promise<SiteStatus> {
-  const record = await getSiteSettings()
+export async function getSiteStatus(tenantId: string): Promise<SiteStatus> {
+  const record = await getSiteSettings(tenantId)
   return mapSiteSettingsToStatus(record || undefined)
 }
 
@@ -60,7 +60,7 @@ function buildUpdatePayload(payload: SiteSettingsPayload, adminUserId?: string) 
   return updateData
 }
 
-export async function saveSiteSettings(payload: SiteSettingsPayload, adminUserId?: string): Promise<SiteSettings> {
+export async function saveSiteSettings(tenantId: string, payload: SiteSettingsPayload, adminUserId?: string): Promise<SiteSettings> {
   const supabase = createServiceClient()
   const updateData = buildUpdatePayload(payload, adminUserId)
 
@@ -68,7 +68,7 @@ export async function saveSiteSettings(payload: SiteSettingsPayload, adminUserId
     const { data, error } = await supabase
       .from('site_settings')
       .select('*')
-      .eq('id', 1)
+      .eq('tenant_id', tenantId)
       .maybeSingle()
 
     if (error) {
@@ -83,7 +83,7 @@ export async function saveSiteSettings(payload: SiteSettingsPayload, adminUserId
   const { data: updated, error: updateError } = await supabase
     .from('site_settings')
     .update(updateData)
-    .eq('id', 1)
+    .eq('tenant_id', tenantId)
     .select()
     .maybeSingle()
 
@@ -93,13 +93,13 @@ export async function saveSiteSettings(payload: SiteSettingsPayload, adminUserId
   }
 
   if (updated) {
-    void invalidateEdgeCache()
+    void invalidateEdgeCache(tenantId)
     return updated as SiteSettings
   }
 
   // If no row existed, insert a new one using defaults merged with payload
   const insertData = {
-    id: 1,
+    tenant_id: tenantId,
     is_customer_app_live: payload.is_customer_app_live ?? DEFAULT_SITE_STATUS.isCustomerAppLive,
     maintenance_title: payload.maintenance_title ?? DEFAULT_SITE_STATUS.maintenanceTitle,
     maintenance_message: payload.maintenance_message ?? DEFAULT_SITE_STATUS.maintenanceMessage,
@@ -119,17 +119,17 @@ export async function saveSiteSettings(payload: SiteSettingsPayload, adminUserId
     throw insertError
   }
 
-  void invalidateEdgeCache()
+  void invalidateEdgeCache(tenantId)
   return inserted as SiteSettings
 }
 
-export async function getSiteStatusUsingServiceClient(): Promise<SiteStatus> {
+export async function getSiteStatusUsingServiceClient(tenantId: string): Promise<SiteStatus> {
   const supabase = createServiceClient()
 
   const { data, error } = await supabase
     .from('site_settings')
     .select('*')
-    .eq('id', 1)
+    .eq('tenant_id', tenantId)
     .maybeSingle()
 
   if (error) {

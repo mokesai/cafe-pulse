@@ -17,7 +17,8 @@ export default async function SiteLayout({
 }: {
   children: React.ReactNode
 }) {
-  const status = await getSiteStatusUsingServiceClient()
+  const tenantId = await getCurrentTenantId()
+  const status = await getSiteStatusUsingServiceClient(tenantId)
 
   if (!status.isCustomerAppLive) {
     return (
@@ -26,8 +27,6 @@ export default async function SiteLayout({
       </div>
     )
   }
-
-  const tenantId = await getCurrentTenantId()
   const squareConfig = await getTenantSquareConfig(tenantId)
   const tenant = await getTenantIdentity()
 

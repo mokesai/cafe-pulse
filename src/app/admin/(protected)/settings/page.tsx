@@ -3,12 +3,14 @@ import KDSThemeSelector from '@/components/admin/KDSThemeSelector'
 import { getSiteSettings, getSiteStatusUsingServiceClient } from '@/lib/services/siteSettings'
 import { getSettings as getKDSSettings } from '@/lib/kds/queries'
 import type { KDSTheme } from '@/lib/kds/types'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 export default async function AdminSettingsPage() {
+  const tenantId = await getCurrentTenantId()
 
   const [initialStatus, initialSettings, kdsSettings] = await Promise.all([
-    getSiteStatusUsingServiceClient(),
-    getSiteSettings(),
+    getSiteStatusUsingServiceClient(tenantId),
+    getSiteSettings(tenantId),
     getKDSSettings()
   ])
 
