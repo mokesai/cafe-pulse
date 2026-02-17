@@ -144,12 +144,13 @@ function makeSquareHeaders(config: SquareConfig) {
   }
 }
 
-async function getLastCatalogSync() {
+async function getLastCatalogSync(tenantId: string) {
   try {
     const supabase = createServiceClient()
     const { data: lastSync, error } = await supabase
       .from('webhook_events')
       .select('processed_at, event_data')
+      .eq('tenant_id', tenantId)
       .eq('event_type', 'catalog.version.updated')
       .order('processed_at', { ascending: false })
       .limit(1)
@@ -201,7 +202,7 @@ async function fetchCatalogChanges(config: SquareConfig, sinceTimestamp?: Date):
   }
 }
 
-async function syncCatalogChanges(catalogData: CatalogResponse): Promise<SyncResult> {
+async function syncCatalogChanges(tenantId: string, catalogData: CatalogResponse): Promise<SyncResult> {
   if (!catalogData.objects || catalogData.objects.length === 0) {
     return { newItems: 0, updatedItems: 0, categories: 0 }
   }
@@ -212,11 +213,12 @@ async function syncCatalogChanges(catalogData: CatalogResponse): Promise<SyncRes
   let newItems = 0
   let updatedItems = 0
 
-  // Get existing inventory items
+  // Get existing inventory items for this tenant
   const supabase = createServiceClient()
   const { data: existingItemsRaw, error } = await supabase
     .from('inventory_items')
     .select('id, square_item_id, item_name, updated_at, notes')
+    .eq('tenant_id', tenantId)
 
   if (error) {
     throw new Error(`Failed to fetch existing inventory: ${error.message}`)
@@ -231,10 +233,11 @@ async function syncCatalogChanges(catalogData: CatalogResponse): Promise<SyncRes
     }
   })
 
-  // Get supplier mappings
+  // Get supplier mappings for this tenant
   const { data: suppliersRaw, error: supplierError } = await supabase
     .from('suppliers')
     .select('id, name')
+    .eq('tenant_id', tenantId)
 
   if (supplierError) {
     throw new Error(`Failed to fetch suppliers: ${supplierError.message}`)
@@ -244,11 +247,11 @@ async function syncCatalogChanges(catalogData: CatalogResponse): Promise<SyncRes
   // Process catalog items
   for (const item of items) {
     const existingItem = existingItemMap.get(item.id)
-    
+
     if (existingItem) {
       // Update existing item (only item name and description from Square)
       const updates: Partial<Pick<ExistingInventoryItem, 'item_name' | 'notes'>> = {}
-      
+
       if (item.item_data?.name && item.item_data.name !== existingItem.item_name) {
         updates.item_name = item.item_data.name
         updates.notes = (existingItem.notes || '') + ` [Square update: ${new Date().toISOString()}]`
@@ -259,6 +262,7 @@ async function syncCatalogChanges(catalogData: CatalogResponse): Promise<SyncRes
           .from('inventory_items')
           .update(updates)
           .eq('id', existingItem.id)
+          .eq('tenant_id', tenantId)
 
         if (!updateError) {
           updatedItems++
@@ -272,6 +276,7 @@ async function syncCatalogChanges(catalogData: CatalogResponse): Promise<SyncRes
       const defaults = generateInventoryDefaults(item, categoryObj)
 
       const newInventoryItem = {
+        tenant_id: tenantId,
         square_item_id: item.id,
         item_name: item.item_data?.name || 'Unknown Item',
         current_stock: defaults.current_stock,
@@ -307,7 +312,7 @@ function mapItemToSupplier(
 ) {
   const itemName = item.item_data?.name?.toLowerCase() || ''
   const categoryName = category?.category_data?.name?.toLowerCase() || ''
-  
+
   const patterns = {
     'coffee': 'Premium Coffee Roasters',
     'dairy': 'Local Dairy Cooperative',
@@ -332,7 +337,7 @@ function generateInventoryDefaults(
 ): InventoryDefaults {
   const itemName = item.item_data?.name?.toLowerCase() || ''
   const categoryName = category?.category_data?.name?.toLowerCase() || ''
-  
+
   let defaultStock = 10
   let minThreshold = 3
   let reorderPoint = 6
@@ -377,13 +382,14 @@ function generateInventoryDefaults(
   }
 }
 
-async function logWebhookEvent(event: SquareCatalogWebhookEvent, syncResult: SyncResult) {
+async function logWebhookEvent(event: SquareCatalogWebhookEvent, syncResult: SyncResult, tenantId: string) {
   try {
     // Log webhook processing for audit trail
     const supabase = createServiceClient()
     const { error } = await supabase
       .from('webhook_events')
       .insert([{
+        tenant_id: tenantId,
         event_id: event.event_id,
         event_type: event.type,
         merchant_id: event.merchant_id,
@@ -439,11 +445,12 @@ export async function POST(request: NextRequest) {
     console.log('📨 Received Square catalog webhook:', event.event_id)
     console.log('📅 Catalog updated at:', event.data.object.catalog_version.updated_at)
 
-    // Check if this event was already processed
+    // Check if this event was already processed (scoped to this tenant)
     const supabase = createServiceClient()
     const { data: existingEvent } = await supabase
       .from('webhook_events')
       .select('id')
+      .eq('tenant_id', tenantId)
       .eq('event_id', event.event_id)
       .maybeSingle()
 
@@ -452,17 +459,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Event already processed' })
     }
 
-    // Get last sync timestamp
-    const lastSync = await getLastCatalogSync()
+    // Get last sync timestamp for this tenant
+    const lastSync = await getLastCatalogSync(tenantId)
 
     // Fetch catalog changes since last sync using tenant's credentials
     const catalogData = await fetchCatalogChanges(squareConfig, lastSync || undefined)
 
-    // Sync changes to inventory
-    const syncResult = await syncCatalogChanges(catalogData)
+    // Sync changes to inventory (tenant-scoped)
+    const syncResult = await syncCatalogChanges(tenantId, catalogData)
 
-    // Log the webhook event
-    await logWebhookEvent(event, syncResult)
+    // Log the webhook event (tenant-scoped)
+    await logWebhookEvent(event, syncResult, tenantId)
 
     console.log('✅ Catalog webhook processed successfully')
     console.log(`🆕 New items: ${syncResult.newItems}`)
