@@ -3,15 +3,15 @@
 ## Current Status: Phase 70 In Progress (Integration Testing & Hardening)
 ## Current Milestone: 1.0 - Multi-Tenant MVP
 ## Current Phase: 70 — Integration Testing & Hardening
-## Last Updated: 2026-02-16
+## Last Updated: 2026-02-17
 ## Branch: features/multi-tenant-saas
 
 ## Progress
 
 Phase: 70 of 70 (Integration Testing & Hardening)
 Plan: 5 of 7 in Phase 70
-Status: In progress — E2E testing, security auditing, localStorage isolation, and per-tenant site status cache complete
-Last activity: 2026-02-16 - Completed 70-05-PLAN.md (per-tenant site status cache refactor)
+Status: In progress — E2E testing, security auditing, localStorage isolation, webhook/KDS/order gap closure, and per-tenant site status cache complete
+Last activity: 2026-02-17 - Completed 70-04-PLAN.md (service-role gap closure: webhooks, KDS queries, createOrder, admin/setup.ts)
 
 Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 complete (7/7 plans), Phase 70: █████░░ (5/7 plans)
 
@@ -75,9 +75,14 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - [x] 70-01: E2E Multi-Tenant Isolation Testing — Playwright 1.58.2 installed with parallel workers (workers: 2), 11 isolation tests across 3 suites (menu, checkout, admin), subdomain routing patterns, comprehensive README documentation, npm scripts added (test:e2e, test:e2e:ui)
 - [x] 70-02: Service-Role & Cache Security Audit — Automated bash audit scripts (service-role-audit.sh, cache-audit.sh), comprehensive AUDIT_RESULTS.md report, 82 service-role usages analyzed (18 pass, 64 fail), 3 caches analyzed (2 pass, 1 warning), HIGH risk level with 64 files lacking tenant_id filtering, priority-ordered remediation roadmap
 - [x] 70-03: localStorage Cross-Tenant Isolation — Tenant-aware localStorage utility module (src/lib/utils/localStorage.ts), cart hooks refactored to use tenant-scoped keys (tenantSlug:key format), all localStorage access goes through wrapper functions, zero hardcoded keys remain, verification documentation with manual testing steps
+- [x] 70-04: Service-Role Gap Closure (Webhooks, KDS, Orders) — Both Square webhooks fully tenant-scoped (catalog + inventory), all 15 KDS query functions accept tenantId parameter, createOrder() stamps tenant_id on orders + order_items, api/orders/route.ts calls getCurrentTenantId(), admin/setup.ts deprecated with tenant scoping, all 6 KDS caller files updated; audit FAIL count dropped from 64 to 23; TypeScript build clean
 - [x] 70-05: Per-Tenant Site Status Cache — siteSettings.edge.ts refactored to Map<string, CacheEntry> keyed by tenantId; getCachedSiteStatus() and invalidateSiteStatusCache() accept tenantId; siteSettings.ts all queries use .eq('tenant_id', tenantId) replacing .eq('id', 1); middleware reads x-tenant-id cookie and passes tenantId; all 5 caller files updated; TypeScript build clean
 
 ### Decisions Made
+- **tenantId as first parameter on all KDS query functions**: Compile-time enforcement; impossible to call a KDS query without tenant scope; callers get a compile error if they forget tenantId (Phase 70-04)
+- **getCurrentTenantId() at route/page handler level, not inside library functions**: Library functions remain pure and testable; context resolution stays at the edge of the system (Phase 70-04)
+- **admin/setup.ts profile functions marked @deprecated**: Functions may still be called by scripts; soft deprecation with pointer to requireAdmin() safer than hard delete (Phase 70-04)
+- **tenant_id in INSERT payloads rather than .eq() on INSERTs**: INSERTs set data; tenant_id belongs in the data payload. .eq() is for WHERE clauses on SELECT/UPDATE/DELETE (Phase 70-04)
 - **Site status cache is per-tenant (Map<string, CacheEntry> keyed by tenantId)**: Each tenant independently controls maintenance mode; singleton cache would bleed one tenant's maintenance state to all tenants; site_settings.tenant_id column from Phase 20 now properly used (Phase 70-05)
 - **Tenant-scoped localStorage keys with ${tenantSlug}:${key} format**: Browser localStorage is domain-scoped on localhost (tenant-a.localhost and tenant-b.localhost share storage); prefixing prevents cross-tenant pollution (Phase 70-03)
 - **Created utility module instead of inline tenant-scoping**: Centralized utility enforces consistent key formatting, provides SSR guards, makes future changes easier (Phase 70-03)
@@ -168,7 +173,7 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - **Rollback scripts in supabase/rollback/**: Not in migrations/ to prevent accidental application by `supabase db push`
 
 ### Known Issues
-- **64 service-role queries without tenant_id filtering**: CRITICAL cross-tenant data leakage risk; 2 webhook routes (HIGH PRIORITY), 4 shared library modules (HIGH PRIORITY), 54 admin API routes, 1 admin utility (Phase 70-02 audit findings - requires gap closure in future plans)
+- **23 service-role queries without tenant_id filtering**: (reduced from 64 by Phase 70-04) COGS routes and remaining admin API routes are the primary remaining gaps; to be addressed in 70-06 and 70-07 plans
 - **Site status cache resolved**: __siteStatusCacheEdge refactored to Map<string, CacheEntry>; per-tenant isolation implemented in Phase 70-05
 - **Audit script false positive**: service-role-audit.sh flags tenant/identity.ts as FAIL but it correctly filters by .eq('id', tenantId); script needs pattern improvement (Phase 70-02)
 - **localStorage isolation requires manual testing**: Cart data isolation implemented; manual testing required to verify tenant-a and tenant-b carts remain separate (Phase 70-03 follow-up)
@@ -189,9 +194,9 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 
 ## Session Continuity
 
-Last session: 2026-02-16
-Stopped at: Completed 70-05-PLAN.md (Per-Tenant Site Status Cache)
+Last session: 2026-02-17
+Stopped at: Completed 70-04-PLAN.md (Service-Role Gap Closure: Webhooks, KDS, Orders)
 Resume file: None
 
 ## Next Action
-Proceed to Phase 70-04 and 70-06/70-07: Continue gap closure and hardening work based on security audit findings (service-role tenant filtering).
+Proceed to Phase 70-06 and 70-07: Continue gap closure and hardening work based on security audit findings (remaining 23 FAIL files — COGS routes and remaining admin API routes).
