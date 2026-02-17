@@ -155,3 +155,42 @@ Plans:
 **Testable:** Full E2E flow: two tenants, independent orders, payments, admin access. Service-role queries verified. localStorage isolation confirmed. Security audit shows 0 FAIL findings for non-platform routes.
 
 **Verified:** 12/12 must-haves passed. Service-role audit 79 PASS / 3 false-positive FAILs (documented). localStorage isolation active. Site status cache per-tenant. All 64 original FAIL findings remediated.
+
+---
+
+## Phase 80: Critical Checkout & Settings Fixes
+Gap closure from v1.0 audit — 2 of 4 SC1 blockers.
+
+**Goal:** Fix the two data-correctness bugs that silently break multi-tenant operation: orders inserted without `tenant_id` (checkout attribution bug) and `site_settings` PK collision that prevents second-tenant maintenance-mode saves.
+
+**Gap Closure:**
+- GAP-1: `process-payment/route.ts` — add `tenant_id: tenantId` to orders and order_items INSERT payloads; switch to `createTenantClient` so RLS applies
+- GAP-3: `site_settings` — change PK from `integer DEFAULT 1` to `uuid DEFAULT gen_random_uuid()`; add `UNIQUE(tenant_id)` constraint; change INSERT to upsert on `tenant_id`
+
+**Plans:** TBD
+
+---
+
+## Phase 85: Multi-Tenant Schema Constraint Migration
+Gap closure from v1.0 audit — final SC1 blocker.
+
+**Goal:** Replace 13 single-column UNIQUE constraints with composite `(tenant_id, field)` constraints so two tenants can simultaneously store data with the same names/codes without conflicts.
+
+**Gap Closure:**
+- GAP-2: Tables affected — `kds_settings` (key), `inventory_items` (name), `suppliers` (name), `measurement_units` (name, symbol), `cogs_products` (square_item_id, product_code), `cogs_product_variations` (square_variation_id ×2), `cogs_modifier_lists` (square_modifier_list_id), `cogs_modifier_options` (square_modifier_id), `kds_images` (filename), `kds_menu_items` (square_variation_id), `purchase_orders` (order_number), `webhook_events` (event_id)
+
+**Plans:** TBD
+
+---
+
+## Phase 90: Platform Completion & Security Hardening
+Gap closure from v1.0 audit — SC4 blocker + 2 security gaps + CSRF tech debt.
+
+**Goal:** Complete the tenant onboarding flow (new tenant admins can actually log in), lock down the platform control plane (OAuth callback and Server Actions require authentication), and verify CSRF protection on the Square OAuth flow.
+
+**Gap Closure:**
+- GAP-4: Implement admin user creation in `createTenant()` — call Supabase Admin API `inviteUserByEmail()`, insert `tenant_memberships` row with `role = 'owner'`
+- SEC-1: Add `requirePlatformAdmin()` to OAuth callback route; implement CSRF state token server-side verification
+- SEC-2: Add `requirePlatformAdmin()` to all 5 Platform Server Actions (`createTenant`, `updateTenant`, `changeStatus`, `deleteTenant`, `restoreTenant`)
+
+**Plans:** TBD
