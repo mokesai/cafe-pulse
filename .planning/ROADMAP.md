@@ -167,7 +167,11 @@ Gap closure from v1.0 audit — 2 of 4 SC1 blockers.
 - GAP-1: `process-payment/route.ts` — add `tenant_id: tenantId` to orders and order_items INSERT payloads; switch to `createTenantClient` so RLS applies
 - GAP-3: `site_settings` — change PK from `integer DEFAULT 1` to `uuid DEFAULT gen_random_uuid()`; add `UNIQUE(tenant_id)` constraint; change INSERT to upsert on `tenant_id`
 
-**Plans:** TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 80-01-PLAN.md — GAP-1: add tenant_id to orders/order_items INSERTs and switch to createTenantClient in process-payment route
+- [ ] 80-02-PLAN.md — GAP-3: migration to replace site_settings integer PK with uuid PK + UNIQUE(tenant_id); update SiteSettings TypeScript type
 
 ---
 
