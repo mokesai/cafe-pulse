@@ -76,8 +76,16 @@ export async function GET(request: Request) {
 
     const authUrl = `${baseUrl}/oauth2/authorize?${authParams.toString()}`
 
-    // Redirect to Square OAuth
-    return NextResponse.redirect(authUrl)
+    // Redirect to Square OAuth and set CSRF cookie (SEC-1)
+    const response = NextResponse.redirect(authUrl)
+    response.cookies.set('square_oauth_state', state, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 600, // 10 minutes
+      sameSite: 'lax',
+      path: '/',
+    })
+    return response
   } catch (error) {
     console.error('Square OAuth authorization error:', error)
 

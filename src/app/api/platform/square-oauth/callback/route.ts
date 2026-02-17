@@ -2,10 +2,15 @@
 // Handles authorization code exchange for tokens and Vault storage
 
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { createServiceClient } from '@/lib/supabase/server'
+import { requirePlatformAdmin } from '@/lib/platform/auth'
 import { parseOAuthState } from '@/lib/square/config'
 
 export async function GET(request: Request) {
+  // Auth guard (SEC-1) — redirects unauthenticated/unauthorized users
+  await requirePlatformAdmin()
+
   try {
     const { searchParams } = new URL(request.url)
     const code = searchParams.get('code')
@@ -28,19 +33,34 @@ export async function GET(request: Request) {
       return NextResponse.redirect(redirectUrl)
     }
 
+    // Verify CSRF cookie (SEC-1)
+    const cookieStore = await cookies()
+    const storedState = cookieStore.get('square_oauth_state')?.value
+
+    if (!storedState || storedState !== state) {
+      console.error('CSRF state mismatch — possible CSRF attack')
+      const redirectUrl = new URL('/platform/tenants/new', request.url)
+      redirectUrl.searchParams.set('error', 'csrf_failed')
+      const response = NextResponse.redirect(redirectUrl)
+      response.cookies.set('square_oauth_state', '', { maxAge: 0, path: '/' })
+      return response
+    }
+
+    // Clear CSRF cookie now that it's been verified
+    // (will also clear on success redirect below)
+
     // Parse OAuth state
     const parsedState = parseOAuthState(state)
     if (!parsedState) {
       console.error('Invalid OAuth state format')
       const redirectUrl = new URL('/platform/tenants/new', request.url)
       redirectUrl.searchParams.set('error', 'invalid_state')
-      return NextResponse.redirect(redirectUrl)
+      const response = NextResponse.redirect(redirectUrl)
+      response.cookies.set('square_oauth_state', '', { maxAge: 0, path: '/' })
+      return response
     }
 
     const { tenantId, environment } = parsedState
-
-    // TODO: Verify state token matches stored value (CSRF protection)
-    // For now, we trust the parsed state format
 
     // Check for required Square env vars
     if (
@@ -50,7 +70,9 @@ export async function GET(request: Request) {
       console.error('Square OAuth credentials not configured')
       const redirectUrl = new URL('/platform/tenants/new', request.url)
       redirectUrl.searchParams.set('error', 'oauth_not_configured')
-      return NextResponse.redirect(redirectUrl)
+      const response = NextResponse.redirect(redirectUrl)
+      response.cookies.set('square_oauth_state', '', { maxAge: 0, path: '/' })
+      return response
     }
 
     // Determine token endpoint based on environment
@@ -79,7 +101,9 @@ export async function GET(request: Request) {
       console.error('Square token exchange failed:', errorText)
       const redirectUrl = new URL('/platform/tenants/new', request.url)
       redirectUrl.searchParams.set('error', 'token_exchange_failed')
-      return NextResponse.redirect(redirectUrl)
+      const response = NextResponse.redirect(redirectUrl)
+      response.cookies.set('square_oauth_state', '', { maxAge: 0, path: '/' })
+      return response
     }
 
     const tokens = await tokenResponse.json()
@@ -94,7 +118,9 @@ export async function GET(request: Request) {
       console.error('Invalid token response structure:', tokens)
       const redirectUrl = new URL('/platform/tenants/new', request.url)
       redirectUrl.searchParams.set('error', 'invalid_token_response')
-      return NextResponse.redirect(redirectUrl)
+      const response = NextResponse.redirect(redirectUrl)
+      response.cookies.set('square_oauth_state', '', { maxAge: 0, path: '/' })
+      return response
     }
 
     // Store credentials in Vault via service_role RPC
@@ -115,13 +141,17 @@ export async function GET(request: Request) {
       console.error('Failed to store Square credentials:', rpcError)
       const redirectUrl = new URL('/platform/tenants/new', request.url)
       redirectUrl.searchParams.set('error', 'storage_failed')
-      return NextResponse.redirect(redirectUrl)
+      const response = NextResponse.redirect(redirectUrl)
+      response.cookies.set('square_oauth_state', '', { maxAge: 0, path: '/' })
+      return response
     }
 
-    // Success - redirect to tenant detail page
+    // Success - redirect to tenant detail page and clear CSRF cookie
     const successUrl = new URL(`/platform/tenants/${tenantId}`, request.url)
     successUrl.searchParams.set('success', 'square_connected')
-    return NextResponse.redirect(successUrl)
+    const response = NextResponse.redirect(successUrl)
+    response.cookies.set('square_oauth_state', '', { maxAge: 0, path: '/' })
+    return response
   } catch (error) {
     console.error('OAuth callback error:', error)
 

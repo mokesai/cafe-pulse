@@ -6,6 +6,7 @@ import Button from '@/components/ui/Button';
 import type { Tenant } from '@/lib/tenant/types';
 import { notFound } from 'next/navigation';
 import { StatusManager } from './StatusManager';
+import { ResendInviteButton } from './ResendInviteButton';
 
 export default async function TenantDetailPage({
   params,
@@ -17,12 +18,16 @@ export default async function TenantDetailPage({
   const { tenantId } = await params;
   const supabase = createServiceClient();
 
-  // Fetch tenant
-  const { data: tenant, error } = await supabase
-    .from('tenants')
-    .select('*')
-    .eq('id', tenantId)
-    .single();
+  // Fetch tenant and pending invite in parallel
+  const [{ data: tenant, error }, { data: pendingInvite }] = await Promise.all([
+    supabase.from('tenants').select('*').eq('id', tenantId).single(),
+    supabase
+      .from('tenant_pending_invites')
+      .select('invited_email, invited_at')
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .single(),
+  ]);
 
   if (error || !tenant) {
     notFound();
@@ -136,6 +141,23 @@ export default async function TenantDetailPage({
           </div>
         </dl>
       </div>
+
+      {/* Admin Invite Status */}
+      {pendingInvite && (
+        <div className="bg-white rounded-lg shadow p-6 mb-4">
+          <h2 className="text-lg font-semibold mb-4">Admin Invite</h2>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-yellow-700 font-medium">Invite pending</p>
+              <p className="text-sm text-gray-600 mt-1">
+                Sent to <strong>{pendingInvite.invited_email}</strong> on{' '}
+                {new Date(pendingInvite.invited_at).toLocaleDateString()}
+              </p>
+            </div>
+            <ResendInviteButton tenantId={tenant.id} />
+          </div>
+        </div>
+      )}
 
       {/* Lifecycle Management */}
       <div className="bg-white rounded-lg shadow p-6">

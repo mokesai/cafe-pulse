@@ -1,11 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { createTenant } from '../actions'
+import { createTenant, resendInvite } from '../actions'
 import {
   Form,
   FormControl,
@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/form'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
+import type { ActionState } from '../actions'
 
 // Step 1 schema - same as Server Action
 const step1Schema = z.object({
@@ -37,31 +38,19 @@ type Step1FormData = z.infer<typeof step1Schema>
 
 export default function OnboardNewTenantPage() {
   const [currentStep, setCurrentStep] = useState(1)
-  const [formData, setFormData] = useState<Step1FormData & { tenantId?: string }>({
-    slug: '',
-    name: '',
-    admin_email: '',
-  })
+  const [successResult, setSuccessResult] = useState<ActionState | null>(null)
+  const [resendStatus, setResendStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
+  const [resendError, setResendError] = useState<string | null>(null)
   const router = useRouter()
-  const searchParams = useSearchParams()
-
-  // Check for OAuth callback success/error
-  const success = searchParams.get('success')
-  const error = searchParams.get('error')
 
   // React Hook Form for Step 1
   const form = useForm<Step1FormData>({
     resolver: zodResolver(step1Schema),
-    defaultValues: {
-      slug: formData.slug || '',
-      name: formData.name || '',
-      admin_email: formData.admin_email || '',
-    },
+    defaultValues: { slug: '', name: '', admin_email: '' },
   })
 
   // Step 1 submit handler
   const onStep1Submit = async (data: Step1FormData) => {
-    // Call Server Action directly
     const formDataObj = new FormData()
     formDataObj.append('slug', data.slug)
     formDataObj.append('name', data.name)
@@ -70,47 +59,137 @@ export default function OnboardNewTenantPage() {
     const result = await createTenant({ errors: {} }, formDataObj)
 
     if (result.success && result.tenantId) {
-      // Save tenant ID and move to step 2
-      setFormData({ ...data, tenantId: result.tenantId })
-      setCurrentStep(2)
+      setSuccessResult(result)
+      setCurrentStep(3)
     } else if (result.errors) {
-      // Set form errors from server
-      if (result.errors.slug) {
-        form.setError('slug', { message: result.errors.slug[0] })
-      }
-      if (result.errors.name) {
-        form.setError('name', { message: result.errors.name[0] })
-      }
-      if (result.errors.admin_email) {
-        form.setError('admin_email', { message: result.errors.admin_email[0] })
-      }
+      if (result.errors.slug) form.setError('slug', { message: result.errors.slug[0] })
+      if (result.errors.name) form.setError('name', { message: result.errors.name[0] })
+      if (result.errors.admin_email) form.setError('admin_email', { message: result.errors.admin_email[0] })
+      if (result.errors._form) form.setError('root', { message: result.errors._form[0] })
     }
   }
 
   // Step 2 Square OAuth handler
   const initiateSquareOAuth = (environment: 'sandbox' | 'production') => {
-    const tenantId = formData.tenantId
+    const tenantId = successResult?.tenantId
     router.push(`/api/platform/square-oauth/authorize?tenant_id=${tenantId}&environment=${environment}`)
   }
 
-  // Success state after OAuth callback
-  if (success === 'square_connected') {
+  const handleResendInvite = async () => {
+    if (!successResult?.tenantId) return
+    setResendStatus('sending')
+    setResendError(null)
+    const result = await resendInvite(successResult.tenantId)
+    if (result.success) {
+      setResendStatus('sent')
+    } else {
+      setResendStatus('error')
+      setResendError(result.error ?? 'Failed to resend invite')
+    }
+  }
+
+  // Step 3: Success summary
+  if (currentStep === 3 && successResult) {
     return (
-      <div className="max-w-2xl mx-auto text-center py-12">
-        <div className="mb-6">
+      <div className="max-w-2xl mx-auto p-8">
+        <div className="text-center mb-8">
           <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
             <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-green-600 mb-4">
-            Tenant Onboarded Successfully
-          </h1>
-          <p className="text-gray-600 mb-6">
-            Square account connected. The tenant is now ready to accept orders.
+          <h1 className="text-2xl font-bold text-green-600 mb-2">Tenant Created</h1>
+          <p className="text-gray-600">The tenant has been onboarded successfully.</p>
+        </div>
+
+        {/* Tenant summary */}
+        <div className="bg-white rounded-lg shadow p-6 mb-4 space-y-3">
+          <h2 className="text-lg font-semibold mb-3">Summary</h2>
+          <dl className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <dt className="text-gray-500">Business Name</dt>
+              <dd className="font-medium">{successResult.tenantName}</dd>
+            </div>
+            <div>
+              <dt className="text-gray-500">Slug</dt>
+              <dd className="font-mono">{successResult.tenantSlug}</dd>
+            </div>
+            <div>
+              <dt className="text-gray-500">Admin Email</dt>
+              <dd className="font-medium">{successResult.adminEmail}</dd>
+            </div>
+            <div>
+              <dt className="text-gray-500">Square</dt>
+              <dd className="text-yellow-600">Not connected yet</dd>
+            </div>
+          </dl>
+        </div>
+
+        {/* Invite status */}
+        <div className="bg-white rounded-lg shadow p-6 mb-4">
+          <h2 className="text-lg font-semibold mb-3">Admin Invite</h2>
+          {successResult.inviteSuccess ? (
+            <div className="flex items-center gap-2 text-green-700">
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <span>Invite email sent to <strong>{successResult.adminEmail}</strong></span>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-red-700">
+                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Invite email failed: {successResult.inviteError}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <Button
+                  onClick={handleResendInvite}
+                  isLoading={resendStatus === 'sending'}
+                  size="sm"
+                  variant="outline"
+                  disabled={resendStatus === 'sent'}
+                >
+                  {resendStatus === 'sent' ? 'Invite Sent' : 'Retry Invite'}
+                </Button>
+                {resendStatus === 'sent' && (
+                  <span className="text-green-600 text-sm">Invite sent successfully</span>
+                )}
+                {resendStatus === 'error' && resendError && (
+                  <span className="text-red-600 text-sm">{resendError}</span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Connect Square (optional) */}
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 className="text-lg font-semibold mb-2">Connect Square (Optional)</h2>
+          <p className="text-sm text-gray-600 mb-3">
+            You can connect Square now or later from the tenant settings.
           </p>
+          <div className="flex gap-2">
+            <Button onClick={() => initiateSquareOAuth('sandbox')} variant="outline" size="sm">
+              Connect Sandbox
+            </Button>
+            <Button onClick={() => initiateSquareOAuth('production')} size="sm">
+              Connect Production
+            </Button>
+          </div>
+        </div>
+
+        {/* Navigation */}
+        <div className="flex gap-3">
           <Button onClick={() => router.push('/platform/tenants')}>
             View All Tenants
+          </Button>
+          <Button
+            onClick={() => router.push(`/platform/tenants/${successResult.tenantId}`)}
+            variant="outline"
+          >
+            View Tenant
           </Button>
         </div>
       </div>
@@ -120,15 +199,6 @@ export default function OnboardNewTenantPage() {
   return (
     <div className="max-w-2xl mx-auto p-8">
       <h1 className="text-2xl font-bold mb-6">Onboard New Tenant</h1>
-
-      {/* Error alert */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded p-4 mb-6">
-          <p className="text-red-800">
-            OAuth Error: {error.replace(/_/g, ' ')}
-          </p>
-        </div>
-      )}
 
       {/* Progress indicator */}
       <div className="flex items-center mb-8 gap-2">
@@ -181,51 +251,22 @@ export default function OnboardNewTenantPage() {
                     <Input type="email" placeholder="admin@mycafe.com" {...field} />
                   </FormControl>
                   <FormDescription>
-                    Account will be created for this email address
+                    An invite will be sent to this email address
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
+            {form.formState.errors.root && (
+              <p className="text-red-600 text-sm">{form.formState.errors.root.message}</p>
+            )}
+
             <Button type="submit" isLoading={form.formState.isSubmitting}>
-              Next: Connect Square
+              Create Tenant &amp; Send Invite
             </Button>
           </form>
         </Form>
-      )}
-
-      {/* Step 2: Square OAuth */}
-      {currentStep === 2 && (
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Connect Square Account</h2>
-          <p className="text-gray-600">
-            Choose the Square environment to connect:
-          </p>
-
-          <div className="space-y-2">
-            <Button
-              onClick={() => initiateSquareOAuth('sandbox')}
-              variant="outline"
-              fullWidth
-            >
-              Connect Sandbox (Testing)
-            </Button>
-            <Button
-              onClick={() => initiateSquareOAuth('production')}
-              fullWidth
-            >
-              Connect Production (Live)
-            </Button>
-          </div>
-
-          <Button
-            onClick={() => setCurrentStep(1)}
-            variant="ghost"
-          >
-            Back
-          </Button>
-        </div>
       )}
     </div>
   )

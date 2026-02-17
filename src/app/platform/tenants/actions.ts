@@ -1,6 +1,7 @@
 'use server';
 
-import { createServiceClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { isPlatformAdmin } from '@/lib/platform/auth';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
@@ -13,6 +14,11 @@ export type ActionState = {
   };
   success?: boolean;
   tenantId?: string;
+  tenantName?: string;
+  tenantSlug?: string;
+  adminEmail?: string;
+  inviteSuccess?: boolean;
+  inviteError?: string;
   deleted?: boolean;
 };
 
@@ -41,16 +47,32 @@ const updateTenantSchema = z.object({
   is_active: z.boolean(),
 });
 
+async function getAuthenticatedPlatformAdmin() {
+  const userClient = await createClient();
+  const { data: { user } } = await userClient.auth.getUser();
+  if (!user || !(await isPlatformAdmin(user.id))) {
+    return null;
+  }
+  return user;
+}
+
 /**
  * Create a new tenant
  * Server Action for onboarding wizard (Plan 60-05)
  *
- * Validates input, checks slug uniqueness, creates tenant record with trial status.
+ * Validates input, checks slug uniqueness, creates tenant record with trial status,
+ * and sends an invite email to the admin user (Plan 90-03).
  */
 export async function createTenant(
   prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
+  // Auth guard (SEC-2)
+  const user = await getAuthenticatedPlatformAdmin();
+  if (!user) {
+    return { errors: { _form: ['Unauthorized'] } };
+  }
+
   // 1. Validate input
   const validatedFields = createTenantSchema.safeParse({
     slug: formData.get('slug'),
@@ -64,8 +86,9 @@ export async function createTenant(
     };
   }
 
+  const supabase = createServiceClient();
+
   // 2. Check slug uniqueness
-  const supabase = await createServiceClient();
   const { data: existing } = await supabase
     .from('tenants')
     .select('id')
@@ -101,16 +124,72 @@ export async function createTenant(
     };
   }
 
-  // 4. TODO: Create admin user account (Supabase Admin API or invite link)
-  // For now, skip user creation - will add in future plan
+  // 4. Send invite email to admin (GAP-4)
+  const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(
+    validatedFields.data.admin_email
+  );
 
-  // 5. Revalidate tenant list
+  const inviteSuccess = !inviteError;
+
+  // 5. Record pending invite regardless of email success (enables resend)
+  await supabase
+    .from('tenant_pending_invites')
+    .insert({
+      tenant_id: tenant.id,
+      invited_email: validatedFields.data.admin_email,
+      role: 'owner',
+    });
+
+  // 6. Revalidate tenant list
   revalidatePath('/platform/tenants');
 
   return {
     success: true,
     tenantId: tenant.id,
+    tenantName: validatedFields.data.name,
+    tenantSlug: validatedFields.data.slug,
+    adminEmail: validatedFields.data.admin_email,
+    inviteSuccess,
+    inviteError: inviteError?.message,
   };
+}
+
+/**
+ * Resend invite email to a tenant's pending admin (Plan 90-03)
+ */
+export async function resendInvite(
+  tenantId: string
+): Promise<{ success?: boolean; error?: string }> {
+  // Auth guard (SEC-2)
+  const user = await getAuthenticatedPlatformAdmin();
+  if (!user) {
+    return { error: 'Unauthorized' };
+  }
+
+  const supabase = createServiceClient();
+
+  // Look up active pending invite for this tenant
+  const { data: invite, error: lookupError } = await supabase
+    .from('tenant_pending_invites')
+    .select('id, invited_email')
+    .eq('tenant_id', tenantId)
+    .is('deleted_at', null)
+    .single();
+
+  if (lookupError || !invite) {
+    return { error: 'No pending invite found for this tenant' };
+  }
+
+  // Resend invite
+  const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(
+    invite.invited_email
+  );
+
+  if (inviteError) {
+    return { error: inviteError.message };
+  }
+
+  return { success: true };
 }
 
 /**
@@ -122,6 +201,12 @@ export async function updateTenant(
   prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
+  // Auth guard (SEC-2)
+  const user = await getAuthenticatedPlatformAdmin();
+  if (!user) {
+    return { errors: { _form: ['Unauthorized'] } };
+  }
+
   // 1. Validate input
   const validatedFields = updateTenantSchema.safeParse({
     name: formData.get('name'),
@@ -180,6 +265,12 @@ export async function changeStatus(
   newStatus: 'trial' | 'active' | 'paused' | 'suspended',
   prevState: ActionState
 ): Promise<ActionState> {
+  // Auth guard (SEC-2)
+  const user = await getAuthenticatedPlatformAdmin();
+  if (!user) {
+    return { errors: { _form: ['Unauthorized'] } };
+  }
+
   try {
     const supabase = createServiceClient();
 
@@ -226,19 +317,27 @@ export async function changeStatus(
  * Server Action for tenant lifecycle management (Plan 60-07)
  *
  * Sets deleted_at timestamp and status='deleted'. Tenant data retained for 30 days.
+ * Also cascades soft-delete to memberships and pending invites (Plan 90-01).
  */
 export async function deleteTenant(
   tenantId: string,
   prevState: ActionState
 ): Promise<ActionState> {
+  // Auth guard (SEC-2)
+  const user = await getAuthenticatedPlatformAdmin();
+  if (!user) {
+    return { errors: { _form: ['Unauthorized'] } };
+  }
+
   try {
     const supabase = createServiceClient();
+    const now = new Date().toISOString();
 
     // Soft delete by setting deleted_at timestamp
     const { error: deleteError } = await supabase
       .from('tenants')
       .update({
-        deleted_at: new Date().toISOString(),
+        deleted_at: now,
         status: 'deleted',
       })
       .eq('id', tenantId);
@@ -250,6 +349,20 @@ export async function deleteTenant(
         },
       };
     }
+
+    // Cascade soft-delete to memberships
+    await supabase
+      .from('tenant_memberships')
+      .update({ deleted_at: now })
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null);
+
+    // Cascade soft-delete to pending invites
+    await supabase
+      .from('tenant_pending_invites')
+      .update({ deleted_at: now })
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null);
 
     // Revalidate tenant list
     revalidatePath('/platform/tenants');
@@ -277,6 +390,12 @@ export async function restoreTenant(
   tenantId: string,
   prevState: ActionState
 ): Promise<ActionState> {
+  // Auth guard (SEC-2)
+  const user = await getAuthenticatedPlatformAdmin();
+  if (!user) {
+    return { errors: { _form: ['Unauthorized'] } };
+  }
+
   try {
     const supabase = createServiceClient();
 
