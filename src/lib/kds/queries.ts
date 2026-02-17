@@ -77,12 +77,13 @@ function mapImageRow(row: KDSImageRow): KDSImage {
 
 // Category queries
 
-export async function getCategories(screen?: KDSScreen): Promise<KDSCategory[]> {
+export async function getCategories(tenantId: string, screen?: KDSScreen): Promise<KDSCategory[]> {
   const supabase = createServiceClient()
 
   let query = supabase
     .from('kds_categories')
     .select('*')
+    .eq('tenant_id', tenantId)
     .order('sort_order', { ascending: true })
 
   if (screen) {
@@ -99,12 +100,13 @@ export async function getCategories(screen?: KDSScreen): Promise<KDSCategory[]> 
   return (data as KDSCategoryRow[]).map(mapCategoryRow)
 }
 
-export async function getCategoryBySlug(slug: string): Promise<KDSCategory | null> {
+export async function getCategoryBySlug(tenantId: string, slug: string): Promise<KDSCategory | null> {
   const supabase = createServiceClient()
 
   const { data, error } = await supabase
     .from('kds_categories')
     .select('*')
+    .eq('tenant_id', tenantId)
     .eq('slug', slug)
     .maybeSingle()
 
@@ -118,12 +120,13 @@ export async function getCategoryBySlug(slug: string): Promise<KDSCategory | nul
 
 // Menu item queries
 
-export async function getMenuItems(categoryId?: string): Promise<KDSMenuItem[]> {
+export async function getMenuItems(tenantId: string, categoryId?: string): Promise<KDSMenuItem[]> {
   const supabase = createServiceClient()
 
   let query = supabase
     .from('kds_menu_items')
     .select('*')
+    .eq('tenant_id', tenantId)
     .eq('is_visible', true)
     .order('sort_order', { ascending: true })
 
@@ -141,7 +144,7 @@ export async function getMenuItems(categoryId?: string): Promise<KDSMenuItem[]> 
   return (data as KDSMenuItemRow[]).map(mapMenuItemRow)
 }
 
-export async function getMenuItemsByScreen(screen: KDSScreen): Promise<KDSMenuItem[]> {
+export async function getMenuItemsByScreen(tenantId: string, screen: KDSScreen): Promise<KDSMenuItem[]> {
   const supabase = createServiceClient()
 
   const { data, error } = await supabase
@@ -150,6 +153,7 @@ export async function getMenuItemsByScreen(screen: KDSScreen): Promise<KDSMenuIt
       *,
       kds_categories!inner(screen)
     `)
+    .eq('tenant_id', tenantId)
     .eq('kds_categories.screen', screen)
     .eq('is_visible', true)
     .order('sort_order', { ascending: true })
@@ -164,12 +168,13 @@ export async function getMenuItemsByScreen(screen: KDSScreen): Promise<KDSMenuIt
 
 // Image queries
 
-export async function getImages(screen?: KDSScreen): Promise<KDSImage[]> {
+export async function getImages(tenantId: string, screen?: KDSScreen): Promise<KDSImage[]> {
   const supabase = createServiceClient()
 
   let query = supabase
     .from('kds_images')
     .select('*')
+    .eq('tenant_id', tenantId)
     .eq('is_active', true)
     .order('sort_order', { ascending: true })
 
@@ -189,12 +194,13 @@ export async function getImages(screen?: KDSScreen): Promise<KDSImage[]> {
 
 // Settings queries
 
-export async function getSettings(): Promise<Partial<KDSSettingsMap>> {
+export async function getSettings(tenantId: string): Promise<Partial<KDSSettingsMap>> {
   const supabase = createServiceClient()
 
   const { data, error } = await supabase
     .from('kds_settings')
     .select('*')
+    .eq('tenant_id', tenantId)
 
   if (error) {
     console.error('Failed to fetch KDS settings:', error)
@@ -210,6 +216,7 @@ export async function getSettings(): Promise<Partial<KDSSettingsMap>> {
 }
 
 export async function getSetting<K extends keyof KDSSettingsMap>(
+  tenantId: string,
   key: K
 ): Promise<KDSSettingsMap[K] | null> {
   const supabase = createServiceClient()
@@ -217,6 +224,7 @@ export async function getSetting<K extends keyof KDSSettingsMap>(
   const { data, error } = await supabase
     .from('kds_settings')
     .select('value')
+    .eq('tenant_id', tenantId)
     .eq('key', key)
     .maybeSingle()
 
@@ -230,12 +238,12 @@ export async function getSetting<K extends keyof KDSSettingsMap>(
 
 // Combined queries for display
 
-export async function getCategoriesWithItems(screen: KDSScreen): Promise<KDSCategoryWithItems[]> {
-  const categories = await getCategories(screen)
+export async function getCategoriesWithItems(tenantId: string, screen: KDSScreen): Promise<KDSCategoryWithItems[]> {
+  const categories = await getCategories(tenantId, screen)
   const categoriesWithItems: KDSCategoryWithItems[] = []
 
   for (const category of categories) {
-    const items = await getMenuItems(category.id)
+    const items = await getMenuItems(tenantId, category.id)
     categoriesWithItems.push({
       ...category,
       items,
@@ -245,11 +253,11 @@ export async function getCategoriesWithItems(screen: KDSScreen): Promise<KDSCate
   return categoriesWithItems
 }
 
-export async function getScreenData(screen: KDSScreen): Promise<KDSScreenData> {
+export async function getScreenData(tenantId: string, screen: KDSScreen): Promise<KDSScreenData> {
   const [categories, images, settings] = await Promise.all([
-    getCategoriesWithItems(screen),
-    getImages(screen),
-    getSettings(),
+    getCategoriesWithItems(tenantId, screen),
+    getImages(tenantId, screen),
+    getSettings(tenantId),
   ])
 
   const taglineKey = screen === 'drinks' ? 'drinks_tagline' : 'food_tagline'
@@ -266,12 +274,13 @@ export async function getScreenData(screen: KDSScreen): Promise<KDSScreenData> {
 
 // Upsert operations (for import scripts)
 
-export async function upsertCategory(category: Omit<KDSCategory, 'id' | 'createdAt' | 'updatedAt'>): Promise<KDSCategory | null> {
+export async function upsertCategory(tenantId: string, category: Omit<KDSCategory, 'id' | 'createdAt' | 'updatedAt'>): Promise<KDSCategory | null> {
   const supabase = createServiceClient()
 
   const { data, error } = await supabase
     .from('kds_categories')
     .upsert({
+      tenant_id: tenantId,
       name: category.name,
       slug: category.slug,
       screen: category.screen,
@@ -298,13 +307,14 @@ export async function upsertCategory(category: Omit<KDSCategory, 'id' | 'created
 }
 
 export async function upsertMenuItem(
+  tenantId: string,
   item: Omit<KDSMenuItem, 'id' | 'createdAt' | 'updatedAt'>,
   categorySlug: string
 ): Promise<KDSMenuItem | null> {
   const supabase = createServiceClient()
 
-  // Get category ID from slug
-  const category = await getCategoryBySlug(categorySlug)
+  // Get category ID from slug (tenant-scoped)
+  const category = await getCategoryBySlug(tenantId, categorySlug)
   if (!category) {
     console.error(`Category not found: ${categorySlug}`)
     return null
@@ -313,6 +323,7 @@ export async function upsertMenuItem(
   const { data, error } = await supabase
     .from('kds_menu_items')
     .upsert({
+      tenant_id: tenantId,
       square_item_id: item.squareItemId ?? null,
       square_variation_id: item.squareVariationId ?? null,
       name: item.name,
@@ -341,12 +352,13 @@ export async function upsertMenuItem(
   return mapMenuItemRow(data as KDSMenuItemRow)
 }
 
-export async function upsertImage(image: Omit<KDSImage, 'id' | 'createdAt'>): Promise<KDSImage | null> {
+export async function upsertImage(tenantId: string, image: Omit<KDSImage, 'id' | 'createdAt'>): Promise<KDSImage | null> {
   const supabase = createServiceClient()
 
   const { data, error } = await supabase
     .from('kds_images')
     .upsert({
+      tenant_id: tenantId,
       screen: image.screen,
       filename: image.filename,
       alt_text: image.altText ?? null,
@@ -368,6 +380,7 @@ export async function upsertImage(image: Omit<KDSImage, 'id' | 'createdAt'>): Pr
 }
 
 export async function updateSetting<K extends keyof KDSSettingsMap>(
+  tenantId: string,
   key: K,
   value: KDSSettingsMap[K]
 ): Promise<boolean> {
@@ -376,6 +389,7 @@ export async function updateSetting<K extends keyof KDSSettingsMap>(
   const { error } = await supabase
     .from('kds_settings')
     .upsert({
+      tenant_id: tenantId,
       key,
       value: value as unknown,
     }, {
@@ -392,13 +406,14 @@ export async function updateSetting<K extends keyof KDSSettingsMap>(
 
 // Delete operations
 
-export async function deleteAllMenuItems(): Promise<boolean> {
+export async function deleteAllMenuItems(tenantId: string): Promise<boolean> {
   const supabase = createServiceClient()
 
   const { error } = await supabase
     .from('kds_menu_items')
     .delete()
-    .neq('id', '00000000-0000-0000-0000-000000000000') // Delete all
+    .eq('tenant_id', tenantId)
+    .neq('id', '00000000-0000-0000-0000-000000000000') // Delete all for this tenant
 
   if (error) {
     console.error('Failed to delete KDS menu items:', error)
@@ -408,13 +423,14 @@ export async function deleteAllMenuItems(): Promise<boolean> {
   return true
 }
 
-export async function deleteAllCategories(): Promise<boolean> {
+export async function deleteAllCategories(tenantId: string): Promise<boolean> {
   const supabase = createServiceClient()
 
   const { error } = await supabase
     .from('kds_categories')
     .delete()
-    .neq('id', '00000000-0000-0000-0000-000000000000') // Delete all
+    .eq('tenant_id', tenantId)
+    .neq('id', '00000000-0000-0000-0000-000000000000') // Delete all for this tenant
 
   if (error) {
     console.error('Failed to delete KDS categories:', error)
