@@ -9,11 +9,11 @@
 ## Progress
 
 Phase: 85 of 85+ (Multi-Tenant Schema Constraint Migration)
-Plan: 2 of 4 in Phase 85
-Status: In progress — Plans 85-01 and 85-02 complete; KDS and COGS/Square domain composite constraints applied
-Last activity: 2026-02-17 - Completed 85-02-PLAN.md; COGS/Square composite unique constraints migration applied to dev Supabase
+Plan: 3 of 4 in Phase 85
+Status: In progress — Plans 85-01, 85-02, 85-03 complete; KDS, COGS/Square, and operational domain composite constraints applied
+Last activity: 2026-02-17 - Completed 85-03-PLAN.md; operational domain composite unique constraints migration applied (suppliers, inventory_unit_types, purchase_orders, inventory_items)
 
-Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 complete (7/7 plans), Phase 70 complete (7/7 plans), Phase 80: ██ (2/2 plans), Phase 85: ██░░ (2/4 plans)
+Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 complete (7/7 plans), Phase 70 complete (7/7 plans), Phase 80: ██ (2/2 plans), Phase 85: ███░ (3/4 plans)
 
 ## Completed
 - [x] PROJECT.md created
@@ -86,8 +86,11 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - [x] Phase 85 planned — 4 plans across 3 waves (KDS, COGS, Operational, App code fixes)
 - [x] 85-01: KDS domain composite constraints — kds_settings, kds_images, kds_menu_items single-column UNIQUEs replaced with composite (tenant_id, field) constraints
 - [x] 85-02: COGS/Square domain composite constraints — cogs_products (×2), cogs_sellables, cogs_sellable_aliases, cogs_modifier_sets, cogs_modifier_options single-column UNIQUEs replaced with composite (tenant_id, field) constraints
+- [x] 85-03: Operational domain composite constraints — inventory_items partial composite index, suppliers.name, inventory_unit_types.symbol, purchase_orders.order_number replaced with (tenant_id, field) constraints; research doc incorrectly listed inventory_unit_types_name_key as existing (that constraint never existed); migration verified functional via live insert tests
 
 ### Decisions Made
+- **inventory_unit_types name constraint skipped (85-03)**: Research doc listed inventory_unit_types_name_key as existing but original CREATE TABLE defined `name text not null` without UNIQUE; no constraint to replace; plan said "replace" not "add new", consistent with not adding inventory_items item_name constraint (Phase 85-03)
+- **inventory_items uses DROP INDEX / CREATE UNIQUE INDEX pattern not ALTER TABLE (85-03)**: Existing inventory_items_square_pack_unique was a CREATE UNIQUE INDEX partial index; must use DROP INDEX to remove it (Phase 85-03)
 - **cogs_sellable_aliases included in 85-02 despite not being in CONTEXT.md**: Has same square_variation_id text not null unique pattern as other COGS tables — same multi-tenant blocker; RESEARCH.md noted it as implicit scope (Phase 85-02)
 - **KDS composite constraints use ALTER TABLE DROP CONSTRAINT vs DROP INDEX pattern**: kds_settings.key was inline UNIQUE (auto-named _key_key), kds_images.filename was a named CONSTRAINT, kds_menu_items.square_variation_id was a partial CREATE UNIQUE INDEX — each requires a different drop command (Phase 85-01)
 - **Preserve partial index condition on composite replacement**: kds_menu_items partial index retains WHERE square_variation_id IS NOT NULL — NULL variation IDs are valid for items not linked to Square (Phase 85-01)
@@ -202,7 +205,7 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - OAuth state verification storage not implemented: TODO in authorize route for server-side state storage and verification in callback (Phase 60-04 follow-up)
 - Square token refresh automation needed: Access tokens expire after 30 days, need pg_cron job (deferred to Phase 60+)
 - Admin user creation in onboarding: Server Action includes TODO for creating admin user account via Supabase Admin API or invite link (60-05 follow-up)
-- Remaining single-column UNIQUE constraints block multi-tenant data — Operational domain still to migrate (85-03: inventory_items, suppliers, inventory_unit_types, purchase_orders); app code ON CONFLICT clauses still need updating (85-04: sync-square/route.ts, seed-cogs-recipes.ts, simulate-cogs-sales.ts, import-kds-menu-from-sheets.js)
+- App code ON CONFLICT clauses still need updating (85-04: sync-square/route.ts, seed-cogs-recipes.ts, simulate-cogs-sales.ts, import-kds-menu-from-sheets.js, kds/queries.ts)
 - site_settings singleton pattern (`id = 1`) will conflict with second tenant (deferred to Phase 60+)
 - Database views need tenant_id filtering (deferred to Phase 60)
 - `db-pre-request` hook not yet configured for `x-tenant-id` header (Phase 60)
@@ -213,8 +216,8 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 85-02-PLAN.md (COGS/Square composite unique constraints migration)
+Stopped at: Completed 85-03-PLAN.md (operational domain composite unique constraints — suppliers, inventory_unit_types, purchase_orders, inventory_items)
 Resume file: None
 
 ## Next Action
-85-02 complete. COGS/Square composite unique constraints applied and verified (5 new constraints + 1 expression index confirmed, 5 old constraints confirmed gone). Continue with plan 85-03 (Operational domain: inventory_items, suppliers, inventory_unit_types, purchase_orders), then 85-04 (app code ON CONFLICT clause updates).
+85-03 complete. Operational domain composite constraints applied and verified (4 new constraints/indexes, 4 old replaced). Continue with plan 85-04 (app code ON CONFLICT clause updates: kds/queries.ts, cogs sync-square route, and scripts).
