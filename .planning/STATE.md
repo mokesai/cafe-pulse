@@ -1,19 +1,19 @@
 # Project State
 
-## Current Status: Phase 85 In Progress — Multi-Tenant Schema Constraint Migration
+## Current Status: Phase 85 Complete — Multi-Tenant Schema Constraint Migration
 ## Current Milestone: 1.0 - Multi-Tenant MVP
-## Current Phase: 85 — Multi-Tenant Schema Constraint Migration (In Progress)
-## Last Updated: 2026-02-17
+## Current Phase: 85 — Multi-Tenant Schema Constraint Migration (Complete)
+## Last Updated: 2026-02-16
 ## Branch: features/multi-tenant-saas
 
 ## Progress
 
 Phase: 85 of 85+ (Multi-Tenant Schema Constraint Migration)
-Plan: 3 of 4 in Phase 85
-Status: In progress — Plans 85-01, 85-02, 85-03 complete; KDS, COGS/Square, and operational domain composite constraints applied
-Last activity: 2026-02-17 - Completed 85-03-PLAN.md; operational domain composite unique constraints migration applied (suppliers, inventory_unit_types, purchase_orders, inventory_items)
+Plan: 4 of 4 in Phase 85
+Status: Phase complete — All 4 plans delivered; all composite (tenant_id, field) DB constraints live; all app-layer onConflict clauses updated
+Last activity: 2026-02-16 - Completed 85-04-PLAN.md; updated 5 files with composite onConflict strings; added tenant_id to 3 script upsert payloads
 
-Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 complete (7/7 plans), Phase 70 complete (7/7 plans), Phase 80: ██ (2/2 plans), Phase 85: ███░ (3/4 plans)
+Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 complete (7/7 plans), Phase 70 complete (7/7 plans), Phase 80: ██ (2/2 plans), Phase 85: ████ (4/4 plans)
 
 ## Completed
 - [x] PROJECT.md created
@@ -87,8 +87,11 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - [x] 85-01: KDS domain composite constraints — kds_settings, kds_images, kds_menu_items single-column UNIQUEs replaced with composite (tenant_id, field) constraints
 - [x] 85-02: COGS/Square domain composite constraints — cogs_products (×2), cogs_sellables, cogs_sellable_aliases, cogs_modifier_sets, cogs_modifier_options single-column UNIQUEs replaced with composite (tenant_id, field) constraints
 - [x] 85-03: Operational domain composite constraints — inventory_items partial composite index, suppliers.name, inventory_unit_types.symbol, purchase_orders.order_number replaced with (tenant_id, field) constraints; research doc incorrectly listed inventory_unit_types_name_key as existing (that constraint never existed); migration verified functional via live insert tests
+- [x] 85-04: App-layer ON CONFLICT clause updates — 5 files updated with composite onConflict strings matching 85-01/02/03 DB constraints; 3 scripts (seed-cogs-recipes, simulate-cogs-sales, import-kds-menu-from-sheets) gain tenant_id in upsert payloads via DEFAULT_TENANT_ID constant; TypeScript build clean
 
 ### Decisions Made
+- **DEFAULT_TENANT_ID constant in scripts (85-04)**: Scripts (seed-cogs-recipes, simulate-cogs-sales, import-kds-menu-from-sheets) use hardcoded default tenant UUID for upsert payloads; full CLI tenant resolution unnecessary for single-tenant seeding scripts
+- **tenantId as default parameter on script helper functions (85-04)**: seedModifierRecipes and seedCogsCatalogForSimulator accept tenantId with DEFAULT_TENANT_ID default; preserves backward-compatible call sites while making tenant scope explicit
 - **inventory_unit_types name constraint skipped (85-03)**: Research doc listed inventory_unit_types_name_key as existing but original CREATE TABLE defined `name text not null` without UNIQUE; no constraint to replace; plan said "replace" not "add new", consistent with not adding inventory_items item_name constraint (Phase 85-03)
 - **inventory_items uses DROP INDEX / CREATE UNIQUE INDEX pattern not ALTER TABLE (85-03)**: Existing inventory_items_square_pack_unique was a CREATE UNIQUE INDEX partial index; must use DROP INDEX to remove it (Phase 85-03)
 - **cogs_sellable_aliases included in 85-02 despite not being in CONTEXT.md**: Has same square_variation_id text not null unique pattern as other COGS tables — same multi-tenant blocker; RESEARCH.md noted it as implicit scope (Phase 85-02)
@@ -205,7 +208,7 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - OAuth state verification storage not implemented: TODO in authorize route for server-side state storage and verification in callback (Phase 60-04 follow-up)
 - Square token refresh automation needed: Access tokens expire after 30 days, need pg_cron job (deferred to Phase 60+)
 - Admin user creation in onboarding: Server Action includes TODO for creating admin user account via Supabase Admin API or invite link (60-05 follow-up)
-- App code ON CONFLICT clauses still need updating (85-04: sync-square/route.ts, seed-cogs-recipes.ts, simulate-cogs-sales.ts, import-kds-menu-from-sheets.js, kds/queries.ts)
+- App code ON CONFLICT clauses updated (85-04 complete: all 5 files now use composite tenant_id,field onConflict strings)
 - site_settings singleton pattern (`id = 1`) will conflict with second tenant (deferred to Phase 60+)
 - Database views need tenant_id filtering (deferred to Phase 60)
 - `db-pre-request` hook not yet configured for `x-tenant-id` header (Phase 60)
@@ -215,9 +218,9 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 
 ## Session Continuity
 
-Last session: 2026-02-17
-Stopped at: Completed 85-03-PLAN.md (operational domain composite unique constraints — suppliers, inventory_unit_types, purchase_orders, inventory_items)
+Last session: 2026-02-16
+Stopped at: Completed 85-04-PLAN.md (app-layer ON CONFLICT clause updates — 5 files, 3 scripts with tenant_id payloads)
 Resume file: None
 
 ## Next Action
-85-03 complete. Operational domain composite constraints applied and verified (4 new constraints/indexes, 4 old replaced). Continue with plan 85-04 (app code ON CONFLICT clause updates: kds/queries.ts, cogs sync-square route, and scripts).
+Phase 85 complete. All composite (tenant_id, field) DB constraints are live and all app-layer upsert calls use matching composite onConflict strings. GAP-2 from v1.0 milestone audit is fully remediated. Ready for next phase planning.
