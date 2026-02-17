@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/admin/middleware'
 import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 interface SupplierUpdateBody {
   name: string
@@ -45,7 +46,7 @@ export async function PUT(
     }
 
     const body: SupplierUpdateBody = await request.json()
-    const { 
+    const {
       name,
       contact_person,
       email,
@@ -66,6 +67,7 @@ export async function PUT(
     console.log('Updating supplier:', supplierId)
 
     const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
 
     // Update supplier
     const { data: updatedSupplier, error } = await supabase
@@ -81,6 +83,7 @@ export async function PUT(
         is_active
       })
       .eq('id', supplierId)
+      .eq('tenant_id', tenantId)
       .select()
       .single()
 
@@ -110,9 +113,9 @@ export async function PUT(
   } catch (error) {
     console.error('Failed to update supplier:', error)
     return NextResponse.json(
-      { 
-        error: 'Failed to update supplier', 
-        details: error instanceof Error ? error.message : 'Unknown error' 
+      {
+        error: 'Failed to update supplier',
+        details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     )
@@ -140,10 +143,11 @@ export async function PATCH(
     }
 
     const body: SupplierPartialUpdatePayload = await request.json()
-    
+
     console.log('Partially updating supplier:', supplierId, body)
 
     const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
 
     // Build update object with only provided fields
     const updateData: SupplierPartialUpdatePayload = {}
@@ -161,6 +165,7 @@ export async function PATCH(
       .from('suppliers')
       .update(updateData)
       .eq('id', supplierId)
+      .eq('tenant_id', tenantId)
       .select()
       .single()
 
@@ -190,9 +195,9 @@ export async function PATCH(
   } catch (error) {
     console.error('Failed to update supplier:', error)
     return NextResponse.json(
-      { 
-        error: 'Failed to update supplier', 
-        details: error instanceof Error ? error.message : 'Unknown error' 
+      {
+        error: 'Failed to update supplier',
+        details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     )
@@ -222,12 +227,14 @@ export async function DELETE(
     console.log('Deleting supplier:', supplierId)
 
     const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
 
     // Check if supplier has associated inventory items
     const { data: inventoryItems, error: checkError } = await supabase
       .from('inventory_items')
       .select('id')
       .eq('supplier_id', supplierId)
+      .eq('tenant_id', tenantId)
       .limit(1)
 
     if (checkError) {
@@ -250,6 +257,7 @@ export async function DELETE(
       .from('suppliers')
       .delete()
       .eq('id', supplierId)
+      .eq('tenant_id', tenantId)
 
     if (error) {
       console.error('Database error deleting supplier:', error)
@@ -269,9 +277,9 @@ export async function DELETE(
   } catch (error) {
     console.error('Failed to delete supplier:', error)
     return NextResponse.json(
-      { 
-        error: 'Failed to delete supplier', 
-        details: error instanceof Error ? error.message : 'Unknown error' 
+      {
+        error: 'Failed to delete supplier',
+        details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     )

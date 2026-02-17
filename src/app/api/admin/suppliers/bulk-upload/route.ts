@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
 import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 interface SupplierImportPayload {
   suppliers: SupplierInput[]
@@ -30,24 +32,13 @@ type ValidatedSupplier = Required<Pick<SupplierInput, 'name'>> &
 
 export async function POST(request: NextRequest) {
   try {
+    const authResult = await requireAdminAuth(request)
+    if (!isAdminAuthSuccess(authResult)) {
+      return authResult
+    }
+
     const supabase = createServiceClient()
-
-    // Check authentication and admin role
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
-    }
-
-    // Check if user has admin role
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (!profile || profile.role !== 'admin') {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
-    }
+    const tenantId = await getCurrentTenantId()
 
     const body = await request.json() as SupplierImportPayload
     const { suppliers, replaceExisting = false } = body
@@ -61,7 +52,7 @@ export async function POST(request: NextRequest) {
       if (!supplier.name || typeof supplier.name !== 'string') {
         throw new Error(`Supplier at index ${index} must have a name`)
       }
-      
+
       return {
         name: supplier.name.trim(),
         contact_person: supplier.contact_person?.trim() || null,
@@ -78,25 +69,25 @@ export async function POST(request: NextRequest) {
     const supplierNames = validatedSuppliers.map(s => s.name)
     const duplicateNames = supplierNames.filter((name, index) => supplierNames.indexOf(name) !== index)
     if (duplicateNames.length > 0) {
-      return NextResponse.json({ 
-        error: 'Duplicate supplier names found', 
+      return NextResponse.json({
+        error: 'Duplicate supplier names found',
         duplicates: [...new Set(duplicateNames)]
       }, { status: 400 })
     }
 
     const result = { created: 0, updated: 0, errors: [] as string[] }
 
-    // If replace existing, clear all current suppliers first
+    // If replace existing, clear all current suppliers for this tenant first
     if (replaceExisting) {
       const { error: deleteError } = await supabase
         .from('suppliers')
         .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000') // Delete all
-        
+        .eq('tenant_id', tenantId)
+
       if (deleteError) {
-        return NextResponse.json({ 
+        return NextResponse.json({
           error: 'Failed to clear existing suppliers',
-          details: deleteError.message 
+          details: deleteError.message
         }, { status: 500 })
       }
     }
@@ -105,22 +96,23 @@ export async function POST(request: NextRequest) {
     for (const supplier of validatedSuppliers) {
       try {
         if (replaceExisting) {
-          // Insert new supplier
+          // Insert new supplier with tenant_id
           const { error: insertError } = await supabase
             .from('suppliers')
-            .insert([supplier])
-            
+            .insert([{ ...supplier, tenant_id: tenantId }])
+
           if (insertError) {
             result.errors.push(`Failed to create ${supplier.name}: ${insertError.message}`)
           } else {
             result.created++
           }
         } else {
-          // Try to update existing, or insert if not exists
+          // Try to update existing within this tenant, or insert if not exists
           const { data: existing } = await supabase
             .from('suppliers')
             .select('id')
             .eq('name', supplier.name)
+            .eq('tenant_id', tenantId)
             .single()
 
           if (existing) {
@@ -128,7 +120,8 @@ export async function POST(request: NextRequest) {
               .from('suppliers')
               .update(supplier)
               .eq('id', existing.id)
-              
+              .eq('tenant_id', tenantId)
+
             if (updateError) {
               result.errors.push(`Failed to update ${supplier.name}: ${updateError.message}`)
             } else {
@@ -137,8 +130,8 @@ export async function POST(request: NextRequest) {
           } else {
             const { error: insertError } = await supabase
               .from('suppliers')
-              .insert([supplier])
-              
+              .insert([{ ...supplier, tenant_id: tenantId }])
+
             if (insertError) {
               result.errors.push(`Failed to create ${supplier.name}: ${insertError.message}`)
             } else {
