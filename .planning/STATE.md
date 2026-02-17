@@ -1,19 +1,19 @@
 # Project State
 
-## Current Status: Phase 80 In Progress — Critical Checkout & Settings Fixes
+## Current Status: Phase 80 Complete ✓ — Critical Checkout & Settings Fixes
 ## Current Milestone: 1.0 - Multi-Tenant MVP
-## Current Phase: 80 — Critical Checkout & Settings Fixes
-## Last Updated: 2026-02-17
+## Current Phase: 80 — Critical Checkout & Settings Fixes (COMPLETE)
+## Last Updated: 2026-02-16
 ## Branch: features/multi-tenant-saas
 
 ## Progress
 
 Phase: 80 of 80+ (Critical Checkout & Settings Fixes)
-Plan: 2 of ? in Phase 80
-Status: In progress — 80-02 complete (site_settings uuid PK migration + TypeScript type update)
-Last activity: 2026-02-17 - Completed 80-02-PLAN.md (site_settings PK fix)
+Plan: 2 of 2 in Phase 80
+Status: Complete — All 2 plans executed, verified 9/9 must-haves passed; checkout orders stamped with tenant_id, site_settings uuid PK with UNIQUE(tenant_id)
+Last activity: 2026-02-16 - Phase 80 verified complete; GAP-1 and GAP-3 from v1.0 audit remediated
 
-Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 complete (7/7 plans), Phase 70: ███████ (7/7 plans)
+Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 complete (7/7 plans), Phase 70 complete (7/7 plans), Phase 80: ██ (2/2 plans)
 
 ## Completed
 - [x] PROJECT.md created
@@ -79,6 +79,10 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - [x] 70-05: Per-Tenant Site Status Cache — siteSettings.edge.ts refactored to Map<string, CacheEntry> keyed by tenantId; getCachedSiteStatus() and invalidateSiteStatusCache() accept tenantId; siteSettings.ts all queries use .eq('tenant_id', tenantId) replacing .eq('id', 1); middleware reads x-tenant-id cookie and passes tenantId; all 5 caller files updated; TypeScript build clean
 - [x] 70-06: COGS and Inventory Tenant_ID Gap Closure — 15 COGS admin routes + 17 inventory admin routes updated with getCurrentTenantId() and .eq('tenant_id', tenantId) filtering on all Supabase queries; tenant_id added to all INSERT payloads; tenantId threaded through helper functions in close/route.ts and sales-sync/route.ts; 32 FAIL files from 70-02 audit converted to PASS; TypeScript build clean
 - [x] 70-07: Remaining Admin Route Tenant Isolation — 25 admin API routes updated: 11 invoice routes (main CRUD, upload, parse, confirm, file, link-order, match-items, match-orders, and item operations), 8 purchase order sub-routes (main CRUD, attachments, invoice matching, item exclusion, receipts, email send), 3 supplier routes (PUT/PATCH/DELETE + email templates + bulk-upload), 2 customer routes (list + orders); all 64 FAIL items from 70-02 audit now addressed; suppliers/bulk-upload and customers routes upgraded from ad-hoc auth to requireAdminAuth; TypeScript build clean
+- [x] Phase 80 planned — 2 plans in Wave 1 (checkout attribution fix, site_settings PK fix)
+- [x] 80-01: Checkout Tenant Attribution Fix — createTenantClient imported in process-payment route; tenantSupabase created after getUser(); orders INSERT stamped with tenant_id: tenantId; order_items map stamped with tenant_id: tenantId; both INSERTs use tenantSupabase; auth-only createClient preserved for getUser(); TypeScript build clean
+- [x] 80-02: site_settings PK Fix — migration 20260216400000_fix_site_settings_pk.sql adds uuid column, drops integer PK, renames uuid column to id, restores PK constraint, adds UNIQUE(tenant_id); existing default tenant row preserved; SiteSettings TypeScript interface updated to id: string + tenant_id: string; TypeScript build clean
+- [x] Phase 80 verified — 9/9 must-haves passed; GAP-1 and GAP-3 from v1.0 audit fully remediated
 
 ### Decisions Made
 - **site_settings PK migrated via add/drop/rename pattern**: PostgreSQL cannot ALTER a PK column type in-place; adding uuid column, dropping PK + integer column, then renaming is transactional and safe (Phase 80-02)

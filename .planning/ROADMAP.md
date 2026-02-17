@@ -158,7 +158,7 @@ Plans:
 
 ---
 
-## Phase 80: Critical Checkout & Settings Fixes
+## Phase 80: Critical Checkout & Settings Fixes ✓
 Gap closure from v1.0 audit — 2 of 4 SC1 blockers.
 
 **Goal:** Fix the two data-correctness bugs that silently break multi-tenant operation: orders inserted without `tenant_id` (checkout attribution bug) and `site_settings` PK collision that prevents second-tenant maintenance-mode saves.
@@ -170,8 +170,10 @@ Gap closure from v1.0 audit — 2 of 4 SC1 blockers.
 **Plans:** 2 plans
 
 Plans:
-- [ ] 80-01-PLAN.md — GAP-1: add tenant_id to orders/order_items INSERTs and switch to createTenantClient in process-payment route
-- [ ] 80-02-PLAN.md — GAP-3: migration to replace site_settings integer PK with uuid PK + UNIQUE(tenant_id); update SiteSettings TypeScript type
+- [x] 80-01-PLAN.md — GAP-1: add tenant_id to orders/order_items INSERTs and switch to createTenantClient in process-payment route
+- [x] 80-02-PLAN.md — GAP-3: migration to replace site_settings integer PK with uuid PK + UNIQUE(tenant_id); update SiteSettings TypeScript type
+
+**Verified:** 9/9 must-haves passed. Checkout orders stamped with tenant_id. site_settings uses uuid PK with UNIQUE(tenant_id). TypeScript build clean.
 
 ---
 
