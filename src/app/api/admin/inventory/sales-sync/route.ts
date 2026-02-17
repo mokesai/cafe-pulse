@@ -507,7 +507,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      const lineItemsPayload: Parameters<typeof insertTransactionItems>[2] = []
+      const lineItemsPayload: Parameters<typeof insertTransactionItems>[3] = []
 
       for (const [lineIndex, lineItem] of (order.line_items ?? []).entries()) {
         const rawCatalogId = lineItem.catalog_object_id || lineItem.variation_id || null
