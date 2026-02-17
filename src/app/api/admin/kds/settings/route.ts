@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
 import { addSecurityHeaders } from '@/lib/security/headers'
 import { getSettings, updateSetting } from '@/lib/kds/queries'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 import { KDS_THEMES } from '@/lib/kds/types'
 import type { KDSTheme } from '@/lib/kds/types'
 
@@ -12,7 +13,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const settings = await getSettings()
+    const tenantId = await getCurrentTenantId()
+    const settings = await getSettings(tenantId)
     return addSecurityHeaders(NextResponse.json({
       success: true,
       settings,
@@ -33,6 +35,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
+    const tenantId = await getCurrentTenantId()
     const body = await request.json()
 
     // Validate theme if provided
@@ -44,7 +47,7 @@ export async function PATCH(request: NextRequest) {
         ))
       }
 
-      const success = await updateSetting('theme', body.theme as KDSTheme)
+      const success = await updateSetting(tenantId, 'theme', body.theme as KDSTheme)
       if (!success) {
         return addSecurityHeaders(NextResponse.json(
           { error: 'Failed to update theme setting' },
@@ -53,7 +56,7 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    const settings = await getSettings()
+    const settings = await getSettings(tenantId)
     return addSecurityHeaders(NextResponse.json({
       success: true,
       settings,

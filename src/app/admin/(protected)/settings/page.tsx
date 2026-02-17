@@ -11,7 +11,7 @@ export default async function AdminSettingsPage() {
   const [initialStatus, initialSettings, kdsSettings] = await Promise.all([
     getSiteStatusUsingServiceClient(tenantId),
     getSiteSettings(tenantId),
-    getKDSSettings()
+    getKDSSettings(tenantId)
   ])
 
   return (

@@ -1,4 +1,5 @@
 import { getScreenData } from '@/lib/kds/queries'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 import { KDSFoodMagazine } from '@/app/kds/components'
 
 // Always fetch fresh data (no ISR caching)
@@ -18,7 +19,8 @@ const FOOD_IMAGE = '/images/kds/photos/breakfast-foods.png'
 const PASTRIES_IMAGE = '/images/kds/photos/pastries-assorted.png'
 
 export default async function FoodDisplayPage() {
-  const data = await getScreenData('food')
+  const tenantId = await getCurrentTenantId()
+  const data = await getScreenData(tenantId, 'food')
 
   return (
     <KDSFoodMagazine

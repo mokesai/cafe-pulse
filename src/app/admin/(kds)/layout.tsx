@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Suspense } from 'react'
 import { requireAdmin } from '@/lib/admin/auth'
 import { getSetting } from '@/lib/kds/queries'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 import type { KDSTheme } from '@/lib/kds/types'
 import KDSThemeWrapper from '@/app/kds/components/KDSThemeWrapper'
 import '@/app/kds/kds-themes.css'
@@ -31,7 +32,8 @@ export default async function KDSLayout({
   // Protect KDS routes - only admin users can access
   await requireAdmin()
 
-  const dbTheme = (await getSetting('theme')) as KDSTheme | null
+  const tenantId = await getCurrentTenantId()
+  const dbTheme = (await getSetting(tenantId, 'theme')) as KDSTheme | null
 
   return (
     <Suspense fallback={<div className="kds-root theme-warm">{children}</div>}>

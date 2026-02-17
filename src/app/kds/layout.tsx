@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Suspense } from 'react'
 import { getSetting } from '@/lib/kds/queries'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 import type { KDSTheme } from '@/lib/kds/types'
 import KDSThemeWrapper from './components/KDSThemeWrapper'
 import './kds-themes.css'
@@ -23,7 +24,8 @@ export default async function KDSLayout({
 }: {
   children: React.ReactNode
 }) {
-  const dbTheme = (await getSetting('theme')) as KDSTheme | null
+  const tenantId = await getCurrentTenantId()
+  const dbTheme = (await getSetting(tenantId, 'theme')) as KDSTheme | null
 
   return (
     <Suspense fallback={<div className="kds-root theme-warm">{children}</div>}>
