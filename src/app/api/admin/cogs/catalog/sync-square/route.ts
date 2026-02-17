@@ -202,7 +202,7 @@ export async function POST(request: NextRequest) {
     if (productsToUpsert.length > 0) {
       const { error } = await supabase
         .from('cogs_products')
-        .upsert(productsToUpsert.map(p => ({ ...p, tenant_id: tenantId })), { onConflict: 'square_item_id' })
+        .upsert(productsToUpsert.map(p => ({ ...p, tenant_id: tenantId })), { onConflict: 'tenant_id,square_item_id' })
 
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     }
@@ -243,7 +243,7 @@ export async function POST(request: NextRequest) {
     if (sellablesToUpsert.length > 0) {
       const { error } = await supabase
         .from('cogs_sellables')
-        .upsert(sellablesToUpsert, { onConflict: 'square_variation_id' })
+        .upsert(sellablesToUpsert, { onConflict: 'tenant_id,square_variation_id' })
 
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     }

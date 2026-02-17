@@ -338,7 +338,7 @@ export async function upsertMenuItem(
       bullet_color: item.bulletColor ?? null,
       parent_item: item.parentItem ?? null,
     }, {
-      onConflict: 'square_variation_id',
+      onConflict: 'tenant_id,square_variation_id',
       ignoreDuplicates: false,
     })
     .select()
@@ -365,7 +365,7 @@ export async function upsertImage(tenantId: string, image: Omit<KDSImage, 'id' |
       sort_order: image.sortOrder,
       is_active: image.isActive,
     }, {
-      onConflict: 'filename',
+      onConflict: 'tenant_id,filename',
       ignoreDuplicates: false,
     })
     .select()
@@ -393,7 +393,7 @@ export async function updateSetting<K extends keyof KDSSettingsMap>(
       key,
       value: value as unknown,
     }, {
-      onConflict: 'key',
+      onConflict: 'tenant_id,key',
     })
 
   if (error) {
