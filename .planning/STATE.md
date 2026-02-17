@@ -1,19 +1,19 @@
 # Project State
 
-## Current Status: Phase 60 Complete (Platform Control Plane)
+## Current Status: Phase 70 In Progress (Integration Testing & Hardening)
 ## Current Milestone: 1.0 - Multi-Tenant MVP
-## Current Phase: 60 — Platform Control Plane (COMPLETE)
-## Last Updated: 2026-02-16
+## Current Phase: 70 — Integration Testing & Hardening
+## Last Updated: 2026-02-17
 ## Branch: features/multi-tenant-saas
 
 ## Progress
 
-Phase: 60 of 70 (Platform Control Plane)
-Plan: 7 of 7 in Phase 60
-Status: Phase complete, all platform admin features functional
-Last activity: 2026-02-16 - Completed Phase 60: Platform Control Plane (7/7 plans)
+Phase: 70 of 70 (Integration Testing & Hardening)
+Plan: 1 of 8 in Phase 70
+Status: In progress — E2E testing framework operational, security auditing next
+Last activity: 2026-02-17 - Completed 70-01-PLAN.md (E2E Multi-Tenant Isolation Testing)
 
-Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 complete (7/7 plans)
+Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 complete (7/7 plans), Phase 70: █░░░░░░░ (1/8 plans)
 
 ## Completed
 - [x] PROJECT.md created
@@ -71,8 +71,15 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - [x] 60-06: Tenant detail and edit pages — Full tenant config display (status, Square, branding), edit form with React Hook Form + Zod, updateTenant Server Action, hex color validation for branding
 - [x] 60-07: Tenant status management — Status change and delete Server Actions (changeStatus, deleteTenant, restoreTenant), StatusManager UI with conditional buttons, automated trial expiration via hourly pg_cron job, daily trial expiration warnings
 - [x] Phase 60 verified — 42/42 must-haves passed (all 7 plans complete), platform admin dashboard functional, MFA enforcement active, Square OAuth integration working, tenant onboarding and lifecycle management operational, TypeScript build clean
+- [x] Phase 70 planned — 8 plans across 3 waves (E2E testing, security auditing, hardening)
+- [x] 70-01: E2E Multi-Tenant Isolation Testing — Playwright 1.58.2 installed with parallel workers (workers: 2), 11 isolation tests across 3 suites (menu, checkout, admin), subdomain routing patterns, comprehensive README documentation, npm scripts added (test:e2e, test:e2e:ui)
 
 ### Decisions Made
+- **2 parallel workers for Playwright**: One worker per test tenant for concurrent isolation testing; catches cache pollution and race conditions (Phase 70-01)
+- **Test prerequisites documented not auto-created**: Tests verify system behavior, not set up test data; manual tenant creation ensures realistic test conditions (Phase 70-01)
+- **Tests fail when tenants don't exist**: Correct behavior that forces proper test environment setup before running isolation tests (Phase 70-01)
+- **Chromium-only testing initially**: Focus on isolation testing over browser compatibility in Phase 70; can expand to Firefox/WebKit later (Phase 70-01)
+- **--legacy-peer-deps for Playwright**: Zod version conflict between openai@5.12.2 and project's zod@4.0.5; consistent with Phase 60 pattern (Phase 70-01)
 - **Status changes via Server Actions with database validation**: Database trigger enforces state machine rules, prevents invalid transitions at data layer; changeStatus() catches and displays validation errors (Phase 60-07)
 - **Hourly pg_cron job for trial expiration**: Balances system load vs responsiveness, prevents long delays after expiration; trials auto-transition to paused within 1 hour (Phase 60-07)
 - **Daily trial expiration warnings at 9 AM**: Business-hours timing for platform admin review, foundation for future email notifications (Phase 60-07)
@@ -150,6 +157,8 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - **Rollback scripts in supabase/rollback/**: Not in migrations/ to prevent accidental application by `supabase db push`
 
 ### Known Issues
+- Test tenants for E2E tests: tenant-a and tenant-b must be created in database before E2E tests can verify isolation (Phase 70-01 prerequisite)
+- E2E tests currently fail: Expected behavior without test tenants; 8/11 tests fail, 3/11 pass (admin protection tests) (Phase 70-01)
 - Platform dashboard manual testing requires bootstrap: Platform admin must be created via psql before testing /platform routes (60-02 bootstrap script needed)
 - Pagination not implemented on tenant list: Will need pagination when tenant count grows beyond ~50 (deferred to Phase 60+)
 - OAuth state verification storage not implemented: TODO in authorize route for server-side state storage and verification in callback (Phase 60-04 follow-up)
@@ -165,9 +174,9 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 
 ## Session Continuity
 
-Last session: 2026-02-16
-Stopped at: Completed Phase 60 — Platform Control Plane (7/7 plans)
+Last session: 2026-02-17
+Stopped at: Completed 70-01-PLAN.md (E2E Multi-Tenant Isolation Testing)
 Resume file: None
 
 ## Next Action
-Phase 60 complete. Proceed to Phase 70: Integration Testing & Hardening.
+Proceed to Phase 70-02: Security Auditing (Service-Role & Cache Isolation).
