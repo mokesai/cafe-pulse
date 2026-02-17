@@ -5,6 +5,8 @@ import { useCartModal } from '@/providers/CartProvider'
 import { cartSchema, addToCartSchema, updateCartItemSchema } from '@/lib/validations'
 import type { Cart, CartItemType, AddToCart, UpdateCartItem, CartItemDetails } from '@/lib/validations/cart'
 import type { MenuCategory, MenuItem } from '@/types/menu'
+import { getItem, setItem, removeItem } from '@/lib/utils/localStorage'
+import { useTenant } from '@/providers/TenantProvider'
 
 // Query Keys
 export const cartQueryKeys = {
@@ -14,9 +16,9 @@ export const cartQueryKeys = {
 }
 
 // API Functions
-const fetchCart = async (): Promise<Cart> => {
+const fetchCart = async (tenantSlug: string): Promise<Cart> => {
   // For now, use localStorage for cart data
-  const cartData = localStorage.getItem('cafe-cart')
+  const cartData = getItem(tenantSlug, 'cart')
   if (!cartData) {
     return {
       items: [],
@@ -26,10 +28,10 @@ const fetchCart = async (): Promise<Cart> => {
       itemCount: 0,
     }
   }
-  
+
   try {
     const parsed = JSON.parse(cartData)
-    
+
     // Handle legacy cart data or incomplete cart data
     const normalizedCart = {
       items: parsed.items || [],
@@ -40,12 +42,12 @@ const fetchCart = async (): Promise<Cart> => {
       discounts: parsed.discounts,
       couponCode: parsed.couponCode,
     }
-    
+
     const result = cartSchema.safeParse(normalizedCart)
     if (!result.success) {
       console.warn('Invalid cart data found, clearing cart:', result.error)
       // Clear invalid cart data and return empty cart
-      localStorage.removeItem('cafe-cart')
+      removeItem(tenantSlug, 'cart')
       return {
         items: [],
         subtotal: 0,
@@ -54,18 +56,18 @@ const fetchCart = async (): Promise<Cart> => {
         itemCount: 0,
       }
     }
-    
+
     // If we have items but missing calculated fields, recalculate
     if (result.data.items.length > 0 && (result.data.subtotal === 0 || result.data.total === 0)) {
       const recalculatedCart = calculateBasicCartTotals(result.data)
-      await saveCart(recalculatedCart)
+      await saveCart(tenantSlug, recalculatedCart)
       return recalculatedCart
     }
-    
+
     return result.data
   } catch (error) {
     console.error('Failed to parse cart data:', error)
-    localStorage.removeItem('cafe-cart')
+    removeItem(tenantSlug, 'cart')
     return {
       items: [],
       subtotal: 0,
@@ -76,23 +78,23 @@ const fetchCart = async (): Promise<Cart> => {
   }
 }
 
-const saveCart = async (cart: Cart): Promise<Cart> => {
+const saveCart = async (tenantSlug: string, cart: Cart): Promise<Cart> => {
   const validated = cartSchema.safeParse(cart)
   if (!validated.success) {
     throw new Error('Invalid cart data')
   }
-  
-  localStorage.setItem('cafe-cart', JSON.stringify(validated.data))
+
+  setItem(tenantSlug, 'cart', JSON.stringify(validated.data))
   return validated.data
 }
 
-const addItemToCart = async (item: AddToCart & { itemDetails?: CartItemDetails }): Promise<Cart> => {
+const addItemToCart = async (tenantSlug: string, item: AddToCart & { itemDetails?: CartItemDetails }): Promise<Cart> => {
   const validatedItem = addToCartSchema.safeParse(item)
   if (!validatedItem.success) {
     throw new Error('Invalid item data')
   }
 
-  const currentCart = await fetchCart()
+  const currentCart = await fetchCart(tenantSlug)
   
   // Use provided item details or fetch from API as fallback
   let itemDetails = item.itemDetails
@@ -152,16 +154,16 @@ const addItemToCart = async (item: AddToCart & { itemDetails?: CartItemDetails }
   }
 
   const updatedCart = calculateBasicCartTotals({ ...currentCart, items: updatedItems })
-  return saveCart(updatedCart)
+  return saveCart(tenantSlug, updatedCart)
 }
 
-const updateCartItem = async (itemId: string, updates: UpdateCartItem): Promise<Cart> => {
+const updateCartItem = async (tenantSlug: string, itemId: string, updates: UpdateCartItem): Promise<Cart> => {
   const validatedUpdates = updateCartItemSchema.safeParse(updates)
   if (!validatedUpdates.success) {
     throw new Error('Invalid update data')
   }
 
-  const currentCart = await fetchCart()
+  const currentCart = await fetchCart(tenantSlug)
   const itemIndex = currentCart.items.findIndex(item => item.id === itemId)
   
   if (itemIndex === -1) {
@@ -177,17 +179,17 @@ const updateCartItem = async (itemId: string, updates: UpdateCartItem): Promise<
   
   updatedItems[itemIndex] = updatedItem
   const updatedCart = calculateBasicCartTotals({ ...currentCart, items: updatedItems })
-  return saveCart(updatedCart)
+  return saveCart(tenantSlug, updatedCart)
 }
 
-const removeCartItem = async (itemId: string): Promise<Cart> => {
-  const currentCart = await fetchCart()
+const removeCartItem = async (tenantSlug: string, itemId: string): Promise<Cart> => {
+  const currentCart = await fetchCart(tenantSlug)
   const updatedItems = currentCart.items.filter(item => item.id !== itemId)
   const updatedCart = calculateBasicCartTotals({ ...currentCart, items: updatedItems })
-  return saveCart(updatedCart)
+  return saveCart(tenantSlug, updatedCart)
 }
 
-const clearCart = async (): Promise<Cart> => {
+const clearCart = async (tenantSlug: string): Promise<Cart> => {
   const emptyCart: Cart = {
     items: [],
     subtotal: 0,
@@ -195,7 +197,7 @@ const clearCart = async (): Promise<Cart> => {
     total: 0,
     itemCount: 0,
   }
-  return saveCart(emptyCart)
+  return saveCart(tenantSlug, emptyCart)
 }
 
 // Calculate basic cart totals without tax (tax calculated at component level)
@@ -230,9 +232,11 @@ export const calculateCartTotals = (cart: Cart, taxRate: number): Cart => {
 
 // Custom Hooks
 export const useCart = () => {
+  const { slug: tenantSlug } = useTenant()
+
   return useQuery({
     queryKey: cartQueryKeys.cart(),
-    queryFn: fetchCart,
+    queryFn: () => fetchCart(tenantSlug),
     staleTime: 0, // Always fresh
     gcTime: 1000 * 60 * 5, // 5 minutes
   })
@@ -240,9 +244,10 @@ export const useCart = () => {
 
 export const useAddToCart = () => {
   const queryClient = useQueryClient()
+  const { slug: tenantSlug } = useTenant()
 
   return useMutation({
-    mutationFn: addItemToCart,
+    mutationFn: (item: AddToCart & { itemDetails?: CartItemDetails }) => addItemToCart(tenantSlug, item),
     onMutate: async (_newItem) => {
       void _newItem
       // Cancel outgoing refetches
@@ -274,10 +279,11 @@ export const useAddToCart = () => {
 
 export const useUpdateCartItem = () => {
   const queryClient = useQueryClient()
+  const { slug: tenantSlug } = useTenant()
 
   return useMutation({
     mutationFn: ({ itemId, updates }: { itemId: string; updates: UpdateCartItem }) =>
-      updateCartItem(itemId, updates),
+      updateCartItem(tenantSlug, itemId, updates),
     onSuccess: (updatedCart) => {
       queryClient.setQueryData(cartQueryKeys.cart(), updatedCart)
     },
@@ -286,9 +292,10 @@ export const useUpdateCartItem = () => {
 
 export const useRemoveCartItem = () => {
   const queryClient = useQueryClient()
+  const { slug: tenantSlug } = useTenant()
 
   return useMutation({
-    mutationFn: removeCartItem,
+    mutationFn: (itemId: string) => removeCartItem(tenantSlug, itemId),
     onSuccess: (updatedCart) => {
       queryClient.setQueryData(cartQueryKeys.cart(), updatedCart)
     },
@@ -297,9 +304,10 @@ export const useRemoveCartItem = () => {
 
 export const useClearCart = () => {
   const queryClient = useQueryClient()
+  const { slug: tenantSlug } = useTenant()
 
   return useMutation({
-    mutationFn: clearCart,
+    mutationFn: () => clearCart(tenantSlug),
     onSuccess: (emptyCart) => {
       queryClient.setQueryData(cartQueryKeys.cart(), emptyCart)
     },
