@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSquareOrder, processPayment } from '@/lib/square/orders'
 import { TaxConfigurationError } from '@/lib/square/tax-validation'
 import { getOrder } from '@/lib/square/fetch-client'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createTenantClient } from '@/lib/supabase/server'
 import { getCurrentTenantId } from '@/lib/tenant/context'
 import { getTenantSquareConfig } from '@/lib/square/config'
 import { rateLimiters } from '@/lib/security/rate-limiter'
@@ -169,16 +169,20 @@ export async function POST(request: NextRequest) {
     // Save order to database
     console.log('Saving order to database...')
     const supabase = await createClient()
-    
+
     // Get authenticated user if available
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     console.log('User auth status:', { userId: user?.id, email: user?.email, authError })
-    
+
+    // Use tenant-scoped client for data writes so RLS policies apply
+    const tenantSupabase = await createTenantClient(tenantId)
+
     // Create order record (match actual database schema)
-    const { data: orderData, error: orderError } = await supabase
+    const { data: orderData, error: orderError } = await tenantSupabase
       .from('orders')
       .insert([
         {
+          tenant_id: tenantId,
           user_id: user?.id || null, // Set user_id if authenticated, null for anonymous
           square_order_id: orderId, // Include the Square order ID
           customer_email: customerInfo.email,
@@ -206,6 +210,7 @@ export async function POST(request: NextRequest) {
 
     // Create order items (match actual database schema)
     const orderItems = cartItems.map(item => ({
+      tenant_id: tenantId,
       order_id: orderData.id,
       square_item_id: item.id,
       item_name: item.name,
@@ -216,7 +221,7 @@ export async function POST(request: NextRequest) {
       modifiers: {} // No modifiers for now
     }))
 
-    const { error: itemsError } = await supabase
+    const { error: itemsError } = await tenantSupabase
       .from('order_items')
       .insert(orderItems)
 
