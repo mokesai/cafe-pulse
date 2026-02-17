@@ -50,6 +50,7 @@ export async function updateUserProfile(userId: string, updates: Partial<UserPro
 }
 
 export async function createOrder(orderData: {
+  tenantId: string
   userId?: string
   squareOrderId?: string
   totalAmount: number
@@ -69,11 +70,13 @@ export async function createOrder(orderData: {
   }>
 }) {
   const supabase = createServiceClient() // Use service role for order creation
-  
+  const { tenantId } = orderData
+
   console.log('Creating order with data:', JSON.stringify(orderData, null, 2))
-  
+
   // Create the order
   const orderInsertData = {
+    tenant_id: tenantId,
     user_id: orderData.userId,
     square_order_id: orderData.squareOrderId,
     total_amount: orderData.totalAmount,
@@ -82,24 +85,25 @@ export async function createOrder(orderData: {
     customer_phone: orderData.customerPhone,
     special_instructions: orderData.specialInstructions
   }
-  
+
   console.log('Inserting order with data:', orderInsertData)
-  
+
   const { data: order, error: orderError } = await supabase
     .from('orders')
     .insert(orderInsertData)
     .select()
     .single()
-  
+
   if (orderError) {
     console.error('Order creation error:', orderError)
     throw orderError
   }
-  
+
   console.log('Order created successfully:', order)
-  
+
   // Create order items
   const itemsInsertData = orderData.items.map(item => ({
+    tenant_id: tenantId,
     order_id: order.id,
     square_item_id: item.squareItemId,
     item_name: item.itemName,

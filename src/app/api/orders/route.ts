@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createOrder } from '@/lib/supabase/database'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 import { rateLimiters } from '@/lib/security/rate-limiter'
 import { validateOrderItem, validateCustomerInfo, ValidationError } from '@/lib/security/input-validation'
 import { addSecurityHeaders } from '@/lib/security/headers'
@@ -53,9 +54,12 @@ export async function POST(request: NextRequest) {
     }
     
     
+    // Resolve current tenant
+    const tenantId = await getCurrentTenantId()
+
     // Create the order directly with database function
     console.log('Calling createOrder with data:', body)
-    const order = await createOrder(body)
+    const order = await createOrder({ ...body, tenantId })
     
     return addSecurityHeaders(NextResponse.json(order))
   } catch (error) {
