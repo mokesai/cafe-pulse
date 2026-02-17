@@ -1,20 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
 import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 export async function PUT(
   request: NextRequest,
   context: { params: Promise<{ itemId: string }> }
 ) {
   try {
+    const authResult = await requireAdminAuth(request)
+    if (!isAdminAuthSuccess(authResult)) {
+      return authResult
+    }
+
     const { itemId } = await context.params
     const { skip_reason } = await request.json()
-    
+
     console.log('⏭️ Skipping invoice item:', {
       itemId,
       skip_reason
     })
 
     const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
 
     // Update the invoice item to mark as skipped
     const { error: skipError } = await supabase
@@ -27,6 +35,7 @@ export async function PUT(
         updated_at: new Date().toISOString()
       })
       .eq('id', itemId)
+      .eq('tenant_id', tenantId)
 
     if (skipError) {
       console.error('Failed to skip invoice item:', skipError)

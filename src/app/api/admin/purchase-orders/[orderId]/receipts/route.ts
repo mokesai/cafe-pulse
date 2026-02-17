@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
 import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 import type { PostgrestError } from '@supabase/supabase-js'
 
 const RECEIPT_BUCKET = 'purchase-order-receipts'
@@ -170,6 +171,23 @@ export async function GET(
     }
 
     const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
+
+    // Verify purchase order belongs to this tenant before fetching receipts
+    const { data: po, error: poCheckError } = await supabase
+      .from('purchase_orders')
+      .select('id')
+      .eq('id', orderId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+
+    if (poCheckError || !po) {
+      return NextResponse.json(
+        { error: 'Purchase order not found' },
+        { status: 404 }
+      )
+    }
+
     const { data, error } = await supabase
       .from('purchase_order_receipts')
       .select('*')
@@ -323,6 +341,22 @@ export async function POST(
     }
 
     const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
+
+    // Verify purchase order belongs to this tenant
+    const { data: po, error: poCheckError } = await supabase
+      .from('purchase_orders')
+      .select('id')
+      .eq('id', orderId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+
+    if (poCheckError || !po) {
+      return NextResponse.json(
+        { error: 'Purchase order not found' },
+        { status: 404 }
+      )
+    }
 
     // Block receipts for excluded/out-of-stock items
     const { data: poItemData, error: poItemError } = await supabase
