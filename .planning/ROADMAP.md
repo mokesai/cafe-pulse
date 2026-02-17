@@ -180,12 +180,18 @@ Plans:
 ## Phase 85: Multi-Tenant Schema Constraint Migration
 Gap closure from v1.0 audit — final SC1 blocker.
 
-**Goal:** Replace 13 single-column UNIQUE constraints with composite `(tenant_id, field)` constraints so two tenants can simultaneously store data with the same names/codes without conflicts.
+**Goal:** Replace single-column UNIQUE constraints with composite `(tenant_id, field)` constraints across 12 tables (plus cogs_sellable_aliases) so two tenants can simultaneously store data with the same names/codes without conflicts. Update all ON CONFLICT upsert clauses in app code and scripts to reference the new composite constraints.
 
 **Gap Closure:**
-- GAP-2: Tables affected — `kds_settings` (key), `inventory_items` (name), `suppliers` (name), `measurement_units` (name, symbol), `cogs_products` (square_item_id, product_code), `cogs_product_variations` (square_variation_id ×2), `cogs_modifier_lists` (square_modifier_list_id), `cogs_modifier_options` (square_modifier_id), `kds_images` (filename), `kds_menu_items` (square_variation_id), `purchase_orders` (order_number), `webhook_events` (event_id)
+- GAP-2: Tables affected — `kds_settings` (key), `kds_images` (filename), `kds_menu_items` (square_variation_id), `cogs_products` (square_item_id, product_code), `cogs_sellables` (square_variation_id), `cogs_sellable_aliases` (square_variation_id), `cogs_modifier_sets` (square_modifier_list_id), `cogs_modifier_options` (square_modifier_id), `inventory_items` (square_item_id + pack_size composite), `suppliers` (name), `inventory_unit_types` (name, symbol), `purchase_orders` (order_number)
 
-**Plans:** TBD
+**Plans:** 4 plans
+
+Plans:
+- [ ] 85-01-PLAN.md — KDS domain DDL: composite constraints for kds_settings, kds_images, kds_menu_items
+- [ ] 85-02-PLAN.md — COGS/Square domain DDL: composite constraints for cogs_products, cogs_sellables, cogs_sellable_aliases, cogs_modifier_sets, cogs_modifier_options
+- [ ] 85-03-PLAN.md — Operational domain DDL: composite constraints for inventory_items, suppliers, inventory_unit_types, purchase_orders
+- [ ] 85-04-PLAN.md — App code: update ON CONFLICT strings in src/ routes, src/lib/kds/queries.ts, and scripts/; add tenant_id to script upsert payloads
 
 ---
 
