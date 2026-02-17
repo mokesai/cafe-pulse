@@ -136,7 +136,7 @@ Plans:
 
 ---
 
-## Phase 70: Integration Testing & Hardening
+## Phase 70: Integration Testing & Hardening ✓
 Comprehensive cross-tenant isolation tests. Performance testing with indexes. Security audit of all service-role queries.
 
 **Goal:** Verify multi-tenant isolation through automated E2E tests, audit all service-role queries for explicit tenant filtering, fix localStorage cross-tenant pollution, and ensure module-level caches use tenant-scoped keys.
@@ -147,9 +147,11 @@ Plans:
 - [x] 70-01-PLAN.md — E2E testing setup: Playwright installation, multi-tenant isolation tests (menu, checkout, admin)
 - [x] 70-02-PLAN.md — Security audits: service-role query audit script, cache audit script, AUDIT_RESULTS.md report
 - [x] 70-03-PLAN.md — localStorage fix: tenant-aware localStorage utility, refactor cart hooks, verification documentation
-- [ ] 70-04-PLAN.md — Gap closure: tenant_id filtering for webhook routes and shared library modules (6 CRITICAL/HIGH files)
-- [ ] 70-05-PLAN.md — Gap closure: site status cache architecture — per-tenant Map<string, CacheEntry> implementation
-- [ ] 70-06-PLAN.md — Gap closure: tenant_id filtering for COGS admin routes (15 files) and inventory admin routes (17 files)
-- [ ] 70-07-PLAN.md — Gap closure: tenant_id filtering for invoice sub-routes (11), purchase order routes (8), supplier routes (3), customer routes (2), check-role (1)
+- [x] 70-04-PLAN.md — Gap closure: tenant_id filtering for webhook routes and shared library modules (6 CRITICAL/HIGH files)
+- [x] 70-05-PLAN.md — Gap closure: site status cache architecture — per-tenant Map<string, CacheEntry> implementation
+- [x] 70-06-PLAN.md — Gap closure: tenant_id filtering for COGS admin routes (15 files) and inventory admin routes (17 files)
+- [x] 70-07-PLAN.md — Gap closure: tenant_id filtering for invoice sub-routes (11), purchase order routes (8), supplier routes (3), customer routes (2), check-role (1)
 
 **Testable:** Full E2E flow: two tenants, independent orders, payments, admin access. Service-role queries verified. localStorage isolation confirmed. Security audit shows 0 FAIL findings for non-platform routes.
+
+**Verified:** 12/12 must-haves passed. Service-role audit 79 PASS / 3 false-positive FAILs (documented). localStorage isolation active. Site status cache per-tenant. All 64 original FAIL findings remediated.
