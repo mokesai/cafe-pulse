@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
 import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const ALLOWED_FILE_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp']
@@ -64,11 +65,13 @@ export async function GET(
     }
 
     const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
 
     const { data, error } = await supabase
       .from('purchase_order_attachments')
       .select('*')
       .eq('purchase_order_id', orderId)
+      .eq('tenant_id', tenantId)
       .order('uploaded_at', { ascending: false })
 
     if (error) {
@@ -153,6 +156,7 @@ export async function POST(
     }
 
     const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
 
     const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
     const storagePath = `${orderId}/${Date.now()}_${sanitizedName}`
@@ -192,6 +196,7 @@ export async function POST(
     const { data: inserted, error: insertError } = await supabase
       .from('purchase_order_attachments')
       .insert({
+        tenant_id: tenantId,
         purchase_order_id: orderId,
         file_name: file.name,
         file_url: fileUrl,
