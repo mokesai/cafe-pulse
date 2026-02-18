@@ -230,7 +230,12 @@ Tech debt closure from v1.0 audit — Priority 1 items (fix before second tenant
 - Finding 3: Switch `admin/orders` auth from `profiles.role === 'admin'` to `requireAdminAuth()`
 - Finding 3b: Switch 5 routes from `profiles.role` to `requireAdminAuth()`: `dashboard/stats`, `inventory/bulk-upload`, `inventory/push-to-square`, `inventory/hybrid-sync`, `inventory/sync-square`
 
-**Plans:** TBD
+**Plans:** 3 plans in 2 waves
+
+Plans:
+- [ ] 95-01-PLAN.md — orders route: auth migration + .eq('tenant_id', tenantId) on GET count + PATCH UPDATE
+- [ ] 95-02-PLAN.md — dashboard/stats, push-to-square, sync-square: auth migration (Wave 1, parallel with 95-01)
+- [ ] 95-03-PLAN.md — bulk-upload + hybrid-sync: auth migration, tenant_id on INSERT, inline sync logic (Wave 2)
 
 ---
 
