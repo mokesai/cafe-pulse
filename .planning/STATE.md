@@ -1,19 +1,19 @@
 # Project State
 
-## Current Status: Phase 85 Complete ✓ — Multi-Tenant Schema Constraint Migration
+## Current Status: Phase 90 Complete ✓ — Platform Completion & Security Hardening
 ## Current Milestone: 1.0 - Multi-Tenant MVP
-## Current Phase: 85 — Multi-Tenant Schema Constraint Migration (COMPLETE)
-## Last Updated: 2026-02-17
+## Current Phase: 90 — Platform Completion & Security Hardening (COMPLETE)
+## Last Updated: 2026-02-18
 ## Branch: features/multi-tenant-saas
 
 ## Progress
 
-Phase: 85 of 85+ (Multi-Tenant Schema Constraint Migration)
-Plan: 4 of 4 in Phase 85
-Status: Complete — All 4 plans executed, verified 18/18 must-haves passed; composite (tenant_id, field) constraints live on 13 tables; all app-layer onConflict clauses updated; GAP-2 from v1.0 audit fully remediated
-Last activity: 2026-02-17 - Phase 85 verified complete; 18/18 must-haves passed
+Phase: 90 of 90 (Platform Completion & Security Hardening)
+Plan: 4 of 4 in Phase 90
+Status: Complete — All 3 audit blockers closed: GAP-4 (admin invite flow), SEC-1 (OAuth CSRF cookie), SEC-2 (Server Action auth guards). Lint warnings resolved. TypeScript build clean.
+Last activity: 2026-02-18 - Phase 90 implemented and committed; all v1.0 audit gaps remediated
 
-Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 complete (7/7 plans), Phase 70 complete (7/7 plans), Phase 80: ██ (2/2 plans), Phase 85: ████ (4/4 plans)
+Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 complete (7/7 plans), Phase 70 complete (7/7 plans), Phase 80 complete (2/2 plans), Phase 85 complete (4/4 plans), Phase 90 complete (4/4 plans)
 
 ## Completed
 - [x] PROJECT.md created
@@ -84,6 +84,7 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - [x] 80-02: site_settings PK Fix — migration 20260216400000_fix_site_settings_pk.sql adds uuid column, drops integer PK, renames uuid column to id, restores PK constraint, adds UNIQUE(tenant_id); existing default tenant row preserved; SiteSettings TypeScript interface updated to id: string + tenant_id: string; TypeScript build clean
 - [x] Phase 80 verified — 9/9 must-haves passed; GAP-1 and GAP-3 from v1.0 audit fully remediated
 - [x] Phase 85 verified — 18/18 must-haves passed; GAP-2 from v1.0 audit fully remediated; all composite (tenant_id, field) constraints live on 13 tables; app code and scripts updated
+- [x] Phase 90 implemented — GAP-4 (inviteUserByEmail admin onboarding), SEC-1 (Square OAuth CSRF cookie verification), SEC-2 (isPlatformAdmin guard on all 5 Server Actions); tenant_pending_invites table + deleted_at on tenant_memberships; first-login membership claim in requireAdmin(); lint warnings resolved; TypeScript build clean
 - [x] Phase 85 planned — 4 plans across 3 waves (KDS, COGS, Operational, App code fixes)
 - [x] 85-01: KDS domain composite constraints — kds_settings, kds_images, kds_menu_items single-column UNIQUEs replaced with composite (tenant_id, field) constraints
 - [x] 85-02: COGS/Square domain composite constraints — cogs_products (×2), cogs_sellables, cogs_sellable_aliases, cogs_modifier_sets, cogs_modifier_options single-column UNIQUEs replaced with composite (tenant_id, field) constraints
@@ -224,4 +225,4 @@ Stopped at: Phase 85 verified complete — 18/18 must-haves passed; GAP-2 from v
 Resume file: None
 
 ## Next Action
-Phase 85 verified complete. Ready for Phase 90: Platform Completion & Security Hardening (GAP-4 + SEC-1 + SEC-2).
+All 10 phases of Milestone 1.0 complete. Ready for `/gsd:audit-milestone` to verify requirements coverage, cross-phase integration, and E2E flows before archiving.

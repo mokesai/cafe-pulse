@@ -197,7 +197,7 @@ Plans:
 
 ---
 
-## Phase 90: Platform Completion & Security Hardening
+## Phase 90: Platform Completion & Security Hardening ✓
 Gap closure from v1.0 audit — SC4 blocker + 2 security gaps + CSRF tech debt.
 
 **Goal:** Complete the tenant onboarding flow (new tenant admins can actually log in), lock down the platform control plane (OAuth callback and Server Actions require authentication), and verify CSRF protection on the Square OAuth flow.
@@ -207,4 +207,12 @@ Gap closure from v1.0 audit — SC4 blocker + 2 security gaps + CSRF tech debt.
 - SEC-1: Add `requirePlatformAdmin()` to OAuth callback route; implement CSRF state token server-side verification
 - SEC-2: Add `requirePlatformAdmin()` to all 5 Platform Server Actions (`createTenant`, `updateTenant`, `changeStatus`, `deleteTenant`, `restoreTenant`)
 
-**Plans:** TBD
+**Plans:** 4 plans in 2 waves
+
+Plans:
+- [x] 90-01: DB migration (tenant_pending_invites table, deleted_at on tenant_memberships) + isPlatformAdmin guard on all 5 Server Actions
+- [x] 90-02: SEC-1 OAuth CSRF — HTTP-only cookie on authorize route, cookie verification in callback route, requirePlatformAdmin guard on callback
+- [x] 90-03: GAP-4 invite flow — inviteUserByEmail in createTenant, tenant_pending_invites insert, resendInvite Server Action, enhanced success page
+- [x] 90-04: First-login membership claim — pending invite claim in requireAdmin(), ResendInviteButton client component, invite status section on tenant detail page
+
+**Verified:** Implemented directly in session 2026-02-18. All three gap items closed: GAP-4 (admin invite flow end-to-end), SEC-1 (CSRF cookie verified in callback), SEC-2 (all 5 Server Actions auth-guarded). Lint warnings resolved. TypeScript build clean.
