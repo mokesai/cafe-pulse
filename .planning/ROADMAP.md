@@ -216,3 +216,32 @@ Plans:
 - [x] 90-04: First-login membership claim — pending invite claim in requireAdmin(), ResendInviteButton client component, invite status section on tenant detail page
 
 **Verified:** Implemented directly in session 2026-02-18. All three gap items closed: GAP-4 (admin invite flow end-to-end), SEC-1 (CSRF cookie verified in callback), SEC-2 (all 5 Server Actions auth-guarded). Lint warnings resolved. TypeScript build clean.
+
+---
+
+## Phase 95: Admin Auth Hardening & Orders Isolation
+Tech debt closure from v1.0 audit — Priority 1 items (fix before second tenant onboarding).
+
+**Goal:** Close the cross-tenant write gap on the admin orders API and migrate 6 admin routes from the pre-Phase-50 `profiles.role` auth pattern to `requireAdminAuth()` so admin access is properly tenant-scoped.
+
+**Gap Closure:**
+- Finding 1: `PATCH /api/admin/orders` — add `.eq('tenant_id', tenantId)` to UPDATE query; switch to `createTenantClient` or add tenant filter to service client update
+- Finding 2: `GET /api/admin/orders` — add `.eq('tenant_id', tenantId)` to count query so pagination totals are tenant-scoped
+- Finding 3: Switch `admin/orders` auth from `profiles.role === 'admin'` to `requireAdminAuth()`
+- Finding 3b: Switch 5 routes from `profiles.role` to `requireAdminAuth()`: `dashboard/stats`, `inventory/bulk-upload`, `inventory/push-to-square`, `inventory/hybrid-sync`, `inventory/sync-square`
+
+**Plans:** TBD
+
+---
+
+## Phase 96: Tenant Resolution Hardening & Documentation
+Tech debt closure from v1.0 audit — Priority 2 items (before full multi-tenant production).
+
+**Goal:** Ensure soft-deleted tenants cannot be resolved via subdomain (defense-in-depth), document the missing `SQUARE_SECRET` env var, and create the formal Phase 90 verification document.
+
+**Gap Closure:**
+- Finding 4: Add `.is('deleted_at', null)` filter to `resolveTenantBySlug()` in `src/lib/tenant/context.ts`; add `is_active = false` to `deleteTenant()` Server Action
+- Finding 5: Add `SQUARE_SECRET` to documented env vars in CLAUDE.md
+- Finding 6: Create `VERIFICATION.md` for Phase 90 using evidence from v1.0 milestone audit
+
+**Plans:** TBD

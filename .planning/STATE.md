@@ -1,17 +1,17 @@
 # Project State
 
-## Current Status: Phase 90 Complete ✓ — Platform Completion & Security Hardening
+## Current Status: Phase 95 Pending — Admin Auth Hardening & Orders Isolation
 ## Current Milestone: 1.0 - Multi-Tenant MVP
-## Current Phase: 90 — Platform Completion & Security Hardening (COMPLETE)
+## Current Phase: 95 — Admin Auth Hardening & Orders Isolation (PENDING)
 ## Last Updated: 2026-02-18
 ## Branch: features/multi-tenant-saas
 
 ## Progress
 
-Phase: 90 of 90 (Platform Completion & Security Hardening)
-Plan: 4 of 4 in Phase 90
-Status: Complete — All 3 audit blockers closed: GAP-4 (admin invite flow), SEC-1 (OAuth CSRF cookie), SEC-2 (Server Action auth guards). Lint warnings resolved. TypeScript build clean.
-Last activity: 2026-02-18 - Phase 90 implemented and committed; all v1.0 audit gaps remediated
+Phase: 95 of 96 (Admin Auth Hardening & Orders Isolation)
+Plan: 0 of TBD in Phase 95
+Status: Planning — Tech debt gap closure phases 95 and 96 added from v1.0 milestone audit. Phase 95 closes cross-tenant write gap on orders PATCH and migrates 6 routes to requireAdminAuth(). Phase 96 closes soft-delete resolution gap, documents SQUARE_SECRET env var, and creates Phase 90 VERIFICATION.md.
+Last activity: 2026-02-18 - Gap closure phases 95 and 96 added to roadmap
 
 Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 complete (7/7 plans), Phase 70 complete (7/7 plans), Phase 80 complete (2/2 plans), Phase 85 complete (4/4 plans), Phase 90 complete (4/4 plans)
 
