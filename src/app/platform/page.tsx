@@ -1,7 +1,6 @@
 import { requirePlatformAdmin } from '@/lib/platform/auth'
 import { createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import Badge from '@/components/ui/Badge'
 
 export default async function PlatformDashboardPage() {
   // Verify platform admin authentication

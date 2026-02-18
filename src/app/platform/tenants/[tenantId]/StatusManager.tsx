@@ -4,6 +4,7 @@ import { useActionState, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Button from '@/components/ui/Button';
 import { changeStatus, deleteTenant } from '../actions';
+import type { ActionState } from '../actions';
 import type { TenantStatus } from '@/lib/tenant/types';
 
 export function StatusManager({
@@ -18,7 +19,7 @@ export function StatusManager({
   const router = useRouter();
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [statusState, statusAction] = useActionState(
-    (prev: any, formData: FormData) =>
+    (prev: ActionState, formData: FormData) =>
       changeStatus(
         tenantId,
         formData.get('status') as 'trial' | 'active' | 'paused' | 'suspended',

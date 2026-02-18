@@ -91,7 +91,7 @@ function MFAEnrollContent() {
             Platform admin access requires multi-factor authentication (MFA). Click below to set up an authenticator app.
           </p>
           <p className="text-sm text-gray-500 mb-6">
-            You'll need an authenticator app like Google Authenticator, Authy, or 1Password to scan a QR code.
+            You&apos;ll need an authenticator app like Google Authenticator, Authy, or 1Password to scan a QR code.
           </p>
           <Button
             onClick={enrollMFA}
@@ -120,6 +120,7 @@ function MFAEnrollContent() {
         </p>
 
         <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={qrCode} alt="MFA QR Code" className="w-full" />
         </div>
 

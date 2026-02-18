@@ -263,7 +263,7 @@ export async function updateTenant(
 export async function changeStatus(
   tenantId: string,
   newStatus: 'trial' | 'active' | 'paused' | 'suspended',
-  prevState: ActionState
+  _prevState: ActionState
 ): Promise<ActionState> {
   // Auth guard (SEC-2)
   const user = await getAuthenticatedPlatformAdmin();
@@ -303,10 +303,11 @@ export async function changeStatus(
     return {
       success: true,
     };
-  } catch (error: any) {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
     return {
       errors: {
-        _form: ['Unexpected error: ' + error.message],
+        _form: ['Unexpected error: ' + message],
       },
     };
   }
@@ -321,7 +322,7 @@ export async function changeStatus(
  */
 export async function deleteTenant(
   tenantId: string,
-  prevState: ActionState
+  _prevState: ActionState
 ): Promise<ActionState> {
   // Auth guard (SEC-2)
   const user = await getAuthenticatedPlatformAdmin();
@@ -371,10 +372,11 @@ export async function deleteTenant(
       success: true,
       deleted: true,
     };
-  } catch (error: any) {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
     return {
       errors: {
-        _form: ['Unexpected error: ' + error.message],
+        _form: ['Unexpected error: ' + message],
       },
     };
   }
@@ -388,7 +390,7 @@ export async function deleteTenant(
  */
 export async function restoreTenant(
   tenantId: string,
-  prevState: ActionState
+  _prevState: ActionState
 ): Promise<ActionState> {
   // Auth guard (SEC-2)
   const user = await getAuthenticatedPlatformAdmin();
@@ -419,10 +421,11 @@ export async function restoreTenant(
     return {
       success: true,
     };
-  } catch (error: any) {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
     return {
       errors: {
-        _form: ['Unexpected error: ' + error.message],
+        _form: ['Unexpected error: ' + message],
       },
     };
   }

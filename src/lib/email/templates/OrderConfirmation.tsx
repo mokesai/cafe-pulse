@@ -39,7 +39,7 @@ export default function OrderConfirmation({
   specialInstructions,
   businessName,
   businessAddress,
-  businessPhone,
+  businessPhone: _businessPhone,
   businessEmail,
   businessHours,
   primaryColor = '#f59e0b',

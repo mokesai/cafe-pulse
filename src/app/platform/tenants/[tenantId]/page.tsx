@@ -3,7 +3,6 @@ import { createServiceClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
-import type { Tenant } from '@/lib/tenant/types';
 import { notFound } from 'next/navigation';
 import { StatusManager } from './StatusManager';
 import { ResendInviteButton } from './ResendInviteButton';

@@ -11,7 +11,7 @@ export default async function ProtectedAdminLayout({
   // This will redirect to /admin/login if not authenticated or not admin of this tenant
   // tenantClient has tenant context set via set_tenant_context RPC
   // All queries using this client benefit from RLS tenant isolation
-  const { user, membership, tenantClient, tenantId } = await requireAdmin()
+  await requireAdmin()
   const tenant = await getTenantIdentity()
 
   return (

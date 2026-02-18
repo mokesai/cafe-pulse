@@ -32,7 +32,7 @@ export default function OrderStatusUpdate({
   customerName,
   businessName,
   businessAddress,
-  businessPhone,
+  businessPhone: _businessPhone,
   businessEmail,
   businessHours,
   primaryColor
