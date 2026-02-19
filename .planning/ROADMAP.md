@@ -219,7 +219,7 @@ Plans:
 
 ---
 
-## Phase 95: Admin Auth Hardening & Orders Isolation
+## Phase 95: Admin Auth Hardening & Orders Isolation ✓
 Tech debt closure from v1.0 audit — Priority 1 items (fix before second tenant onboarding).
 
 **Goal:** Close the cross-tenant write gap on the admin orders API and migrate 6 admin routes from the pre-Phase-50 `profiles.role` auth pattern to `requireAdminAuth()` so admin access is properly tenant-scoped.
@@ -251,4 +251,9 @@ Tech debt closure from v1.0 audit — Priority 2 items (before full multi-tenant
 - Finding 5: Add `SQUARE_SECRET` to documented env vars in CLAUDE.md
 - Finding 6: Create `VERIFICATION.md` for Phase 90 using evidence from v1.0 milestone audit
 
-**Plans:** TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 96-01-PLAN.md — Fix soft-delete tenant resolution (Finding 4)
+- [ ] 96-02-PLAN.md — Document SQUARE_SECRET env var (Finding 5)
+- [ ] 96-03-PLAN.md — Create Phase 90 VERIFICATION.md (Finding 6)
