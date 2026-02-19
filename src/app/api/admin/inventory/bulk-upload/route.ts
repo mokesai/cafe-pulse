@@ -1,16 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-function getSupabaseClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseServiceKey = process.env.SUPABASE_SECRET_KEY
-
-  if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error('Missing Supabase environment variables')
-  }
-
-  return createClient(supabaseUrl, supabaseServiceKey)
-}
+import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 interface InventoryItemInput {
   square_item_id: string
@@ -32,31 +23,20 @@ interface BulkUploadRequest {
   replace?: boolean
 }
 
-async function validateAdminAccess(adminEmail: string) {
-  const supabase = getSupabaseClient()
-  const { data: profile, error } = await supabase
-    .from('profiles')
-    .select('id, email, role')
-    .eq('email', adminEmail)
-    .single()
-
-  if (error || !profile || profile.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
-
-  return profile
-}
-
-async function validateInventoryItems(items: InventoryItemInput[]) {
+async function validateInventoryItems(
+  items: InventoryItemInput[],
+  supabase: ReturnType<typeof createServiceClient>,
+  tenantId: string
+) {
   const errors: string[] = []
   const requiredFields = ['square_item_id', 'item_name']
   const validUnitTypes = ['each', 'lb', 'oz', 'gallon', 'liter', 'ml']
 
-  // Get existing square_item_ids to check for duplicates
-  const supabase = getSupabaseClient()
+  // Get existing square_item_ids to check for duplicates (tenant-scoped)
   const { data: existingItems } = await supabase
     .from('inventory_items')
     .select('square_item_id')
+    .eq('tenant_id', tenantId)
 
   const existingSquareIds = new Set(existingItems?.map(item => item.square_item_id) || [])
   const newSquareIds = new Set()
@@ -113,11 +93,14 @@ async function validateInventoryItems(items: InventoryItemInput[]) {
   }
 }
 
-async function clearExistingInventory() {
-  const supabase = getSupabaseClient()
+async function clearExistingInventory(
+  supabase: ReturnType<typeof createServiceClient>,
+  tenantId: string
+) {
   const { error } = await supabase
     .from('inventory_items')
     .delete()
+    .eq('tenant_id', tenantId)
     .neq('id', '00000000-0000-0000-0000-000000000000') // Delete all records
 
   if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found, which is OK
@@ -125,7 +108,11 @@ async function clearExistingInventory() {
   }
 }
 
-async function insertInventoryItems(items: InventoryItemInput[]) {
+async function insertInventoryItems(
+  items: InventoryItemInput[],
+  supabase: ReturnType<typeof createServiceClient>,
+  tenantId: string
+) {
   // Transform items for database
   const dbItems = items.map(item => ({
     square_item_id: item.square_item_id,
@@ -139,10 +126,10 @@ async function insertInventoryItems(items: InventoryItemInput[]) {
     supplier_id: item.supplier_id || null,
     location: item.location || 'main',
     notes: item.notes || null,
-    last_restocked_at: item.last_restocked_at ? new Date(item.last_restocked_at) : null
+    last_restocked_at: item.last_restocked_at ? new Date(item.last_restocked_at) : null,
+    tenant_id: tenantId,
   }))
 
-  const supabase = getSupabaseClient()
   const { data, error } = await supabase
     .from('inventory_items')
     .insert(dbItems)
@@ -160,7 +147,10 @@ type InsertedInventoryItem = {
   current_stock: number
 }
 
-async function createStockMovements(inventoryItems: InsertedInventoryItem[]) {
+async function createStockMovements(
+  inventoryItems: InsertedInventoryItem[],
+  supabase: ReturnType<typeof createServiceClient>
+) {
   const stockMovements = inventoryItems
     .filter(item => item.current_stock > 0)
     .map(item => ({
@@ -177,7 +167,6 @@ async function createStockMovements(inventoryItems: InsertedInventoryItem[]) {
     return []
   }
 
-  const supabase = getSupabaseClient()
   const { data, error } = await supabase
     .from('stock_movements')
     .insert(stockMovements)
@@ -194,14 +183,13 @@ async function createStockMovements(inventoryItems: InsertedInventoryItem[]) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body: BulkUploadRequest & { adminEmail: string } = await request.json()
+    const authResult = await requireAdminAuth(request)
+    if (!isAdminAuthSuccess(authResult)) return authResult
 
-    if (!body.adminEmail) {
-      return NextResponse.json(
-        { error: 'Admin email is required' },
-        { status: 400 }
-      )
-    }
+    const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
+
+    const body: BulkUploadRequest = await request.json()
 
     if (!body.items || !Array.isArray(body.items) || body.items.length === 0) {
       return NextResponse.json(
@@ -210,22 +198,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate admin access
-    await validateAdminAccess(body.adminEmail)
-
     // Validate inventory items
-    await validateInventoryItems(body.items)
+    await validateInventoryItems(body.items, supabase, tenantId)
 
     // Clear existing inventory if replace mode
     if (body.replace) {
-      await clearExistingInventory()
+      await clearExistingInventory(supabase, tenantId)
     }
 
     // Insert inventory items
-    const insertedItems = await insertInventoryItems(body.items)
+    const insertedItems = await insertInventoryItems(body.items, supabase, tenantId)
 
     // Create stock movements
-    const stockMovements = await createStockMovements(insertedItems)
+    const stockMovements = await createStockMovements(insertedItems, supabase)
 
     // Calculate summary stats
     const stats = {
@@ -246,9 +231,9 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Bulk inventory upload error:', error)
-    
+
     return NextResponse.json(
-      { 
+      {
         error: error instanceof Error ? error.message : 'Unknown error occurred',
         success: false
       },
@@ -261,7 +246,7 @@ export async function GET() {
   return NextResponse.json({
     message: 'Inventory bulk upload API endpoint',
     methods: ['POST'],
-    requiredFields: ['adminEmail', 'items'],
+    requiredFields: ['items'],
     optionalFields: ['replace'],
     itemFields: {
       required: ['square_item_id', 'item_name'],

@@ -1,16 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-function getSupabaseClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseServiceKey = process.env.SUPABASE_SECRET_KEY
-
-  if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error('Missing Supabase environment variables for hybrid sync')
-  }
-
-  return createClient(supabaseUrl, supabaseServiceKey)
-}
+import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
+import { getTenantSquareConfig } from '@/lib/square/config'
+import type { SquareConfig } from '@/lib/square/types'
 
 interface EnrichmentRecord extends Record<string, unknown> {
   square_item_id: string
@@ -67,33 +60,20 @@ type StockMovementPlan = {
 }
 
 interface HybridSyncRequest {
-  adminEmail: string
   dryRun?: boolean
   skipSquareSync?: boolean
   skipEnrichment?: boolean
   enrichmentData?: EnrichmentPayload
 }
 
-async function validateAdminAccess(adminEmail: string) {
-  const supabase = getSupabaseClient()
-  const { data: profile, error } = await supabase
-    .from('profiles')
-    .select('id, email, role')
-    .eq('email', adminEmail)
-    .single()
-
-  if (error || !profile || profile.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
-
-  return profile
-}
-
-async function getInventoryStats() {
-  const supabase = getSupabaseClient()
+async function getInventoryStats(
+  supabase: ReturnType<typeof createServiceClient>,
+  tenantId: string
+) {
   const { data: items, error } = await supabase
     .from('inventory_items')
     .select('id, current_stock, unit_cost, supplier_id')
+    .eq('tenant_id', tenantId)
 
   if (error) {
     console.warn('Warning: Could not fetch inventory stats')
@@ -108,40 +88,76 @@ async function getInventoryStats() {
   }
 }
 
-async function runSquareSync(adminEmail: string, dryRun: boolean) {
+async function runSquareSync(
+  supabase: ReturnType<typeof createServiceClient>,
+  tenantId: string,
+  squareConfig: SquareConfig,
+  dryRun: boolean
+) {
   try {
-    // Call the Square sync API endpoint internally
-    const response = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/admin/inventory/sync-square`, {
+    const SQUARE_VERSION = '2024-12-18'
+    const baseUrl = squareConfig.environment === 'production'
+      ? 'https://connect.squareup.com'
+      : 'https://connect.squareupsandbox.com'
+
+    const catalogResponse = await fetch(`${baseUrl}/v2/catalog/search`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Square-Version': SQUARE_VERSION,
+        'Authorization': `Bearer ${squareConfig.accessToken}`,
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        adminEmail,
-        dryRun
-      })
+      body: JSON.stringify({ object_types: ['ITEM', 'CATEGORY'], include_related_objects: true })
     })
 
-    if (!response.ok) {
-      throw new Error(`Square sync API error: ${response.status}`)
+    if (!catalogResponse.ok) {
+      throw new Error(`Square API error: ${catalogResponse.status}`)
     }
 
-    const result = await response.json()
-    return {
-      success: result.success,
-      summary: result.summary,
-      newItems: result.newItems
+    const catalogData = await catalogResponse.json()
+
+    // Get existing inventory to avoid duplicates (tenant-scoped)
+    const { data: existingItems } = await supabase
+      .from('inventory_items')
+      .select('square_item_id')
+      .eq('tenant_id', tenantId)
+    const existingIds = new Set((existingItems ?? []).map(i => i.square_item_id))
+
+    // Identify new items from catalog
+    const objects = catalogData.objects || []
+    const newItems = objects
+      .filter((obj: { type: string; id: string }) => obj.type === 'ITEM' && !existingIds.has(obj.id))
+      .map((obj: { id: string; item_data?: { name?: string } }) => ({
+        square_item_id: obj.id,
+        item_name: obj.item_data?.name || 'Unknown Item',
+        current_stock: 0,
+        minimum_threshold: 5,
+        reorder_point: 10,
+        unit_cost: 0,
+        unit_type: 'each' as const,
+        is_ingredient: true,
+        location: 'main',
+        notes: 'Synced from Square catalog via hybrid sync',
+        tenant_id: tenantId,
+      }))
+
+    if (!dryRun && newItems.length > 0) {
+      const { error } = await supabase.from('inventory_items').insert(newItems)
+      if (error) throw new Error(`Failed to insert items: ${error.message}`)
     }
+
+    return { success: true, summary: { newItems: newItems.length, dryRun } }
   } catch (error) {
-    console.error('Square sync error:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    }
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }
 }
 
-async function runEnrichmentSync(adminEmail: string, enrichmentData: EnrichmentPayload, dryRun: boolean) {
+async function runEnrichmentSync(
+  supabase: ReturnType<typeof createServiceClient>,
+  tenantId: string,
+  enrichmentData: EnrichmentPayload,
+  dryRun: boolean
+) {
   if (!enrichmentData || !enrichmentData.inventory_enrichments) {
     return {
       success: false,
@@ -150,11 +166,11 @@ async function runEnrichmentSync(adminEmail: string, enrichmentData: EnrichmentP
   }
 
   try {
-    // Get supplier mappings
-    const supabase = getSupabaseClient()
+    // Get supplier mappings (tenant-scoped)
     const { data: suppliers, error: supplierError } = await supabase
       .from('suppliers')
       .select('id, name')
+      .eq('tenant_id', tenantId)
 
     if (supplierError) {
       throw new Error(`Failed to fetch suppliers: ${supplierError.message}`)
@@ -165,10 +181,11 @@ async function runEnrichmentSync(adminEmail: string, enrichmentData: EnrichmentP
       supplierMap[supplier.name] = supplier.id
     })
 
-    // Get existing inventory items
+    // Get existing inventory items (tenant-scoped)
     const { data: itemsData, error: itemsError } = await supabase
       .from('inventory_items')
       .select('id, square_item_id, item_name, unit_cost, current_stock, minimum_threshold, reorder_point, supplier_id, location, notes')
+      .eq('tenant_id', tenantId)
 
     if (itemsError) {
       throw new Error(`Failed to fetch inventory items: ${itemsError.message}`)
@@ -192,7 +209,7 @@ async function runEnrichmentSync(adminEmail: string, enrichmentData: EnrichmentP
 
     enrichmentData.inventory_enrichments.forEach((enrichment) => {
       stats.processed++
-      
+
       const existingItem = itemMap[enrichment.square_item_id]
       if (!existingItem) {
         stats.skipped++
@@ -211,7 +228,7 @@ async function runEnrichmentSync(adminEmail: string, enrichmentData: EnrichmentP
 
       Object.keys(enrichment).forEach(field => {
         if (field === 'square_item_id') return
-        
+
         let dbField = field
         let newValue = enrichment[field]
 
@@ -227,7 +244,7 @@ async function runEnrichmentSync(adminEmail: string, enrichmentData: EnrichmentP
 
         // Apply conflict resolution strategy
         const strategy = fieldStrategies[field] || defaultStrategy
-        
+
         if (strategy === 'square_wins' && ['item_name', 'description'].includes(field)) {
           // Don't update these fields, let Square manage them
           return
@@ -237,12 +254,12 @@ async function runEnrichmentSync(adminEmail: string, enrichmentData: EnrichmentP
         if (existingRecord[dbField] !== newValue) {
           updates_obj[dbField] = newValue
           changes.push(`${field}: ${existingRecord[dbField] || 'null'} → ${newValue}`)
-          
+
           // Track stock changes
           if (field === 'current_stock' && typeof newValue === 'number') {
             const previousStock = existingItem.current_stock || 0
             const stockChange = newValue - previousStock
-            
+
             if (stockChange !== 0) {
               stockMovements.push({
                 inventory_item_id: existingItem.id,
@@ -276,6 +293,7 @@ async function runEnrichmentSync(adminEmail: string, enrichmentData: EnrichmentP
           .from('inventory_items')
           .update(update.updates)
           .eq('id', update.id)
+          .eq('tenant_id', tenantId)
 
         if (error) {
           console.error(`Error updating item:`, error.message)
@@ -305,45 +323,41 @@ async function runEnrichmentSync(adminEmail: string, enrichmentData: EnrichmentP
 
 export async function POST(request: NextRequest) {
   try {
+    const authResult = await requireAdminAuth(request)
+    if (!isAdminAuthSuccess(authResult)) return authResult
+
+    const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
+    const squareConfig = await getTenantSquareConfig(tenantId)
+
     const body: HybridSyncRequest = await request.json()
-
-    if (!body.adminEmail) {
-      return NextResponse.json(
-        { error: 'Admin email is required' },
-        { status: 400 }
-      )
-    }
-
     const dryRun = body.dryRun || false
 
-    // Validate admin access
-    await validateAdminAccess(body.adminEmail)
-
     // Get initial stats
-    const beforeStats = await getInventoryStats()
+    const beforeStats = await getInventoryStats(supabase, tenantId)
 
     let squareResult = null
     let enrichmentResult = null
 
     // Phase 1: Square Catalog Sync
-    if (!body.skipSquareSync) {
-      squareResult = await runSquareSync(body.adminEmail, dryRun)
+    if (!body.skipSquareSync && squareConfig) {
+      squareResult = await runSquareSync(supabase, tenantId, squareConfig, dryRun)
     }
 
     // Phase 2: YAML Enrichment
     if (!body.skipEnrichment && body.enrichmentData) {
-      enrichmentResult = await runEnrichmentSync(body.adminEmail, body.enrichmentData, dryRun)
+      enrichmentResult = await runEnrichmentSync(supabase, tenantId, body.enrichmentData, dryRun)
     }
 
     // Get final stats
-    const afterStats = await getInventoryStats()
+    const afterStats = await getInventoryStats(supabase, tenantId)
 
     const summary = {
       beforeStats,
       afterStats,
       phases: {
         squareSync: {
-          ran: !body.skipSquareSync,
+          ran: !body.skipSquareSync && !!squareConfig,
           result: squareResult
         },
         enrichment: {
@@ -367,9 +381,9 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Hybrid sync error:', error)
-    
+
     return NextResponse.json(
-      { 
+      {
         error: error instanceof Error ? error.message : 'Unknown error occurred',
         success: false
       },
@@ -382,7 +396,7 @@ export async function GET() {
   return NextResponse.json({
     message: 'Hybrid inventory sync API endpoint',
     methods: ['POST'],
-    requiredFields: ['adminEmail'],
+    requiredFields: [],
     optionalFields: ['dryRun', 'skipSquareSync', 'skipEnrichment', 'enrichmentData'],
     description: 'Combines Square catalog sync with YAML enrichment for complete inventory management',
     workflow: [
