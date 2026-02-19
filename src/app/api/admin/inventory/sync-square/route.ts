@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrentTenantId } from '@/lib/tenant/context'
 import { getTenantSquareConfig } from '@/lib/square/config'
+import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
 import type { SquareConfig } from '@/lib/square/types'
 
 const SQUARE_VERSION = '2024-12-18'
 
 interface SquareSyncRequest {
-  adminEmail: string
   dryRun?: boolean
 }
 
@@ -55,20 +55,6 @@ type InventoryInsertResult = {
   id: string
   item_name: string
   current_stock: number
-}
-
-async function validateAdminAccess(supabase: ReturnType<typeof createServiceClient>, adminEmail: string) {
-  const { data: profile, error } = await supabase
-    .from('profiles')
-    .select('id, email, role')
-    .eq('email', adminEmail)
-    .single()
-
-  if (error || !profile || profile.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
-
-  return profile
 }
 
 function getSquareHeaders(config: SquareConfig) {
@@ -131,7 +117,7 @@ async function getExistingInventoryItems(supabase: ReturnType<typeof createServi
 function mapItemToSupplier(item: SquareItem, category: SquareCategory | undefined, suppliers: SupplierRow[]) {
   const itemName = item.item_data?.name?.toLowerCase() || ''
   const categoryName = category?.category_data?.name?.toLowerCase() || ''
-  
+
   // Category-based mapping rules
   const categoryMappings: Record<string, string[]> = {
     'coffee': ['Premium Coffee Roasters'],
@@ -151,7 +137,7 @@ function mapItemToSupplier(item: SquareItem, category: SquareCategory | undefine
     'cups': ['Eco-Friendly Packaging'],
     'supplies': ['Eco-Friendly Packaging']
   }
-  
+
   // Item name pattern mapping
   const itemPatterns: Record<string, string[]> = {
     'coffee': ['Premium Coffee Roasters'],
@@ -212,7 +198,7 @@ function mapItemToSupplier(item: SquareItem, category: SquareCategory | undefine
 // Generate intelligent defaults for inventory fields
 function generateInventoryDefaults(item: SquareItem) {
   const itemName = item.item_data?.name?.toLowerCase() || ''
-  
+
   // Default stock levels based on item type
   let defaultStock = 10
   let minThreshold = 5
@@ -236,7 +222,7 @@ function generateInventoryDefaults(item: SquareItem) {
       location = 'Beverage Station'
     }
   }
-  
+
   // Dairy products
   else if (itemName.includes('milk') || itemName.includes('cream') || itemName.includes('dairy')) {
     if (itemName.includes('milk')) {
@@ -251,7 +237,7 @@ function generateInventoryDefaults(item: SquareItem) {
     }
     location = 'Refrigerator'
   }
-  
+
   // Food ingredients
   else if (itemName.includes('egg') || itemName.includes('bacon') || itemName.includes('tortilla')) {
     if (itemName.includes('egg')) {
@@ -270,7 +256,7 @@ function generateInventoryDefaults(item: SquareItem) {
     }
     location = itemName.includes('egg') || itemName.includes('bacon') ? 'Refrigerator' : 'Dry Storage'
   }
-  
+
   // Finished baked goods
   else if (itemName.includes('muffin') || itemName.includes('cookie') || itemName.includes('croissant')) {
     defaultStock = 24
@@ -279,7 +265,7 @@ function generateInventoryDefaults(item: SquareItem) {
     location = 'Display Case'
     isIngredient = false
   }
-  
+
   // Beverages and bottled items
   else if (itemName.includes('juice') || itemName.includes('water') || itemName.includes('soda')) {
     defaultStock = 24
@@ -288,7 +274,7 @@ function generateInventoryDefaults(item: SquareItem) {
     location = 'Refrigerated Cooler'
     isIngredient = false
   }
-  
+
   // Packaging supplies
   else if (itemName.includes('cup') || itemName.includes('lid') || itemName.includes('bag')) {
     if (itemName.includes('cup')) {
@@ -348,7 +334,7 @@ function processSquareCatalog(
     const category = item.item_data?.category_id ? categories[item.item_data.category_id] : undefined
     const defaults = generateInventoryDefaults(item)
     const supplierId = mapItemToSupplier(item, category, suppliers)
-    
+
     const inventoryItem: InventoryItemInput = {
       square_item_id: item.id,
       item_name: item.item_data?.name || 'Unknown Item',
@@ -414,14 +400,10 @@ async function syncInventoryItems(supabase: ReturnType<typeof createServiceClien
 
 export async function POST(request: NextRequest) {
   try {
-    const body: SquareSyncRequest = await request.json()
+    const authResult = await requireAdminAuth(request)
+    if (!isAdminAuthSuccess(authResult)) return authResult
 
-    if (!body.adminEmail) {
-      return NextResponse.json(
-        { error: 'Admin email is required' },
-        { status: 400 }
-      )
-    }
+    const body: SquareSyncRequest = await request.json()
 
     const dryRun = body.dryRun || false
 
@@ -434,9 +416,6 @@ export async function POST(request: NextRequest) {
 
     // Create per-request Supabase client
     const supabase = createServiceClient()
-
-    // Validate admin access
-    await validateAdminAccess(supabase, body.adminEmail)
 
     // Fetch Square catalog
     const catalogData = await fetchSquareCatalog(squareConfig)
@@ -474,9 +453,9 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Square catalog sync error:', error)
-    
+
     return NextResponse.json(
-      { 
+      {
         error: error instanceof Error ? error.message : 'Unknown error occurred',
         success: false
       },
@@ -489,7 +468,7 @@ export async function GET() {
   return NextResponse.json({
     message: 'Square catalog sync API endpoint',
     methods: ['POST'],
-    requiredFields: ['adminEmail'],
+    requiredFields: [],
     optionalFields: ['dryRun'],
     description: 'Synchronizes Square catalog items with local inventory system',
     features: [

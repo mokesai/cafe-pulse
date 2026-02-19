@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrentTenantId } from '@/lib/tenant/context'
 import { getTenantSquareConfig } from '@/lib/square/config'
+import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
 import type { SquareConfig } from '@/lib/square/types'
 
 const SQUARE_VERSION = '2024-12-18'
 
 interface PushToSquareRequest {
-  adminEmail: string
   itemIds?: string[] // Specific items to push, if not provided push all
   dryRun?: boolean
   pushType?: 'stock_only' | 'full_sync' // stock_only = inventory counts, full_sync = item details too
@@ -26,20 +26,6 @@ type SquareInventoryCount = {
   catalog_object_id: string
   location_id: string
   quantity: string
-}
-
-async function validateAdminAccess(supabase: ReturnType<typeof createServiceClient>, adminEmail: string) {
-  const { data: profile, error } = await supabase
-    .from('profiles')
-    .select('id, email, role')
-    .eq('email', adminEmail)
-    .single()
-
-  if (error || !profile || profile.role !== 'admin') {
-    throw new Error('Admin access required')
-  }
-
-  return profile
 }
 
 function getSquareHeaders(config: SquareConfig) {
@@ -198,7 +184,7 @@ async function syncItemDetailsToSquare(items: InventoryItemToPush[]) {
   // This would update item names, descriptions, etc. in Square
   // For now, we typically let Square be the source of truth for item details
   // This could be implemented if there's a need to push local changes back to Square
-  
+
   return {
     processed: items.length,
     updated: 0,
@@ -208,14 +194,10 @@ async function syncItemDetailsToSquare(items: InventoryItemToPush[]) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body: PushToSquareRequest = await request.json()
+    const authResult = await requireAdminAuth(request)
+    if (!isAdminAuthSuccess(authResult)) return authResult
 
-    if (!body.adminEmail) {
-      return NextResponse.json(
-        { error: 'Admin email is required' },
-        { status: 400 }
-      )
-    }
+    const body: PushToSquareRequest = await request.json()
 
     const dryRun = body.dryRun || false
     const pushType = body.pushType || 'stock_only'
@@ -229,9 +211,6 @@ export async function POST(request: NextRequest) {
 
     // Create per-request Supabase client
     const supabase = createServiceClient()
-
-    // Validate admin access
-    await validateAdminAccess(supabase, body.adminEmail)
 
     // Get inventory items to push
     const items = await getInventoryItemsToPush(supabase, tenantId, body.itemIds)
@@ -278,9 +257,9 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Push to Square error:', error)
-    
+
     return NextResponse.json(
-      { 
+      {
         error: error instanceof Error ? error.message : 'Unknown error occurred',
         success: false
       },
@@ -293,7 +272,7 @@ export async function GET() {
   return NextResponse.json({
     message: 'Push inventory data to Square API endpoint',
     methods: ['POST'],
-    requiredFields: ['adminEmail'],
+    requiredFields: [],
     optionalFields: ['itemIds', 'dryRun', 'pushType'],
     description: 'Pushes local inventory data back to Square for bidirectional sync',
     pushTypes: {
