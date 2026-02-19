@@ -1,19 +1,19 @@
 # Project State
 
-## Current Status: Phase 96 Pending — Tenant Resolution Hardening & Documentation
+## Current Status: Phase 96 In Progress — Tenant Resolution Hardening & Documentation
 ## Current Milestone: 1.0 - Multi-Tenant MVP
-## Current Phase: 96 — Tenant Resolution Hardening & Documentation (PENDING)
-## Last Updated: 2026-02-19
+## Current Phase: 96 — Tenant Resolution Hardening & Documentation (IN PROGRESS)
+## Last Updated: 2026-02-18
 ## Branch: features/multi-tenant-saas
 
 ## Progress
 
 Phase: 96 of 96 (Tenant Resolution Hardening & Documentation)
 Plan: 1 of 3 in Phase 96
-Status: In progress — Completed 96-02-PLAN.md (SQUARE_SECRET documentation)
-Last activity: 2026-02-19 - Completed 96-02-PLAN.md
+Status: In progress — Completed 96-01-PLAN.md (soft-delete tenant resolution hardening)
+Last activity: 2026-02-18 - Completed 96-01-PLAN.md
 
-Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 complete (7/7 plans), Phase 70 complete (7/7 plans), Phase 80 complete (2/2 plans), Phase 85 complete (4/4 plans), Phase 90 complete (4/4 plans), Phase 95 complete (3/3 plans)
+Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 complete (7/7 plans), Phase 70 complete (7/7 plans), Phase 80 complete (2/2 plans), Phase 85 complete (4/4 plans), Phase 90 complete (4/4 plans), Phase 95 complete (3/3 plans), Phase 96: 1/3 plans complete
 
 ## Completed
 - [x] PROJECT.md created
@@ -89,6 +89,9 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - [x] 95-02: Dashboard/stats, push-to-square, sync-square auth migration — requireAdminAuth() replaces profiles.role inline check (stats) and validateAdminAccess(email) pattern (push-to-square, sync-square); adminEmail removed from request interfaces; TypeScript clean
 - [x] 95-03: Bulk-upload and hybrid-sync auth migration — requireAdminAuth() replaces validateAdminAccess(email) in both routes; local getSupabaseClient() removed; tenant_id added to all inventory_items INSERTs; all SELECT/UPDATE/DELETE queries tenant-scoped; hybrid-sync HTTP self-call to sync-square replaced with inline Square catalog API call using getTenantSquareConfig(); TypeScript clean
 - [x] Phase 95 verified — 14/14 must-haves passed. All 6 routes migrated to requireAdminAuth(). Orders PATCH + GET count tenant-scoped. bulk-upload INSERTs stamped with tenant_id. hybrid-sync inlines sync logic (no HTTP self-call). TypeScript build clean.
+- [x] 96-01: Soft-delete tenant resolution fix — resolveTenant() enhanced to filter .is('deleted_at', null); middleware returns 404 for soft-deleted tenants; getTenantSquareConfig() throws for deleted tenants; all 3 tenant resolution points hardened
+- [x] 96-02: SQUARE_SECRET documentation — CLAUDE.md "Required .env.local variables" section updated to include SQUARE_SECRET with description; closes v1.0 audit Finding 5
+- [x] 96-03: Phase 90 VERIFICATION.md — Formal verification document created from v1.0 audit evidence; 12/12 truths verified (GAP-4, SEC-1, SEC-2); canonical format matching Phase 95/85; closes v1.0 audit Finding 6
 - [x] Phase 96 planned — 3 plans in Wave 1 (soft-delete tenant resolution fix, SQUARE_SECRET env var doc, Phase 90 VERIFICATION.md)
 - [x] 96-02: SQUARE_SECRET environment variable documentation — Added SQUARE_SECRET to CLAUDE.md Environment Setup section; expanded Square env vars to individual bullet points; description identifies it as OAuth application secret required for OAuth callback route; closes Finding 5 from v1.0 audit
 - [x] Phase 85 planned — 4 plans across 3 waves (KDS, COGS, Operational, App code fixes)
@@ -228,8 +231,8 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 ## Session Continuity
 
 Last session: 2026-02-19
-Stopped at: Completed 96-02-PLAN.md — SQUARE_SECRET environment variable documentation
+Stopped at: Completed 96-03-PLAN.md — Phase 90 VERIFICATION.md creation
 Resume file: None
 
 ## Next Action
-Continue Phase 96 with remaining plans. Next: 96-01 (soft-delete tenant resolution fix) or 96-03 (Phase 90 VERIFICATION.md creation).
+Phase 96 complete (all 3 plans executed: 96-01 soft-delete tenant resolution, 96-02 SQUARE_SECRET documentation, 96-03 Phase 90 VERIFICATION.md). Ready for Phase 96 verification and v1.0 milestone completion.
