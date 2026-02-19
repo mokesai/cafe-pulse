@@ -10,8 +10,8 @@
 
 Phase: 95 of 96 (Admin Auth Hardening & Orders Isolation)
 Plan: 1 of TBD in Phase 95
-Status: In progress — 95-01 complete (orders route auth migration + tenant scoping). Cross-tenant write gap on orders PATCH closed. GET count query now tenant-scoped. Both handlers use requireAdminAuth().
-Last activity: 2026-02-19 - Completed 95-01 orders route auth migration
+Status: In progress — 95-02 complete (dashboard/stats, push-to-square, sync-square auth migration). validateAdminAccess(email) pattern eliminated from all 3 routes. All 3 use requireAdminAuth().
+Last activity: 2026-02-19 - Completed 95-02 dashboard/stats, push-to-square, sync-square auth migration
 
 Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 complete (7/7 plans), Phase 70 complete (7/7 plans), Phase 80 complete (2/2 plans), Phase 85 complete (4/4 plans), Phase 90 complete (4/4 plans)
 
@@ -86,6 +86,7 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - [x] Phase 85 verified — 18/18 must-haves passed; GAP-2 from v1.0 audit fully remediated; all composite (tenant_id, field) constraints live on 13 tables; app code and scripts updated
 - [x] Phase 90 implemented — GAP-4 (inviteUserByEmail admin onboarding), SEC-1 (Square OAuth CSRF cookie verification), SEC-2 (isPlatformAdmin guard on all 5 Server Actions); tenant_pending_invites table + deleted_at on tenant_memberships; first-login membership claim in requireAdmin(); lint warnings resolved; TypeScript build clean
 - [x] 95-01: Orders route auth migration — requireAdminAuth() replaces profiles.role in GET and PATCH; GET count query tenant-scoped; PATCH UPDATE has .eq('tenant_id', tenantId) preventing cross-tenant writes; 404 returned when order not found in tenant
+- [x] 95-02: Dashboard/stats, push-to-square, sync-square auth migration — requireAdminAuth() replaces profiles.role inline check (stats) and validateAdminAccess(email) pattern (push-to-square, sync-square); adminEmail removed from request interfaces; TypeScript clean
 - [x] Phase 85 planned — 4 plans across 3 waves (KDS, COGS, Operational, App code fixes)
 - [x] 85-01: KDS domain composite constraints — kds_settings, kds_images, kds_menu_items single-column UNIQUEs replaced with composite (tenant_id, field) constraints
 - [x] 85-02: COGS/Square domain composite constraints — cogs_products (×2), cogs_sellables, cogs_sellable_aliases, cogs_modifier_sets, cogs_modifier_options single-column UNIQUEs replaced with composite (tenant_id, field) constraints
@@ -222,8 +223,8 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 ## Session Continuity
 
 Last session: 2026-02-19
-Stopped at: Completed 95-01-PLAN.md — orders route auth migration and tenant scoping
+Stopped at: Completed 95-02-PLAN.md — dashboard/stats, push-to-square, sync-square auth migration
 Resume file: None
 
 ## Next Action
-Continue Phase 95 with remaining admin route auth migrations (95-02 onward). Pattern established: requireAdminAuth() + authResult.tenantId + .eq('tenant_id', tenantId) on UPDATE/DELETE.
+Continue Phase 95 with remaining admin route auth migrations (95-03 onward). Pattern established: requireAdminAuth() replaces all legacy auth (profiles.role inline, validateAdminAccess(email)).
