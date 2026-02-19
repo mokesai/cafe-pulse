@@ -1,19 +1,19 @@
 # Project State
 
-## Current Status: Phase 95 In Progress — Admin Auth Hardening & Orders Isolation
+## Current Status: Phase 96 Pending — Tenant Resolution Hardening & Documentation
 ## Current Milestone: 1.0 - Multi-Tenant MVP
-## Current Phase: 95 — Admin Auth Hardening & Orders Isolation (IN PROGRESS)
+## Current Phase: 96 — Tenant Resolution Hardening & Documentation (PENDING)
 ## Last Updated: 2026-02-19
 ## Branch: features/multi-tenant-saas
 
 ## Progress
 
-Phase: 95 of 96 (Admin Auth Hardening & Orders Isolation)
-Plan: 3 of TBD in Phase 95
-Status: In progress — 95-03 complete (bulk-upload and hybrid-sync auth migration). requireAdminAuth() replaces validateAdminAccess(email) in both routes. tenant_id on all INSERTs. hybrid-sync HTTP self-call eliminated.
-Last activity: 2026-02-19 - Completed 95-03 bulk-upload and hybrid-sync auth migration
+Phase: 96 of 96 (Tenant Resolution Hardening & Documentation)
+Plan: 0 of TBD in Phase 96
+Status: Planning — Phase 95 complete. Ready to execute Phase 96 (soft-delete tenant resolution fix, SQUARE_SECRET env var doc, Phase 90 VERIFICATION.md).
+Last activity: 2026-02-19 - Phase 95 verified complete (14/14 must-haves)
 
-Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 complete (7/7 plans), Phase 70 complete (7/7 plans), Phase 80 complete (2/2 plans), Phase 85 complete (4/4 plans), Phase 90 complete (4/4 plans)
+Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 complete (7/7 plans), Phase 70 complete (7/7 plans), Phase 80 complete (2/2 plans), Phase 85 complete (4/4 plans), Phase 90 complete (4/4 plans), Phase 95 complete (3/3 plans)
 
 ## Completed
 - [x] PROJECT.md created
@@ -88,6 +88,7 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - [x] 95-01: Orders route auth migration — requireAdminAuth() replaces profiles.role in GET and PATCH; GET count query tenant-scoped; PATCH UPDATE has .eq('tenant_id', tenantId) preventing cross-tenant writes; 404 returned when order not found in tenant
 - [x] 95-02: Dashboard/stats, push-to-square, sync-square auth migration — requireAdminAuth() replaces profiles.role inline check (stats) and validateAdminAccess(email) pattern (push-to-square, sync-square); adminEmail removed from request interfaces; TypeScript clean
 - [x] 95-03: Bulk-upload and hybrid-sync auth migration — requireAdminAuth() replaces validateAdminAccess(email) in both routes; local getSupabaseClient() removed; tenant_id added to all inventory_items INSERTs; all SELECT/UPDATE/DELETE queries tenant-scoped; hybrid-sync HTTP self-call to sync-square replaced with inline Square catalog API call using getTenantSquareConfig(); TypeScript clean
+- [x] Phase 95 verified — 14/14 must-haves passed. All 6 routes migrated to requireAdminAuth(). Orders PATCH + GET count tenant-scoped. bulk-upload INSERTs stamped with tenant_id. hybrid-sync inlines sync logic (no HTTP self-call). TypeScript build clean.
 - [x] Phase 85 planned — 4 plans across 3 waves (KDS, COGS, Operational, App code fixes)
 - [x] 85-01: KDS domain composite constraints — kds_settings, kds_images, kds_menu_items single-column UNIQUEs replaced with composite (tenant_id, field) constraints
 - [x] 85-02: COGS/Square domain composite constraints — cogs_products (×2), cogs_sellables, cogs_sellable_aliases, cogs_modifier_sets, cogs_modifier_options single-column UNIQUEs replaced with composite (tenant_id, field) constraints

@@ -233,9 +233,11 @@ Tech debt closure from v1.0 audit — Priority 1 items (fix before second tenant
 **Plans:** 3 plans in 2 waves
 
 Plans:
-- [ ] 95-01-PLAN.md — orders route: auth migration + .eq('tenant_id', tenantId) on GET count + PATCH UPDATE
-- [ ] 95-02-PLAN.md — dashboard/stats, push-to-square, sync-square: auth migration (Wave 1, parallel with 95-01)
-- [ ] 95-03-PLAN.md — bulk-upload + hybrid-sync: auth migration, tenant_id on INSERT, inline sync logic (Wave 2)
+- [x] 95-01-PLAN.md — orders route: auth migration + .eq('tenant_id', tenantId) on GET count + PATCH UPDATE
+- [x] 95-02-PLAN.md — dashboard/stats, push-to-square, sync-square: auth migration (Wave 1, parallel with 95-01)
+- [x] 95-03-PLAN.md — bulk-upload + hybrid-sync: auth migration, tenant_id on INSERT, inline sync logic (Wave 2)
+
+**Verified:** 14/14 must-haves passed. All 6 routes migrated to requireAdminAuth(). Orders PATCH and GET count tenant-scoped. bulk-upload INSERTs stamped with tenant_id. hybrid-sync inlines sync logic (no HTTP self-call). TypeScript build clean.
 
 ---
 
