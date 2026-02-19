@@ -254,6 +254,8 @@ Tech debt closure from v1.0 audit — Priority 2 items (before full multi-tenant
 **Plans:** 3 plans
 
 Plans:
-- [ ] 96-01-PLAN.md — Fix soft-delete tenant resolution (Finding 4)
-- [ ] 96-02-PLAN.md — Document SQUARE_SECRET env var (Finding 5)
-- [ ] 96-03-PLAN.md — Create Phase 90 VERIFICATION.md (Finding 6)
+- [x] 96-01-PLAN.md — Fix soft-delete tenant resolution (Finding 4)
+- [x] 96-02-PLAN.md — Document SQUARE_SECRET env var (Finding 5)
+- [x] 96-03-PLAN.md — Create Phase 90 VERIFICATION.md (Finding 6)
+
+**Verified:** 17/17 must-haves passed. All Priority 2 findings from v1.0 audit resolved. Soft-deleted tenants cannot be resolved. SQUARE_SECRET documented. Phase 90 formal verification complete. TypeScript build clean.
