@@ -9,9 +9,9 @@
 ## Progress
 
 Phase: 96 of 96 (Tenant Resolution Hardening & Documentation)
-Plan: 0 of TBD in Phase 96
-Status: Planning — Phase 95 complete. Ready to execute Phase 96 (soft-delete tenant resolution fix, SQUARE_SECRET env var doc, Phase 90 VERIFICATION.md).
-Last activity: 2026-02-19 - Phase 95 verified complete (14/14 must-haves)
+Plan: 1 of 3 in Phase 96
+Status: In progress — Completed 96-02-PLAN.md (SQUARE_SECRET documentation)
+Last activity: 2026-02-19 - Completed 96-02-PLAN.md
 
 Progress: ██████████ Phase 10 complete, Phase 20 complete, Phase 30 complete, Phase 40 complete (13/13 plans), Phase 50 complete (6/6 plans), Phase 50.1 complete (1/1 plan), Phase 60 complete (7/7 plans), Phase 70 complete (7/7 plans), Phase 80 complete (2/2 plans), Phase 85 complete (4/4 plans), Phase 90 complete (4/4 plans), Phase 95 complete (3/3 plans)
 
@@ -89,6 +89,8 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - [x] 95-02: Dashboard/stats, push-to-square, sync-square auth migration — requireAdminAuth() replaces profiles.role inline check (stats) and validateAdminAccess(email) pattern (push-to-square, sync-square); adminEmail removed from request interfaces; TypeScript clean
 - [x] 95-03: Bulk-upload and hybrid-sync auth migration — requireAdminAuth() replaces validateAdminAccess(email) in both routes; local getSupabaseClient() removed; tenant_id added to all inventory_items INSERTs; all SELECT/UPDATE/DELETE queries tenant-scoped; hybrid-sync HTTP self-call to sync-square replaced with inline Square catalog API call using getTenantSquareConfig(); TypeScript clean
 - [x] Phase 95 verified — 14/14 must-haves passed. All 6 routes migrated to requireAdminAuth(). Orders PATCH + GET count tenant-scoped. bulk-upload INSERTs stamped with tenant_id. hybrid-sync inlines sync logic (no HTTP self-call). TypeScript build clean.
+- [x] Phase 96 planned — 3 plans in Wave 1 (soft-delete tenant resolution fix, SQUARE_SECRET env var doc, Phase 90 VERIFICATION.md)
+- [x] 96-02: SQUARE_SECRET environment variable documentation — Added SQUARE_SECRET to CLAUDE.md Environment Setup section; expanded Square env vars to individual bullet points; description identifies it as OAuth application secret required for OAuth callback route; closes Finding 5 from v1.0 audit
 - [x] Phase 85 planned — 4 plans across 3 waves (KDS, COGS, Operational, App code fixes)
 - [x] 85-01: KDS domain composite constraints — kds_settings, kds_images, kds_menu_items single-column UNIQUEs replaced with composite (tenant_id, field) constraints
 - [x] 85-02: COGS/Square domain composite constraints — cogs_products (×2), cogs_sellables, cogs_sellable_aliases, cogs_modifier_sets, cogs_modifier_options single-column UNIQUEs replaced with composite (tenant_id, field) constraints
@@ -96,6 +98,7 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 - [x] 85-04: App-layer ON CONFLICT clause updates — 5 files updated with composite onConflict strings matching 85-01/02/03 DB constraints; 3 scripts (seed-cogs-recipes, simulate-cogs-sales, import-kds-menu-from-sheets) gain tenant_id in upsert payloads via DEFAULT_TENANT_ID constant; TypeScript build clean
 
 ### Decisions Made
+- **Expanded Square env vars to individual bullet points (96-02)**: Single-line format (VAR1 / VAR2 / VAR3) was hard to scan and update; each Square var now has its own line with inline description for clarity and maintainability
 - **DEFAULT_TENANT_ID constant in scripts (85-04)**: Scripts (seed-cogs-recipes, simulate-cogs-sales, import-kds-menu-from-sheets) use hardcoded default tenant UUID for upsert payloads; full CLI tenant resolution unnecessary for single-tenant seeding scripts
 - **tenantId as default parameter on script helper functions (85-04)**: seedModifierRecipes and seedCogsCatalogForSimulator accept tenantId with DEFAULT_TENANT_ID default; preserves backward-compatible call sites while making tenant scope explicit
 - **inventory_unit_types name constraint skipped (85-03)**: Research doc listed inventory_unit_types_name_key as existing but original CREATE TABLE defined `name text not null` without UNIQUE; no constraint to replace; plan said "replace" not "add new", consistent with not adding inventory_items item_name constraint (Phase 85-03)
@@ -225,8 +228,8 @@ Progress: ██████████ Phase 10 complete, Phase 20 complete, P
 ## Session Continuity
 
 Last session: 2026-02-19
-Stopped at: Completed 95-03-PLAN.md — bulk-upload and hybrid-sync auth migration
+Stopped at: Completed 96-02-PLAN.md — SQUARE_SECRET environment variable documentation
 Resume file: None
 
 ## Next Action
-Continue Phase 95 with remaining admin route auth migrations (95-04 onward). Pattern established: requireAdminAuth() replaces all legacy auth (profiles.role inline, validateAdminAccess(email)). Helper functions accept (supabase, tenantId) parameters. HTTP self-calls eliminated.
+Continue Phase 96 with remaining plans. Next: 96-01 (soft-delete tenant resolution fix) or 96-03 (Phase 90 VERIFICATION.md creation).
