@@ -27,6 +27,7 @@ export async function resolveTenantBySlug(slug: string): Promise<Tenant | null> 
     .select('*')
     .eq('slug', slug)
     .eq('is_active', true)
+    .is('deleted_at', null)
     .single()
 
   if (error || !data) return null

@@ -340,6 +340,7 @@ export async function deleteTenant(
       .update({
         deleted_at: now,
         status: 'deleted',
+        is_active: false,
       })
       .eq('id', tenantId);
 
