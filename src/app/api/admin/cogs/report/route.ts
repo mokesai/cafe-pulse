@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 function parseIso(value: string | null): Date | null {
   if (!value) return null
@@ -182,9 +182,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'end_at must be after start_at' }, { status: 400 })
   }
 
-  // Get tenant ID from cookie
-  const cookieStore = await cookies()
-  const tenantId = cookieStore.get('x-tenant-id')?.value || '00000000-0000-0000-0000-000000000001'
+  // Get tenant ID
+  const tenantId = await getCurrentTenantId()
 
   const supabase = createServiceClient()
 

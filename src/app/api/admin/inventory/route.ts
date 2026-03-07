@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
 import { createServiceClient } from '@/lib/supabase/server'
-import { cookies } from 'next/headers'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,9 +16,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const includeArchived = searchParams.get('includeArchived') === '1'
 
-    // Get tenant ID from cookie
-    const cookieStore = await cookies()
-    const tenantId = cookieStore.get('x-tenant-id')?.value || '00000000-0000-0000-0000-000000000001'
+    // Get tenant ID
+    const tenantId = await getCurrentTenantId()
 
     // Fetch inventory items with supplier information (excluding archived)
     let query = supabase

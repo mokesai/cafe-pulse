@@ -3,8 +3,11 @@
 import Navigation from '@/components/Navigation'
 import Breadcrumbs from '@/components/layout/Breadcrumbs'
 import Link from 'next/link'
+import { useTenant } from '@/providers/TenantProvider'
 
 export default function Auth() {
+  const tenant = useTenant()
+  const tenantName = tenant.business_name || tenant.name
   return (
     <main className="min-h-screen">
       <Navigation />
@@ -45,13 +48,13 @@ export default function Auth() {
       {/* Footer */}
       <footer className="bg-gray-900 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h3 className="text-2xl font-bold text-amber-400 mb-4">Little Cafe</h3>
+          <h3 className="text-2xl font-bold text-amber-400 mb-4">{tenantName}</h3>
           <p className="text-gray-400 mb-6">
             Where every cup tells a story. Thank you for being part of our community.
           </p>
           <div className="border-t border-gray-800 pt-6">
             <p className="text-gray-400 text-sm">
-              © 2024 Little Cafe. All rights reserved.
+              © {new Date().getFullYear()} {tenantName}. All rights reserved.
             </p>
           </div>
         </div>

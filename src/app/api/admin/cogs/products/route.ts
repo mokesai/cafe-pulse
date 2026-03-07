@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
-import { cookies } from 'next/headers'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 function normalizeText(value: unknown) {
   return typeof value === 'string' ? value.trim() : ''
@@ -14,9 +14,8 @@ export async function GET(request: NextRequest) {
   const url = new URL(request.url)
   const includeInactive = url.searchParams.get('includeInactive') === '1'
 
-  // Get tenant ID from cookie
-  const cookieStore = await cookies()
-  const tenantId = cookieStore.get('x-tenant-id')?.value || '00000000-0000-0000-0000-000000000001'
+  // Get tenant ID
+  const tenantId = await getCurrentTenantId()
 
   const supabase = createServiceClient()
   let query = supabase
@@ -55,9 +54,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'square_item_id and name are required' }, { status: 400 })
   }
 
-  // Get tenant ID from cookie
-  const cookieStore = await cookies()
-  const tenantId = cookieStore.get('x-tenant-id')?.value || '00000000-0000-0000-0000-000000000001'
+  // Get tenant ID
+  const tenantId = await getCurrentTenantId()
 
   const supabase = createServiceClient()
   const { data, error } = await supabase

@@ -65,16 +65,28 @@ export async function GET(request: Request) {
         ? 'https://connect.squareup.com'
         : 'https://connect.squareupsandbox.com'
 
-    // Build authorization URL
+    // Build authorization URL with redirect_uri
+    const callbackUrl = new URL('/api/platform/square-oauth/callback', request.url)
+
     const authParams = new URLSearchParams({
       client_id: process.env.SQUARE_APPLICATION_ID,
       scope:
         'MERCHANT_PROFILE_READ PAYMENTS_WRITE ORDERS_WRITE ITEMS_READ INVENTORY_READ',
       session: 'false',
       state,
+      redirect_uri: callbackUrl.toString(),
     })
 
     const authUrl = `${baseUrl}/oauth2/authorize?${authParams.toString()}`
+
+    // Debug: Log OAuth URL (remove after testing)
+    console.log('🔗 Square OAuth URL:', authUrl)
+    console.log('📋 OAuth Parameters:', {
+      client_id: process.env.SQUARE_APPLICATION_ID,
+      redirect_uri: callbackUrl.toString(),
+      environment,
+      tenant_id: tenantId,
+    })
 
     // Redirect to Square OAuth and set CSRF cookie (SEC-1)
     const response = NextResponse.redirect(authUrl)

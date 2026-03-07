@@ -13,6 +13,7 @@ import { useSquareCartTotals } from '@/hooks/useSquareCartTotals'
 import { createClient } from '@/lib/supabase/client'
 import { createClientDatabaseHelpers } from '@/lib/supabase/database-client'
 import { toast } from 'react-hot-toast'
+import { useTenant } from '@/providers/TenantProvider'
 
 interface CustomerInfo {
   name: string
@@ -21,6 +22,8 @@ interface CustomerInfo {
 }
 
 export default function CheckoutPage() {
+  const tenant = useTenant()
+  const tenantName = tenant.business_name || tenant.name
   const router = useRouter()
   const { cart, itemCount, isEmpty } = useCartState()
   const squareTotals = useSquareCartTotals(cart?.items || null)
@@ -371,9 +374,8 @@ export default function CheckoutPage() {
                 <div className="flex items-start space-x-3">
                   <MapPin className="text-primary-600 mt-0.5" size={16} />
                   <div className="text-sm">
-                    <p className="font-medium text-primary-800">Little Cafe</p>
-                    <p className="text-primary-600">10400 E Alameda Ave, Denver, CO</p>
-                    <p className="text-primary-600">Hours: 8AM-6PM Mon-Fri</p>
+                    <p className="font-medium text-primary-800">{tenantName}</p>
+                    {tenant.business_address && <p className="text-primary-600">{tenant.business_address}</p>}
                   </div>
                 </div>
               </div>

@@ -3,7 +3,7 @@ import { requireAdminAuth } from '@/lib/admin/middleware'
 import type { AdminAuthSuccess } from '@/lib/admin/middleware'
 import { createServiceClient } from '@/lib/supabase/server'
 import { canonicalStatus, insertStatusHistory } from './status-utils'
-import { cookies } from 'next/headers'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 interface SupplierProfileInfo {
   full_name?: string | null
@@ -98,9 +98,8 @@ export async function GET(request: NextRequest) {
 
     const supabase = createServiceClient()
 
-    // Get tenant ID from cookie
-    const cookieStore = await cookies()
-    const tenantId = cookieStore.get('x-tenant-id')?.value || '00000000-0000-0000-0000-000000000001'
+    // Get tenant ID
+    const tenantId = await getCurrentTenantId()
 
     // Build query with supplier information
     let query = supabase
@@ -314,9 +313,8 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServiceClient()
 
-    // Get tenant ID from cookie
-    const cookieStore = await cookies()
-    const tenantId = cookieStore.get('x-tenant-id')?.value || '00000000-0000-0000-0000-000000000001'
+    // Get tenant ID
+    const tenantId = await getCurrentTenantId()
 
     // Fetch pack sizes from inventory for missing values
     const inventoryIds = Array.from(new Set(itemInputs.map(item => item.inventory_item_id).filter(Boolean)))

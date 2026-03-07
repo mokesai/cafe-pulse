@@ -101,12 +101,7 @@ export async function createTenantClient(tenantId: string) {
  * has already been set by middleware.
  */
 export async function createCurrentTenantClient() {
-  const cookieStore = await cookies()
-  const tenantId = cookieStore.get('x-tenant-id')?.value
-  if (!tenantId) {
-    // Fall back to default tenant
-    const { DEFAULT_TENANT_ID } = await import('@/lib/tenant/types')
-    return createTenantClient(DEFAULT_TENANT_ID)
-  }
+  const { getCurrentTenantId } = await import('@/lib/tenant/context')
+  const tenantId = await getCurrentTenantId()
   return createTenantClient(tenantId)
 }

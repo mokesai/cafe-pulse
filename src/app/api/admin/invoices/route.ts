@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
 import { createServiceClient } from '@/lib/supabase/server'
-import { cookies } from 'next/headers'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 type TextQueue =
   | 'all'
@@ -77,9 +77,8 @@ export async function GET(request: NextRequest) {
 
     const supabase = createServiceClient()
 
-    // Get tenant ID from cookie
-    const cookieStore = await cookies()
-    const tenantId = cookieStore.get('x-tenant-id')?.value || '00000000-0000-0000-0000-000000000001'
+    // Get tenant ID
+    const tenantId = await getCurrentTenantId()
     const filters: FilterParams = { status, supplier_id, start_date, end_date }
 
     const columns = `
@@ -132,14 +131,17 @@ export async function GET(request: NextRequest) {
       supabase
         .from('invoices')
         .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
         .in('status', ['uploaded', 'parsing', 'parsed', 'reviewing']),
       supabase
         .from('invoices')
         .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
         .eq('status', 'confirmed'),
       supabase
         .from('invoices')
         .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
         .eq('status', 'error')
     ])
 
@@ -150,6 +152,7 @@ export async function GET(request: NextRequest) {
         let queueQuery = supabase
           .from('invoices')
           .select('*', { count: 'exact', head: true })
+          .eq('tenant_id', tenantId)
         queueQuery = applyBaseFilters(queueQuery, filters)
         queueQuery = applyTextQueueFilter(queueQuery, queueId)
         const { count } = await queueQuery
@@ -217,9 +220,8 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServiceClient()
 
-    // Get tenant ID from cookie
-    const cookieStore = await cookies()
-    const tenantId = cookieStore.get('x-tenant-id')?.value || '00000000-0000-0000-0000-000000000001'
+    // Get tenant ID
+    const tenantId = await getCurrentTenantId()
 
     // Check for duplicate invoice
     const { data: existingInvoice } = await supabase

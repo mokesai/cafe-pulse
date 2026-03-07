@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 interface OrderUpdatePayload {
   status: string
@@ -25,9 +25,8 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
 
-    // Get tenant ID from cookie
-    const cookieStore = await cookies()
-    const tenantId = cookieStore.get('x-tenant-id')?.value || '00000000-0000-0000-0000-000000000001'
+    // Get tenant ID
+    const tenantId = await getCurrentTenantId()
 
     // Build query - fetch orders and order_items, handle profiles separately
     let query = supabase

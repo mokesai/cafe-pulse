@@ -2,7 +2,7 @@
 // Provides functions to resolve tenants by slug, read tenant from cookies,
 // and extract subdomains from Host headers.
 
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 
 import { createServiceClient } from '@/lib/supabase/server'
 
@@ -38,23 +38,47 @@ export async function resolveTenantBySlug(slug: string): Promise<Tenant | null> 
 }
 
 /**
- * Read the current tenant ID from the request cookie.
- * Falls back to DEFAULT_TENANT_ID when no cookie is set.
+ * Read the current tenant ID.
+ * Checks the cookie first (set by middleware on prior requests).
+ * Falls back to resolving from the Host header subdomain (handles the case
+ * where middleware sets the cookie on the response but cookies() in server
+ * components only sees the incoming request cookies).
  * Only works in Server Components and API routes (NOT middleware).
  */
 export async function getCurrentTenantId(): Promise<string> {
   const cookieStore = await cookies()
-  return cookieStore.get('x-tenant-id')?.value ?? DEFAULT_TENANT_ID
+  const cookieValue = cookieStore.get('x-tenant-id')?.value
+  if (cookieValue) return cookieValue
+
+  // Cookie not set yet — resolve from Host header directly
+  return (await resolveFromHost())?.id ?? DEFAULT_TENANT_ID
 }
 
 /**
- * Read the current tenant slug from the request cookie.
- * Falls back to DEFAULT_TENANT_SLUG when no cookie is set.
+ * Read the current tenant slug.
+ * Same fallback strategy as getCurrentTenantId().
  * Only works in Server Components and API routes (NOT middleware).
  */
 export async function getCurrentTenantSlug(): Promise<string> {
   const cookieStore = await cookies()
-  return cookieStore.get('x-tenant-slug')?.value ?? DEFAULT_TENANT_SLUG
+  const cookieValue = cookieStore.get('x-tenant-slug')?.value
+  if (cookieValue) return cookieValue
+
+  // Cookie not set yet — resolve from Host header directly
+  return (await resolveFromHost())?.slug ?? DEFAULT_TENANT_SLUG
+}
+
+/**
+ * Resolve tenant from the Host header subdomain.
+ * Used as a fallback when the middleware cookie isn't visible to server components.
+ * Uses the same in-memory cache as resolveTenantBySlug (no extra DB queries).
+ */
+async function resolveFromHost(): Promise<Tenant | null> {
+  const headerStore = await headers()
+  const host = headerStore.get('host') || ''
+  const slug = extractSubdomain(host)
+  if (!slug) return null
+  return resolveTenantBySlug(slug)
 }
 
 /**

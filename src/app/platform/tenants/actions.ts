@@ -19,6 +19,7 @@ export type ActionState = {
   adminEmail?: string;
   inviteSuccess?: boolean;
   inviteError?: string;
+  userExists?: boolean;
   deleted?: boolean;
 };
 
@@ -124,14 +125,29 @@ export async function createTenant(
     };
   }
 
-  // 4. Send invite email to admin (GAP-4)
-  const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(
-    validatedFields.data.admin_email
+  // 4. Check if user already exists
+  const { data: existingUser } = await supabase.auth.admin.listUsers();
+  const userExists = existingUser?.users?.some(
+    (u) => u.email === validatedFields.data.admin_email
   );
 
-  const inviteSuccess = !inviteError;
+  let inviteSuccess = false;
+  let inviteError: string | undefined;
 
-  // 5. Record pending invite regardless of email success (enables resend)
+  // 5. Send invite email to admin (GAP-4) - only if user doesn't exist
+  if (!userExists) {
+    const { error } = await supabase.auth.admin.inviteUserByEmail(
+      validatedFields.data.admin_email
+    );
+    inviteSuccess = !error;
+    inviteError = error?.message;
+  } else {
+    // User exists - they can claim invite on next login
+    inviteSuccess = true;
+    inviteError = undefined;
+  }
+
+  // 6. Record pending invite regardless (enables first-login claim)
   await supabase
     .from('tenant_pending_invites')
     .insert({
@@ -140,7 +156,7 @@ export async function createTenant(
       role: 'owner',
     });
 
-  // 6. Revalidate tenant list
+  // 7. Revalidate tenant list
   revalidatePath('/platform/tenants');
 
   return {
@@ -150,7 +166,8 @@ export async function createTenant(
     tenantSlug: validatedFields.data.slug,
     adminEmail: validatedFields.data.admin_email,
     inviteSuccess,
-    inviteError: inviteError?.message,
+    inviteError,
+    userExists, // Pass this to UI so it can show appropriate message
   };
 }
 

@@ -14,20 +14,35 @@ export async function GET(request: NextRequest) {
     const supabase = createServiceClient()
     const tenantId = await getCurrentTenantId()
 
-    // Fetch all customers (profiles) for this tenant
-    const { data: customers, error: customersError } = await supabase
-      .from('profiles')
-      .select('*')
+    // Fetch customers who have placed orders with this tenant
+    // Profiles are global (no tenant_id) so we scope via the orders table
+    const { data: customerIds, error: customerIdsError } = await supabase
+      .from('orders')
+      .select('user_id')
       .eq('tenant_id', tenantId)
-      .order('created_at', { ascending: false })
+      .not('user_id', 'is', null)
 
-    if (customersError) {
-      console.error('Error fetching customers:', customersError)
+    if (customerIdsError) {
+      console.error('Error fetching customer IDs:', customerIdsError)
       return NextResponse.json({ error: 'Failed to fetch customers' }, { status: 500 })
     }
 
-    // For each customer, we could fetch their order statistics
-    // For now, returning basic customer data
+    const uniqueCustomerIds = [...new Set(customerIds?.map(o => o.user_id) || [])]
+
+    let customers: Record<string, unknown>[] = []
+    if (uniqueCustomerIds.length > 0) {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', uniqueCustomerIds)
+        .order('created_at', { ascending: false })
+      if (error) {
+        console.error('Error fetching customer profiles:', error)
+        return NextResponse.json({ error: 'Failed to fetch customers' }, { status: 500 })
+      }
+      customers = data || []
+    }
+
     const customersWithStats = customers?.map(customer => ({
       ...customer,
       orderCount: 0, // TODO: Calculate from orders table

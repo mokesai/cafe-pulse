@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,9 +11,8 @@ export async function GET(request: NextRequest) {
     // Use service client for data queries with explicit tenant filtering
     const supabase = createServiceClient()
 
-    // Get tenant ID from cookie
-    const cookieStore = await cookies()
-    const tenantId = cookieStore.get('x-tenant-id')?.value || '00000000-0000-0000-0000-000000000001'
+    // Get tenant ID (reads cookie, falls back to Host header resolution)
+    const tenantId = await getCurrentTenantId()
 
     // Get today's date for filtering
     const today = new Date()

@@ -105,61 +105,61 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse
   }
 
-  // 1. Refresh Supabase auth session
-  const sessionResponse = await updateSession(request)
-
-  // 2. Resolve tenant from subdomain
+  // 1. Resolve tenant from subdomain FIRST (before session refresh)
+  //    Setting cookies on `request` before updateSession ensures that when
+  //    updateSession internally does NextResponse.next({ request }), the
+  //    tenant cookies are captured and visible to server components via cookies().
   const host = request.headers.get('host') || ''
   const slug = extractSubdomain(host)
 
   if (slug) {
     const tenant = await resolveTenantBySlug(slug)
     if (tenant) {
-      sessionResponse.cookies.set('x-tenant-id', tenant.id, {
-        httpOnly: true,
-        sameSite: 'strict',
-        path: '/',
-      })
-      sessionResponse.cookies.set('x-tenant-slug', tenant.slug, {
-        httpOnly: true,
-        sameSite: 'strict',
-        path: '/',
-      })
+      request.cookies.set('x-tenant-id', tenant.id)
+      request.cookies.set('x-tenant-slug', tenant.slug)
     } else {
       // Subdomain provided but tenant not found — return 404
       const notFoundUrl = request.nextUrl.clone()
       notFoundUrl.pathname = '/404'
-      return applyRewriteWithCookies(sessionResponse, notFoundUrl)
+      return NextResponse.rewrite(notFoundUrl)
     }
   } else {
     // No subdomain (bare localhost or bare domain)
-    // Set default tenant if no tenant cookie already exists
     if (!request.cookies.get('x-tenant-id')?.value) {
-      sessionResponse.cookies.set('x-tenant-id', DEFAULT_TENANT_ID, {
-        httpOnly: true,
-        sameSite: 'strict',
-        path: '/',
-      })
-      sessionResponse.cookies.set('x-tenant-slug', DEFAULT_TENANT_SLUG, {
-        httpOnly: true,
-        sameSite: 'strict',
-        path: '/',
-      })
+      request.cookies.set('x-tenant-id', DEFAULT_TENANT_ID)
+      request.cookies.set('x-tenant-slug', DEFAULT_TENANT_SLUG)
     }
   }
 
-  // 3. Maintenance mode check
+  // 2. Refresh Supabase auth session (picks up tenant cookies from request)
+  const sessionResponse = await updateSession(request)
+
+  // 3. Persist tenant cookies to browser via Set-Cookie response headers
+  const tenantId = request.cookies.get('x-tenant-id')?.value
+  const tenantSlug = request.cookies.get('x-tenant-slug')?.value
+  if (tenantId) {
+    sessionResponse.cookies.set('x-tenant-id', tenantId, {
+      httpOnly: true,
+      sameSite: 'strict',
+      path: '/',
+    })
+  }
+  if (tenantSlug) {
+    sessionResponse.cookies.set('x-tenant-slug', tenantSlug, {
+      httpOnly: true,
+      sameSite: 'strict',
+      path: '/',
+    })
+  }
+
+  // 4. Maintenance mode check
   if (shouldBypassMaintenance(request)) {
     return sessionResponse
   }
 
   try {
-    // Read the tenant ID from the cookie just set on sessionResponse, or fall back to
-    // the incoming request cookie (set in a prior request), or the default tenant.
-    const tenantId = sessionResponse.cookies.get('x-tenant-id')?.value
-      ?? request.cookies.get('x-tenant-id')?.value
-      ?? DEFAULT_TENANT_ID
-    const status = await getCachedSiteStatus(request, tenantId)
+    const maintenanceTenantId = tenantId ?? DEFAULT_TENANT_ID
+    const status = await getCachedSiteStatus(request, maintenanceTenantId)
     if (!status.isCustomerAppLive) {
       const maintenanceUrl = request.nextUrl.clone()
       maintenanceUrl.pathname = '/under-construction'

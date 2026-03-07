@@ -1,5 +1,5 @@
 === Service-Role Query Security Audit ===
-Generated: Mon Feb 16 17:34:16 MST 2026
+Generated: Mon Feb 16 18:50:17 MST 2026
 
 ---
 File: src/app/api/admin/check-role/route.ts
@@ -13,147 +13,71 @@ Recommended fix: Add .eq('tenant_id', tenantId) to all queries
 
 ---
 File: src/app/api/admin/cogs/catalog/sync-square/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-204:        .from('cogs_products')
-210:    const squareItemIds = Array.from(new Set(productsToUpsert.map(p => p.square_item_id)))
-214:        .from('cogs_products')
-243:        .from('cogs_sellables')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+216:        .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/cogs/modifier-option-recipes/[id]/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-47:    .from('cogs_modifier_option_recipes')
-57:    .from('cogs_modifier_option_recipe_lines')
-119:    .from('cogs_modifier_option_recipes')
-129:    .from('cogs_modifier_option_recipes')
-144:    .from('cogs_modifier_option_recipe_lines')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+51:    .eq('tenant_id', tenantId)
+62:    .eq('tenant_id', tenantId)
+126:    .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/cogs/modifier-option-recipes/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-41:    .from('cogs_modifier_option_recipes')
-103:    .from('cogs_modifier_option_recipes')
-119:    .from('cogs_modifier_option_recipe_lines')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+45:    .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/cogs/modifiers/options/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-19:    .from('cogs_modifier_options')
-58:    .from('cogs_modifier_options')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+23:    .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/cogs/modifiers/seen/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-30:    .from('sales_transaction_items')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+34:    .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/cogs/modifiers/sets/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-18:    .from('cogs_modifier_sets')
-52:    .from('cogs_modifier_sets')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+22:    .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/cogs/periods/[id]/close/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-27:    .from('invoices')
-56:    .from('inventory_items')
-82:    .from('inventory_valuations')
-97:    .from('cogs_periods')
-109:    .from('cogs_reports')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+31:    .eq('tenant_id', tenantId)
+62:    .eq('tenant_id', tenantId)
+106:    .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/cogs/periods/[id]/export/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-34:    .from('cogs_periods')
-44:    .from('cogs_reports')
-54:    .from('inventory_valuations')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+38:    .eq('tenant_id', tenantId)
+49:    .eq('tenant_id', tenantId)
+60:    .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/cogs/periods/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-24:    .from('cogs_periods')
-64:    .from('cogs_periods')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+28:    .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/cogs/product-recipes/[id]/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-47:    .from('cogs_product_recipes')
-57:    .from('cogs_product_recipe_lines')
-129:    .from('cogs_product_recipes')
-139:    .from('cogs_product_recipes')
-156:    .from('cogs_product_recipe_lines')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+51:    .eq('tenant_id', tenantId)
+62:    .eq('tenant_id', tenantId)
+136:    .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/cogs/product-recipes/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-41:    .from('cogs_product_recipes')
-111:    .from('cogs_product_recipes')
-129:    .from('cogs_product_recipe_lines')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+45:    .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/cogs/products/[id]/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-35:    .from('cogs_products')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+39:    .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/cogs/products/route.ts
@@ -169,62 +93,30 @@ Status: ✓ PASS (explicit tenant_id filter)
 
 ---
 File: src/app/api/admin/cogs/sellable-overrides/[id]/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-118:    .from('cogs_sellable_recipe_overrides')
-128:    .from('cogs_sellable_recipe_override_ops')
-172:    .from('cogs_sellable_recipe_overrides')
-182:    .from('cogs_sellable_recipe_overrides')
-197:    .from('cogs_sellable_recipe_override_ops')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+122:    .eq('tenant_id', tenantId)
+133:    .eq('tenant_id', tenantId)
+179:    .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/cogs/sellable-overrides/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-117:    .from('cogs_sellable_recipe_overrides')
-156:    .from('cogs_sellable_recipe_overrides')
-172:    .from('cogs_sellable_recipe_override_ops')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+121:    .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/cogs/sellables/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-19:    .from('cogs_sellables')
-58:    .from('cogs_sellables')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+23:    .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/customers/[customerId]/orders/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-20:      .from('profiles')
-34:      .from('orders')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+38:      .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/customers/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-17:      .from('profiles')
-28:      .from('profiles')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+21:      .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/dashboard/stats/route.ts
@@ -234,134 +126,66 @@ Status: ✓ PASS (explicit tenant_id filter)
 
 ---
 File: src/app/api/admin/inventory/adjust/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-34:      .from('inventory_items')
-52:        .from('inventory_items')
-83:      .from('inventory_items')
-104:      .from('stock_movements')
-127:        .from('low_stock_alerts')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+39:      .eq('tenant_id', tenantId)
+58:        .eq('tenant_id', tenantId)
+90:      .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/inventory/alerts/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-18:      .from('low_stock_alerts')
-86:      .from('low_stock_alerts')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+28:      .eq('tenant_id', tenantId)
+98:      .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/inventory/analytics/export/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-86:        .from('inventory_items')
-90:        .from('stock_movements')
-103:        .from('purchase_orders')
-117:        .from('suppliers')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+91:        .eq('tenant_id', tenantId),
+103:        .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/inventory/analytics/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-102:      .from('inventory_items')
-126:      .from('stock_movements')
-193:      .from('suppliers')
-201:      .from('purchase_orders')
-309:      .from('purchase_order_items')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+107:      .eq('tenant_id', tenantId)
+141:      .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/inventory/cost-history/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-19:    .from('inventory_item_cost_history')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+24:    .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/inventory/locations/[locationId]/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-39:      .from('inventory_locations')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+44:      .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/inventory/locations/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-17:      .from('inventory_locations')
-72:      .from('inventory_locations')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+21:      .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/inventory/push-to-square/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-33:    .from('profiles')
-55:    .from('inventory_items')
-172:        .from('stock_movements')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+57:    .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/inventory/restock/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-36:      .from('inventory_items')
-54:        .from('inventory_items')
-73:      .from('inventory_items')
-93:      .from('stock_movements')
-113:      .from('low_stock_alerts')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+41:      .eq('tenant_id', tenantId)
+60:        .eq('tenant_id', tenantId)
+84:      .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/inventory/restore/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-21:      .from('inventory_items')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+26:      .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/inventory/revert-cost/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-25:    .from('inventory_items')
-38:    .from('inventory_items')
-48:    .from('inventory_item_cost_history')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+30:    .eq('tenant_id', tenantId)
+44:    .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/inventory/route.ts
@@ -370,205 +194,97 @@ Status: ✓ PASS (explicit tenant_id filter)
 
 ---
 File: src/app/api/admin/inventory/sales-sync/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-43:    .from('inventory_sales_sync_runs')
-57:    .from('inventory_sales_sync_runs')
-89:    .from('inventory_sales_sync_runs')
-103:    .from('inventory_items')
-271:    .from('sales_transactions')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+45:    .eq('tenant_id', tenantId)
+98:    .eq('tenant_id', tenantId)
+110:    .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/inventory/sales-sync/status/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-16:        .from('inventory_sales_sync_runs')
-21:        .from('view_pending_manual_inventory_deductions')
-24:        .from('inventory_sales_sync_runs')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+20:        .eq('tenant_id', tenantId)
+29:        .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/inventory/settings/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-17:      .from('inventory_settings')
-96:      .from('inventory_settings')
-121:        .from('inventory_settings')
-139:        .from('inventory_settings')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+21:      .eq('tenant_id', tenantId)
+103:      .eq('tenant_id', tenantId)
+129:        .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/inventory/sync-square/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-62:    .from('profiles')
-106:    .from('suppliers')
-118:    .from('inventory_items')
-378:    .from('inventory_items')
-401:      .from('stock_movements')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+120:    .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/inventory/units/[unitId]/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-40:      .from('inventory_unit_types')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+45:      .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/inventory/units/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-17:      .from('inventory_unit_types')
-73:      .from('inventory_unit_types')
-87:      .from('inventory_unit_types')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+21:      .eq('tenant_id', tenantId)
+80:      .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/invoices/[id]/confirm/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-17:      .from('invoices')
-44:      .from('order_invoice_matches')
-72:        .from('inventory_items')
-89:          .from('inventory_items')
-178:          .from('inventory_items')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+40:      .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/invoices/[id]/file/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-27:      .from('invoices')
-48:      .from('invoices')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+32:      .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/invoices/[id]/link-order/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-30:      .from('invoices')
-43:      .from('purchase_orders')
-67:      .from('order_invoice_matches')
-72:      .from('order_invoice_matches')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+35:      .eq('tenant_id', tenantId)
+49:      .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/invoices/[id]/match-items/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-90:      .from('invoices')
-131:      .from('inventory_items')
-211:          .from('invoice_items')
-285:      .from('invoices')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+113:      .eq('tenant_id', tenantId)
+147:      .eq('tenant_id', tenantId)
+314:      .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/invoices/[id]/match-orders/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-29:      .from('invoices')
-59:      .from('order_invoice_matches')
-110:      .from('purchase_orders')
-187:            .from('purchase_orders')
-248:            .from('order_invoice_matches')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+50:      .eq('tenant_id', tenantId)
+139:      .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/invoices/[id]/parse/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-46:      .from('invoices')
-88:      .from('invoices')
-120:          .from('invoices')
-146:        .from('invoices')
-160:          .from('invoices')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+63:      .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/invoices/[id]/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-39:      .from('invoices')
-183:      .from('invoices')
-247:      .from('invoices')
-268:      .from('invoices')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+112:      .eq('tenant_id', tenantId)
+190:      .eq('tenant_id', tenantId)
+256:      .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/invoices/items/[itemId]/create-and-match/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-29:      .from('inventory_items')
-60:      .from('invoice_items')
-73:        .from('inventory_items')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+77:      .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/invoices/items/[itemId]/match/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-38:      .from('invoice_items')
-52:      .from('inventory_items')
-66:      .from('invoice_items')
-134:      .from('invoice_items')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+43:      .eq('tenant_id', tenantId)
+58:      .eq('tenant_id', tenantId)
+79:      .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/invoices/items/[itemId]/skip/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-21:      .from('invoice_items')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+38:      .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/invoices/route.ts
@@ -578,17 +294,8 @@ Status: ✓ PASS (explicit tenant_id filter)
 
 ---
 File: src/app/api/admin/invoices/upload/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-93:        .from('invoices')
-125:      .from('invoices')
-142:      .from('invoices')
-154:        await supabase.storage.from('invoices').remove([existingInvoice.file_path])
-159:        .from('order_invoice_matches')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+97:        .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/orders/route.ts
@@ -597,68 +304,32 @@ Status: ✓ PASS (explicit tenant_id filter)
 
 ---
 File: src/app/api/admin/purchase-orders/[orderId]/attachments/[attachmentId]/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-30:      .from('purchase_order_attachments')
-52:      .from(STORAGE_BUCKET)
-60:      .from('purchase_order_attachments')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+36:      .eq('tenant_id', tenantId)
+66:      .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/purchase-orders/[orderId]/attachments/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-24:  const ids = Array.from(
-34:    .from('profiles')
-69:      .from('purchase_order_attachments')
-163:      .from(STORAGE_BUCKET)
-179:      .from(STORAGE_BUCKET)
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+74:      .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/purchase-orders/[orderId]/invoices/[matchId]/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-28:      .from('order_invoice_matches')
-41:      .from('order_invoice_matches')
-54:      .from('order_invoice_matches')
-61:        .from('invoices')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+34:      .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/purchase-orders/[orderId]/invoices/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-67:      .from('purchase_orders')
-80:      .from('order_invoice_matches')
-100:        .from('invoices')
-184:      .from('purchase_orders')
-197:      .from('invoices')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+72:      .eq('tenant_id', tenantId)
+116:        .eq('tenant_id', tenantId)
+192:      .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/purchase-orders/[orderId]/items/[itemId]/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-29:      .from('purchase_order_items')
-52:      .from('purchase_order_items')
-65:      .from('purchase_orders')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+35:      .eq('tenant_id', tenantId)
+82:      .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/purchase-orders/[orderId]/pdf/route.ts
@@ -667,45 +338,23 @@ Reason: Uses service client but doesn't query tables
 
 ---
 File: src/app/api/admin/purchase-orders/[orderId]/receipts/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-68:  const receivedByIds = Array.from(
-80:      .from('profiles')
-93:  const itemIds = Array.from(
-102:      .from('purchase_order_items')
-174:      .from('purchase_order_receipts')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+181:      .eq('tenant_id', tenantId)
+351:      .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/purchase-orders/[orderId]/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-135:      .from('purchase_orders')
-196:        .from('profiles')
-267:      .from('purchase_orders')
-353:      .from('purchase_orders')
-380:        .from('purchase_order_items')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+163:      .eq('tenant_id', tenantId)
+274:      .eq('tenant_id', tenantId)
+361:      .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/purchase-orders/[orderId]/send/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-93:      .from('purchase_order_items')
-114:    .from('purchase_order_items')
-156:      .from('purchase_orders')
-187:          content: Buffer.from(pdfBytes).toString('base64')
-216:        .from('purchase_orders')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+61:      .eq('tenant_id', tenantId)
+177:      .eq('tenant_id', tenantId)
+244:        .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/purchase-orders/route.ts
@@ -715,42 +364,23 @@ Status: ✓ PASS (explicit tenant_id filter)
 
 ---
 File: src/app/api/admin/suppliers/[supplierId]/email-templates/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-25:      .from('supplier_email_templates')
-90:      .from('supplier_email_templates')
-117:      .from('supplier_email_templates')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+32:      .eq('tenant_id', tenantId)
+110:      .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/suppliers/[supplierId]/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-72:      .from('suppliers')
-161:      .from('suppliers')
-228:      .from('inventory_items')
-250:      .from('suppliers')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+86:      .eq('tenant_id', tenantId)
+168:      .eq('tenant_id', tenantId)
+237:      .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/suppliers/bulk-upload/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-43:      .from('profiles')
-92:        .from('suppliers')
-110:            .from('suppliers')
-121:            .from('suppliers')
-128:              .from('suppliers')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+85:        .eq('tenant_id', tenantId)
+115:            .eq('tenant_id', tenantId)
+123:              .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/admin/suppliers/route.ts
@@ -764,31 +394,17 @@ Reason: Platform admin routes legitimately need to see all tenants
 
 ---
 File: src/app/api/webhooks/square/catalog/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-130:      Buffer.from(signature),
-131:      Buffer.from(expectedSignature)
-151:      .from('webhook_events')
-218:    .from('inventory_items')
-236:    .from('suppliers')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+153:      .eq('tenant_id', tenantId)
+221:    .eq('tenant_id', tenantId)
+240:    .eq('tenant_id', tenantId)
 
 ---
 File: src/app/api/webhooks/square/inventory/route.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-64:      Buffer.from(signature),
-65:      Buffer.from(expectedSignature)
-77:    .from('inventory_items')
-102:      .from('inventory_items')
-115:      .from('stock_movements')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+80:    .eq('tenant_id', tenantId)
+109:      .eq('tenant_id', tenantId)
+165:        .eq('tenant_id', tenantId)
 
 ---
 File: src/app/platform/page.tsx
@@ -817,43 +433,24 @@ Reason: Platform admin routes legitimately need to see all tenants
 
 ---
 File: src/lib/admin/setup.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-24:    .from('profiles')
-44:    .from('profiles')
-63:    .from('profiles')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+28:    .eq('tenant_id', tenantId)
+50:    .eq('tenant_id', tenantId)
+71:    .eq('tenant_id', tenantId)
 
 ---
 File: src/lib/kds/queries.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-84:    .from('kds_categories')
-106:    .from('kds_categories')
-125:    .from('kds_menu_items')
-148:    .from('kds_menu_items')
-171:    .from('kds_images')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+86:    .eq('tenant_id', tenantId)
+109:    .eq('tenant_id', tenantId)
+129:    .eq('tenant_id', tenantId)
 
 ---
 File: src/lib/services/siteSettings.ts
-Status: ✗ FAIL
-Reason: Service-role query without explicit tenant_id filtering
-Risk: CRITICAL - Can leak cross-tenant data
-Queries found:
-20:    .from('site_settings')
-69:      .from('site_settings')
-84:    .from('site_settings')
-112:    .from('site_settings')
-130:    .from('site_settings')
-
-Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+Status: ✓ PASS (explicit tenant_id filter)
+22:    .eq('tenant_id', tenantId)
+71:      .eq('tenant_id', tenantId)
+86:    .eq('tenant_id', tenantId)
 
 ---
 File: src/lib/square/config.ts
@@ -869,8 +466,8 @@ Queries found:
 9:    .from('profiles')
 26:    .from('profiles')
 39:    .from('profiles')
-89:    .from('orders')
-117:    .from('order_items')
+92:    .from('orders')
+121:    .from('order_items')
 
 Recommended fix: Add .eq('tenant_id', tenantId) to all queries
 
@@ -896,9 +493,9 @@ Recommended fix: Add .eq('tenant_id', tenantId) to all queries
 
 === AUDIT SUMMARY ===
 Total files analyzed: 82
-[0;32m✓ PASS: 18[0m
+[0;32m✓ PASS: 79[0m
 [1;33m⚠️  WARNING: 0[0m
-[0;31m✗ FAIL: 64[0m
+[0;31m✗ FAIL: 3[0m
 
-[0;31mCRITICAL: 64 files with potential cross-tenant data leakage[0m
+[0;31mCRITICAL: 3 files with potential cross-tenant data leakage[0m
 Review audits/service-role-findings.txt for details

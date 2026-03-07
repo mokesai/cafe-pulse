@@ -10,8 +10,10 @@ import NotificationDropdown from './notifications/NotificationDropdown'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useTenant } from '@/providers/TenantProvider'
 
 const Navigation = () => {
+  const tenant = useTenant()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [authModalOpen, setAuthModalOpen] = useState(false)
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login')
@@ -98,11 +100,13 @@ const Navigation = () => {
           <div className="flex-shrink-0">
             <Link href="/" className="hover:opacity-80 transition-opacity">
               <div className="text-2xl font-bold text-primary-800">
-                Little Cafe
+                {tenant.business_name || tenant.name}
               </div>
-              <div className="text-xs text-gray-600 font-medium -mt-1">
-                We Proudly Serve Starbucks®
-              </div>
+              {typeof (tenant.features as Record<string, unknown>)?.subtitle === 'string' && (
+                <div className="text-xs text-gray-600 font-medium -mt-1">
+                  {(tenant.features as Record<string, string>).subtitle}
+                </div>
+              )}
             </Link>
           </div>
 

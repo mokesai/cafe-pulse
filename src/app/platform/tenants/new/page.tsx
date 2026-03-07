@@ -133,7 +133,13 @@ export default function OnboardNewTenantPage() {
               <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              <span>Invite email sent to <strong>{successResult.adminEmail}</strong></span>
+              <span>
+                {successResult.userExists ? (
+                  <>User <strong>{successResult.adminEmail}</strong> can access this tenant by logging in</>
+                ) : (
+                  <>Invite email sent to <strong>{successResult.adminEmail}</strong></>
+                )}
+              </span>
             </div>
           ) : (
             <div className="space-y-3">

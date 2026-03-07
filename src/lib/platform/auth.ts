@@ -9,7 +9,7 @@ import { redirect } from 'next/navigation'
  * all tenants across the platform.
  *
  * @returns Authenticated Supabase client for platform operations
- * @throws Redirects to /login if not authenticated
+ * @throws Redirects to /admin/login if not authenticated
  * @throws Redirects to /unauthorized if not a platform admin
  */
 export async function requirePlatformAdmin() {
@@ -19,7 +19,7 @@ export async function requirePlatformAdmin() {
   const { data: { user }, error: authError } = await supabase.auth.getUser()
 
   if (authError || !user) {
-    redirect('/login?return=/platform')
+    redirect('/admin/login?return=/platform')
   }
 
   // 2. Check platform_admins table
