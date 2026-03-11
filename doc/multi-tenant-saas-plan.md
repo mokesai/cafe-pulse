@@ -2,7 +2,7 @@
 
 ## Context
 
-The cafe-web app is currently single-tenant, built for "Little Cafe" at Kaiser Permanente. The goal is to transform it into a SaaS platform where multiple cafe operators can sign up, each getting their own isolated instance accessible via subdomain (e.g., `littlecafe.platform.com`, `bobscafe.platform.com`). Customers are isolated per tenant — no shared accounts across cafes.
+The Cafe Pulse app (formerly cafe-web) is currently single-tenant, built for "Little Cafe" at Kaiser Permanente. The goal is to transform it into a SaaS platform where multiple cafe operators can sign up, each getting their own isolated instance accessible via subdomain (e.g., `littlecafe.platform.com`, `bobscafe.platform.com`). Customers are isolated per tenant — no shared accounts across cafes.
 
 ## Current State
 

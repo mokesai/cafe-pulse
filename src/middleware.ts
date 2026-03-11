@@ -11,8 +11,10 @@ function shouldBypassMaintenance(request: NextRequest) {
   if (
     pathname.startsWith('/admin') ||
     pathname.startsWith('/api') ||
-    pathname.startsWith('/auth') ||
+    pathname.startsWith('/reset-password') ||
+    pathname.startsWith('/update-password') ||
     pathname.startsWith('/under-construction') ||
+    pathname.startsWith('/landing') ||
     pathname === '/favicon.ico'
   ) {
     return true
@@ -67,7 +69,7 @@ export async function middleware(request: NextRequest) {
     // 1. Check if user is authenticated
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      return NextResponse.redirect(new URL('/auth?return=/platform', request.url))
+      return NextResponse.redirect(new URL('/admin/login?return=/platform', request.url))
     }
 
     // 2. Check MFA status
@@ -125,6 +127,13 @@ export async function middleware(request: NextRequest) {
     }
   } else {
     // No subdomain (bare localhost or bare domain)
+    // Root path shows the platform landing page
+    if (pathname === '/') {
+      const landingUrl = request.nextUrl.clone()
+      landingUrl.pathname = '/landing'
+      return NextResponse.rewrite(landingUrl)
+    }
+    // Other paths (e.g. /admin, /api, /auth) fall back to default tenant
     if (!request.cookies.get('x-tenant-id')?.value) {
       request.cookies.set('x-tenant-id', DEFAULT_TENANT_ID)
       request.cookies.set('x-tenant-slug', DEFAULT_TENANT_SLUG)

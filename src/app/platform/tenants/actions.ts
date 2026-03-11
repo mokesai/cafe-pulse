@@ -1,7 +1,8 @@
 'use server';
 
 import { createClient, createServiceClient } from '@/lib/supabase/server';
-import { isPlatformAdmin } from '@/lib/platform/auth';
+import { isPlatformAdmin, type PlatformAdminInfo } from '@/lib/platform/auth';
+import { EmailService } from '@/lib/email/service';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
@@ -48,13 +49,36 @@ const updateTenantSchema = z.object({
   is_active: z.boolean(),
 });
 
-async function getAuthenticatedPlatformAdmin() {
+async function getAuthenticatedPlatformAdmin(): Promise<{ userId: string; admin: PlatformAdminInfo } | null> {
   const userClient = await createClient();
   const { data: { user } } = await userClient.auth.getUser();
   if (!user || !(await isPlatformAdmin(user.id))) {
     return null;
   }
-  return user;
+
+  // Fetch role and scoped tenants
+  const supabase = createServiceClient();
+  const { data: adminRows } = await supabase
+    .from('platform_admins')
+    .select('role, tenant_id')
+    .eq('user_id', user.id);
+
+  const isSuperAdmin = adminRows?.some((row: { role: string }) => row.role === 'super_admin');
+  const role = isSuperAdmin ? 'super_admin' : 'tenant_admin';
+  const tenantIds = isSuperAdmin
+    ? []
+    : (adminRows || [])
+        .filter((row: { tenant_id: string | null }) => row.tenant_id !== null)
+        .map((row: { tenant_id: string | null }) => row.tenant_id as string);
+
+  return {
+    userId: user.id,
+    admin: { userId: user.id, role, tenantIds } as PlatformAdminInfo,
+  };
+}
+
+function canAccessTenant(admin: PlatformAdminInfo, tenantId: string): boolean {
+  return admin.role === 'super_admin' || admin.tenantIds.includes(tenantId);
 }
 
 /**
@@ -68,10 +92,10 @@ export async function createTenant(
   prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  // Auth guard (SEC-2)
-  const user = await getAuthenticatedPlatformAdmin();
-  if (!user) {
-    return { errors: { _form: ['Unauthorized'] } };
+  // Auth guard (SEC-2) — only super_admin can create tenants
+  const auth = await getAuthenticatedPlatformAdmin();
+  if (!auth || auth.admin.role !== 'super_admin') {
+    return { errors: { _form: ['Unauthorized — only super admins can create tenants'] } };
   }
 
   // 1. Validate input
@@ -135,9 +159,13 @@ export async function createTenant(
   let inviteError: string | undefined;
 
   // 5. Send invite email to admin (GAP-4) - only if user doesn't exist
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+  const tenantRedirectUrl = siteUrl.replace('://', `://${validatedFields.data.slug}.`);
+
   if (!userExists) {
     const { error } = await supabase.auth.admin.inviteUserByEmail(
-      validatedFields.data.admin_email
+      validatedFields.data.admin_email,
+      { redirectTo: tenantRedirectUrl }
     );
     inviteSuccess = !error;
     inviteError = error?.message;
@@ -154,6 +182,7 @@ export async function createTenant(
       tenant_id: tenant.id,
       invited_email: validatedFields.data.admin_email,
       role: 'owner',
+      invited_by: auth.userId,
     });
 
   // 7. Revalidate tenant list
@@ -172,34 +201,114 @@ export async function createTenant(
 }
 
 /**
+ * Connect Square credentials for a tenant (sandbox or production).
+ *
+ * For sandbox: credentials are entered manually (OAuth doesn't work).
+ * For production: credentials can be entered manually or via OAuth callback.
+ *
+ * Stores the access token in Vault and updates application_id + location_id
+ * on the tenants row. The active environment is determined by SQUARE_ENVIRONMENT.
+ */
+export async function connectSquareCredentials(
+  tenantId: string,
+  formData: FormData
+): Promise<ActionState> {
+  const auth = await getAuthenticatedPlatformAdmin();
+  if (!auth || !canAccessTenant(auth.admin, tenantId)) {
+    return { errors: { _form: ['Unauthorized'] } };
+  }
+
+  const accessToken = formData.get('access_token') as string;
+  const applicationId = formData.get('application_id') as string;
+  const locationId = formData.get('location_id') as string;
+
+  if (!accessToken || !applicationId || !locationId) {
+    return { errors: { _form: ['All three fields are required'] } };
+  }
+
+  const environment = process.env.SQUARE_ENVIRONMENT || 'sandbox';
+  const supabase = createServiceClient();
+
+  // Store access token in Vault via the internal RPC
+  const { error: rpcError } = await supabase.rpc(
+    'store_square_credentials_internal',
+    {
+      p_tenant_id: tenantId,
+      p_environment: environment,
+      p_access_token: accessToken,
+      p_refresh_token: environment === 'sandbox' ? 'sandbox-no-refresh' : 'pending-oauth-refresh',
+      p_merchant_id: 'manual-entry',
+      p_expires_at: environment === 'sandbox' ? '2099-12-31T23:59:59Z' : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    }
+  );
+
+  if (rpcError) {
+    return { errors: { _form: ['Failed to store credentials: ' + rpcError.message] } };
+  }
+
+  // Update application_id and location_id on the tenants row
+  const { error: updateError } = await supabase
+    .from('tenants')
+    .update({
+      square_application_id: applicationId,
+      square_location_id: locationId,
+      square_environment: environment,
+    })
+    .eq('id', tenantId);
+
+  if (updateError) {
+    return { errors: { _form: ['Failed to update tenant: ' + updateError.message] } };
+  }
+
+  revalidatePath('/platform/tenants');
+  revalidatePath(`/platform/tenants/${tenantId}`);
+
+  return { success: true };
+}
+
+/**
  * Resend invite email to a tenant's pending admin (Plan 90-03)
  */
 export async function resendInvite(
   tenantId: string
 ): Promise<{ success?: boolean; error?: string }> {
   // Auth guard (SEC-2)
-  const user = await getAuthenticatedPlatformAdmin();
-  if (!user) {
+  const auth = await getAuthenticatedPlatformAdmin();
+  if (!auth || !canAccessTenant(auth.admin, tenantId)) {
     return { error: 'Unauthorized' };
   }
 
   const supabase = createServiceClient();
 
-  // Look up active pending invite for this tenant
-  const { data: invite, error: lookupError } = await supabase
-    .from('tenant_pending_invites')
-    .select('id, invited_email')
-    .eq('tenant_id', tenantId)
-    .is('deleted_at', null)
-    .single();
+  // Look up active pending invite and tenant slug
+  const [{ data: invite, error: lookupError }, { data: tenant }] = await Promise.all([
+    supabase
+      .from('tenant_pending_invites')
+      .select('id, invited_email')
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .single(),
+    supabase
+      .from('tenants')
+      .select('slug')
+      .eq('id', tenantId)
+      .single(),
+  ]);
 
   if (lookupError || !invite) {
     return { error: 'No pending invite found for this tenant' };
   }
 
+  // Build tenant-specific redirect URL
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+  const tenantRedirectUrl = tenant?.slug
+    ? siteUrl.replace('://', `://${tenant.slug}.`)
+    : siteUrl;
+
   // Resend invite
   const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(
-    invite.invited_email
+    invite.invited_email,
+    { redirectTo: tenantRedirectUrl }
   );
 
   if (inviteError) {
@@ -207,6 +316,129 @@ export async function resendInvite(
   }
 
   return { success: true };
+}
+
+/**
+ * Invite a team member to a tenant (platform-level).
+ *
+ * Auth rules:
+ * - super_admin can invite any role (owner, admin, staff)
+ * - tenant_admin can invite admin and staff only
+ */
+export async function inviteTeamMember(
+  tenantId: string,
+  email: string,
+  role: string
+): Promise<{ success?: boolean; error?: string; message?: string }> {
+  const auth = await getAuthenticatedPlatformAdmin();
+  if (!auth || !canAccessTenant(auth.admin, tenantId)) {
+    return { error: 'Unauthorized' };
+  }
+
+  // Validate role
+  const allowedRoles = auth.admin.role === 'super_admin'
+    ? ['owner', 'admin', 'staff']
+    : ['admin', 'staff'];
+
+  if (!allowedRoles.includes(role)) {
+    return { error: `You cannot invite users with the "${role}" role` };
+  }
+
+  // Validate email
+  if (!email || !email.includes('@')) {
+    return { error: 'Invalid email address' };
+  }
+
+  const supabase = createServiceClient();
+
+  // Check if user already has an active membership for this tenant
+  const { data: existingMembership } = await supabase
+    .from('tenant_memberships')
+    .select('id, role')
+    .eq('tenant_id', tenantId)
+    .eq('user_id', (await supabase.auth.admin.listUsers()).data?.users?.find(u => u.email === email)?.id || '')
+    .is('deleted_at', null)
+    .single();
+
+  if (existingMembership) {
+    return { error: `This user is already a team member (${existingMembership.role})` };
+  }
+
+  // Check for existing pending invite
+  const { data: existingInvite } = await supabase
+    .from('tenant_pending_invites')
+    .select('id')
+    .eq('tenant_id', tenantId)
+    .eq('invited_email', email)
+    .is('deleted_at', null)
+    .single();
+
+  if (existingInvite) {
+    return { error: 'An invite is already pending for this email' };
+  }
+
+  // Create pending invite
+  const { error: insertError } = await supabase
+    .from('tenant_pending_invites')
+    .insert({
+      tenant_id: tenantId,
+      invited_email: email,
+      role,
+      invited_by: auth.userId,
+    });
+
+  if (insertError) {
+    return { error: 'Failed to create invite: ' + insertError.message };
+  }
+
+  // Check if user already exists in auth
+  const { data: existingUsers } = await supabase.auth.admin.listUsers();
+  const userExists = existingUsers?.users?.some(u => u.email === email);
+
+  // Build tenant-specific redirect URL
+  const { data: tenant } = await supabase
+    .from('tenants')
+    .select('slug')
+    .eq('id', tenantId)
+    .single();
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+  const tenantRedirectUrl = tenant?.slug
+    ? siteUrl.replace('://', `://${tenant.slug}.`)
+    : siteUrl;
+
+  const tenantName = tenant?.slug || 'Unknown';
+
+  if (!userExists) {
+    // Send Supabase invite email for new users
+    const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(
+      email,
+      { redirectTo: tenantRedirectUrl }
+    );
+
+    if (inviteError) {
+      return { error: 'Failed to send invite email: ' + inviteError.message };
+    }
+  } else {
+    // Notify existing user about the invite (fire-and-forget)
+    const loginUrl = `${tenantRedirectUrl}/admin/login`;
+    EmailService.sendTeamNotification({
+      recipientEmail: email,
+      eventType: 'invited',
+      tenantName,
+      role,
+      loginUrl,
+    }).catch(() => {}); // swallow — don't fail the action
+  }
+
+  revalidatePath(`/platform/tenants/${tenantId}`);
+
+  return {
+    success: true,
+    message: userExists
+      ? 'Invite created and notification sent.'
+      : 'Invite email sent successfully.',
+  };
 }
 
 /**
@@ -219,8 +451,8 @@ export async function updateTenant(
   formData: FormData
 ): Promise<ActionState> {
   // Auth guard (SEC-2)
-  const user = await getAuthenticatedPlatformAdmin();
-  if (!user) {
+  const auth = await getAuthenticatedPlatformAdmin();
+  if (!auth || !canAccessTenant(auth.admin, tenantId)) {
     return { errors: { _form: ['Unauthorized'] } };
   }
 
@@ -282,10 +514,10 @@ export async function changeStatus(
   newStatus: 'trial' | 'active' | 'paused' | 'suspended',
   _prevState: ActionState
 ): Promise<ActionState> {
-  // Auth guard (SEC-2)
-  const user = await getAuthenticatedPlatformAdmin();
-  if (!user) {
-    return { errors: { _form: ['Unauthorized'] } };
+  // Auth guard (SEC-2) — only super_admin can change status
+  const auth = await getAuthenticatedPlatformAdmin();
+  if (!auth || auth.admin.role !== 'super_admin') {
+    return { errors: { _form: ['Unauthorized — only super admins can change tenant status'] } };
   }
 
   try {
@@ -341,10 +573,10 @@ export async function deleteTenant(
   tenantId: string,
   _prevState: ActionState
 ): Promise<ActionState> {
-  // Auth guard (SEC-2)
-  const user = await getAuthenticatedPlatformAdmin();
-  if (!user) {
-    return { errors: { _form: ['Unauthorized'] } };
+  // Auth guard (SEC-2) — only super_admin can delete tenants
+  const auth = await getAuthenticatedPlatformAdmin();
+  if (!auth || auth.admin.role !== 'super_admin') {
+    return { errors: { _form: ['Unauthorized — only super admins can delete tenants'] } };
   }
 
   try {
@@ -410,10 +642,10 @@ export async function restoreTenant(
   tenantId: string,
   _prevState: ActionState
 ): Promise<ActionState> {
-  // Auth guard (SEC-2)
-  const user = await getAuthenticatedPlatformAdmin();
-  if (!user) {
-    return { errors: { _form: ['Unauthorized'] } };
+  // Auth guard (SEC-2) — only super_admin can restore tenants
+  const auth = await getAuthenticatedPlatformAdmin();
+  if (!auth || auth.admin.role !== 'super_admin') {
+    return { errors: { _form: ['Unauthorized — only super admins can restore tenants'] } };
   }
 
   try {

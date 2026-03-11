@@ -4,7 +4,7 @@ module.exports = {
       name: 'cafe-server',
       script: 'npm',
       args: 'start',
-      cwd: '/home/pi/cafe-web',
+      cwd: '/home/pi/cafe-pulse',
       autorestart: true,
       env: {
         NODE_ENV: 'production',
@@ -15,7 +15,7 @@ module.exports = {
       name: 'kds-drinks',
       script: './kiosk.sh',
       args: 'drinks wps',
-      cwd: '/home/pi/cafe-web',
+      cwd: '/home/pi/cafe-pulse',
       autorestart: true,
       restart_delay: 15000,
       env: {
@@ -26,7 +26,7 @@ module.exports = {
       name: 'kds-food',
       script: './kiosk.sh',
       args: 'food wps',
-      cwd: '/home/pi/cafe-web',
+      cwd: '/home/pi/cafe-pulse',
       autorestart: true,
       restart_delay: 15000,
       env: {

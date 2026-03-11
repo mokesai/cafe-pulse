@@ -1,50 +1,57 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 
+export type PlatformAdminRole = 'super_admin' | 'tenant_admin'
+
+export interface PlatformAdminInfo {
+  userId: string
+  role: PlatformAdminRole
+  tenantIds: string[] // empty for super_admin, scoped tenant IDs for tenant_admin
+}
+
 /**
- * Server-side platform admin authentication check
- *
- * Verifies that the current user is a platform administrator by checking the
- * platform_admins table. Platform admins have elevated privileges to manage
- * all tenants across the platform.
- *
- * @returns Authenticated Supabase client for platform operations
- * @throws Redirects to /admin/login if not authenticated
- * @throws Redirects to /unauthorized if not a platform admin
+ * Server-side platform admin authentication check.
+ * Returns the authenticated Supabase client and the admin's role/scope.
  */
-export async function requirePlatformAdmin() {
+export async function requirePlatformAdmin(): Promise<{
+  supabase: Awaited<ReturnType<typeof createClient>>
+  admin: PlatformAdminInfo
+}> {
   const supabase = await createClient()
 
-  // 1. Check authentication
   const { data: { user }, error: authError } = await supabase.auth.getUser()
 
   if (authError || !user) {
     redirect('/admin/login?return=/platform')
   }
 
-  // 2. Check platform_admins table
-  const { data: platformAdmin, error: platformError } = await supabase
+  const { data: adminRows, error: platformError } = await supabase
     .from('platform_admins')
-    .select('id')
+    .select('id, role, tenant_id')
     .eq('user_id', user.id)
-    .single()
 
-  if (platformError || !platformAdmin) {
-    // User authenticated but not a platform admin
+  if (platformError || !adminRows || adminRows.length === 0) {
     redirect('/unauthorized?reason=not-platform-admin')
   }
 
-  // Return authenticated client for platform operations
-  return supabase
+  // Determine effective role — super_admin trumps tenant_admin
+  const isSuperAdmin = adminRows.some((row: { role: string }) => row.role === 'super_admin')
+  const role: PlatformAdminRole = isSuperAdmin ? 'super_admin' : 'tenant_admin'
+  const tenantIds = isSuperAdmin
+    ? []
+    : adminRows
+        .filter((row: { tenant_id: string | null }) => row.tenant_id !== null)
+        .map((row: { tenant_id: string | null }) => row.tenant_id as string)
+
+  return {
+    supabase,
+    admin: { userId: user.id, role, tenantIds },
+  }
 }
 
 /**
- * Helper function to check if a user is a platform administrator
- *
- * Used by middleware for quick boolean checks without throwing redirects.
- *
- * @param userId - The user ID to check
- * @returns true if user is a platform admin, false otherwise
+ * Check if a user is a platform administrator (any role).
+ * Used by middleware for quick boolean checks.
  */
 export async function isPlatformAdmin(userId: string): Promise<boolean> {
   const supabase = await createClient()
@@ -53,6 +60,7 @@ export async function isPlatformAdmin(userId: string): Promise<boolean> {
     .from('platform_admins')
     .select('id')
     .eq('user_id', userId)
+    .limit(1)
     .single()
 
   return !!platformAdmin

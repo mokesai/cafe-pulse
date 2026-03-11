@@ -6,27 +6,51 @@ import Button from '@/components/ui/Button';
 import { notFound } from 'next/navigation';
 import { StatusManager } from './StatusManager';
 import { ResendInviteButton } from './ResendInviteButton';
+import { SquareCredentialsManager } from './SquareCredentialsManager';
+import { InviteTeamMember } from './InviteTeamMember';
 
 export default async function TenantDetailPage({
   params,
 }: {
   params: Promise<{ tenantId: string }>;
 }) {
-  await requirePlatformAdmin();
+  const { admin } = await requirePlatformAdmin();
 
   const { tenantId } = await params;
   const supabase = createServiceClient();
 
-  // Fetch tenant and pending invite in parallel
-  const [{ data: tenant, error }, { data: pendingInvite }] = await Promise.all([
+  // Fetch tenant, memberships, and pending invites in parallel
+  const [{ data: tenant, error }, { data: memberships }, { data: pendingInvites }] = await Promise.all([
     supabase.from('tenants').select('*').eq('id', tenantId).single(),
     supabase
-      .from('tenant_pending_invites')
-      .select('invited_email, invited_at')
+      .from('tenant_memberships')
+      .select('id, user_id, role, created_at')
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
-      .single(),
+      .in('role', ['owner', 'admin', 'staff'])
+      .order('created_at', { ascending: true }),
+    supabase
+      .from('tenant_pending_invites')
+      .select('id, invited_email, role, invited_at')
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .order('invited_at', { ascending: true }),
   ]);
+
+  // Resolve user emails for memberships
+  let memberDetails: { id: string; email: string; role: string; created_at: string }[] = [];
+  if (memberships && memberships.length > 0) {
+    const { data: usersData } = await supabase.auth.admin.listUsers();
+    const usersMap = new Map(
+      usersData?.users?.map(u => [u.id, u.email || 'Unknown']) || []
+    );
+    memberDetails = memberships.map(m => ({
+      id: m.id,
+      email: usersMap.get(m.user_id) || 'Unknown',
+      role: m.role,
+      created_at: m.created_at,
+    }));
+  }
 
   if (error || !tenant) {
     notFound();
@@ -80,31 +104,13 @@ export default async function TenantDetailPage({
       </div>
 
       {/* Square Configuration */}
-      <div className="bg-white rounded-lg shadow p-6 mb-4">
-        <h2 className="text-lg font-semibold mb-4">Square Configuration</h2>
-        <dl className="grid grid-cols-2 gap-4">
-          <div>
-            <dt className="text-sm text-gray-500">Environment</dt>
-            <dd className="font-medium capitalize">{tenant.square_environment || 'Not configured'}</dd>
-          </div>
-          <div>
-            <dt className="text-sm text-gray-500">Merchant ID</dt>
-            <dd className="font-mono text-sm">{tenant.square_merchant_id || 'N/A'}</dd>
-          </div>
-          <div>
-            <dt className="text-sm text-gray-500">Location ID</dt>
-            <dd className="font-mono text-sm">{tenant.square_location_id || 'N/A'}</dd>
-          </div>
-          <div>
-            <dt className="text-sm text-gray-500">Token Expires</dt>
-            <dd>
-              {tenant.square_token_expires_at
-                ? new Date(tenant.square_token_expires_at).toLocaleDateString()
-                : 'N/A'}
-            </dd>
-          </div>
-        </dl>
-      </div>
+      <SquareCredentialsManager
+        tenantId={tenant.id}
+        squareEnvironment={process.env.SQUARE_ENVIRONMENT || 'sandbox'}
+        currentApplicationId={tenant.square_application_id}
+        currentLocationId={tenant.square_location_id}
+        currentMerchantId={tenant.square_merchant_id}
+      />
 
       {/* Branding */}
       <div className="bg-white rounded-lg shadow p-6 mb-4">
@@ -141,22 +147,64 @@ export default async function TenantDetailPage({
         </dl>
       </div>
 
-      {/* Admin Invite Status */}
-      {pendingInvite && (
-        <div className="bg-white rounded-lg shadow p-6 mb-4">
-          <h2 className="text-lg font-semibold mb-4">Admin Invite</h2>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-yellow-700 font-medium">Invite pending</p>
-              <p className="text-sm text-gray-600 mt-1">
-                Sent to <strong>{pendingInvite.invited_email}</strong> on{' '}
-                {new Date(pendingInvite.invited_at).toLocaleDateString()}
-              </p>
-            </div>
-            <ResendInviteButton tenantId={tenant.id} />
+      {/* Team Members */}
+      <div className="bg-white rounded-lg shadow p-6 mb-4">
+        <h2 className="text-lg font-semibold mb-4">Team Members</h2>
+
+        {memberDetails.length > 0 ? (
+          <table className="w-full text-sm mb-6">
+            <thead>
+              <tr className="border-b border-gray-200">
+                <th className="text-left py-2 text-gray-500 font-medium">Email</th>
+                <th className="text-left py-2 text-gray-500 font-medium">Role</th>
+                <th className="text-left py-2 text-gray-500 font-medium">Joined</th>
+              </tr>
+            </thead>
+            <tbody>
+              {memberDetails.map((member) => (
+                <tr key={member.id} className="border-b border-gray-100">
+                  <td className="py-2">{member.email}</td>
+                  <td className="py-2">
+                    <Badge size="xs" variant={getRoleVariant(member.role)}>
+                      {member.role}
+                    </Badge>
+                  </td>
+                  <td className="py-2 text-gray-500">
+                    {new Date(member.created_at).toLocaleDateString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="text-sm text-gray-500 mb-6">No team members yet.</p>
+        )}
+
+        {/* Pending Invites */}
+        {pendingInvites && pendingInvites.length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-sm font-medium text-gray-700 mb-2">Pending Invites</h3>
+            {pendingInvites.map((invite) => (
+              <div key={invite.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm">{invite.invited_email}</span>
+                  <Badge size="xs" variant="warning">{invite.role}</Badge>
+                  <span className="text-xs text-gray-400">
+                    invited {new Date(invite.invited_at).toLocaleDateString()}
+                  </span>
+                </div>
+                <ResendInviteButton tenantId={tenant.id} />
+              </div>
+            ))}
           </div>
+        )}
+
+        {/* Invite Form */}
+        <div className="pt-4 border-t border-gray-200">
+          <h3 className="text-sm font-medium text-gray-700 mb-3">Invite Team Member</h3>
+          <InviteTeamMember tenantId={tenant.id} callerRole={admin.role} />
         </div>
-      )}
+      </div>
 
       {/* Lifecycle Management */}
       <div className="bg-white rounded-lg shadow p-6">
@@ -169,6 +217,15 @@ export default async function TenantDetailPage({
       </div>
     </div>
   );
+}
+
+function getRoleVariant(role: string): 'default' | 'success' | 'warning' | 'danger' | 'secondary' | 'info' {
+  const variants: Record<string, 'default' | 'success' | 'info' | 'secondary'> = {
+    owner: 'success',
+    admin: 'info',
+    staff: 'secondary',
+  };
+  return variants[role] || 'default';
 }
 
 function getStatusVariant(status: string): 'default' | 'success' | 'warning' | 'danger' | 'secondary' {

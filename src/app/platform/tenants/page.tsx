@@ -27,10 +27,10 @@ export default async function TenantsListPage({
 }: {
   searchParams: Promise<{ q?: string; sort?: string }>
 }) {
-  // Verify platform admin authentication
-  await requirePlatformAdmin()
+  // Verify platform admin authentication and get role info
+  const { admin } = await requirePlatformAdmin()
 
-  // Use service client to bypass RLS and see all tenants
+  // Use service client to bypass RLS
   const supabase = createServiceClient()
 
   // Await searchParams
@@ -41,6 +41,11 @@ export default async function TenantsListPage({
     .from('tenants')
     .select('id, slug, name, status, created_at, trial_expires_at')
     .is('deleted_at', null)
+
+  // Scope to authorized tenants for tenant_admin
+  if (admin.role === 'tenant_admin') {
+    query = query.in('id', admin.tenantIds)
+  }
 
   // Search filter
   if (params.q) {
@@ -61,17 +66,21 @@ export default async function TenantsListPage({
     <div className="p-8">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">All Tenants</h1>
+          <h1 className="text-3xl font-bold text-gray-900">
+            {admin.role === 'super_admin' ? 'All Tenants' : 'My Tenants'}
+          </h1>
           <p className="text-gray-600 mt-2">
             {tenants?.length ?? 0} tenant{tenants?.length !== 1 ? 's' : ''} found
           </p>
         </div>
-        <Link
-          href="/platform/tenants/new"
-          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-        >
-          Onboard New Tenant
-        </Link>
+        {admin.role === 'super_admin' && (
+          <Link
+            href="/platform/tenants/new"
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            Onboard New Tenant
+          </Link>
+        )}
       </div>
       
       {/* Search and Sort */}

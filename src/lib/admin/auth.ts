@@ -19,10 +19,29 @@ export async function requireAdmin() {
     redirect('/admin/login')
   }
 
-  // 2. Get tenant context from cookie (set by middleware)
+  // 2. Enforce MFA (all app admins require 2FA)
+  const { data: mfaData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+
+  if (!mfaData) {
+    redirect('/mfa-enroll?return=/admin/dashboard')
+  }
+
+  const { currentLevel, nextLevel } = mfaData
+
+  if (nextLevel === 'aal2' && currentLevel !== 'aal2') {
+    // MFA enrolled but not verified this session
+    redirect('/mfa-challenge?return=/admin/dashboard')
+  }
+
+  if (currentLevel !== 'aal2' && nextLevel !== 'aal2') {
+    // No MFA enrolled — require enrollment
+    redirect('/mfa-enroll?return=/admin/dashboard')
+  }
+
+  // 3. Get tenant context from cookie (set by middleware)
   const tenantId = await getCurrentTenantId()
 
-  // 3. Check for pending invite (first-login claim flow)
+  // 4. Check for pending invite (first-login claim flow)
   if (user.email) {
     const serviceClient = createServiceClient()
     const { data: pendingInvite } = await serviceClient
@@ -50,13 +69,13 @@ export async function requireAdmin() {
     }
   }
 
-  // 4. Check tenant membership with owner/admin role (filter out soft-deleted)
+  // 5. Check tenant membership with owner/admin/staff role (filter out soft-deleted)
   const { data: membership, error: membershipError } = await supabase
     .from('tenant_memberships')
     .select('role')
     .eq('tenant_id', tenantId)
     .eq('user_id', user.id)
-    .in('role', ['owner', 'admin'])
+    .in('role', ['owner', 'admin', 'staff'])
     .is('deleted_at', null)
     .single()
 
@@ -65,7 +84,7 @@ export async function requireAdmin() {
     redirect('/admin/login?error=no-access')
   }
 
-  // 5. Create tenant-scoped client (calls set_tenant_context RPC)
+  // 6. Create tenant-scoped client (calls set_tenant_context RPC)
   const tenantClient = await createTenantClient(tenantId)
 
   return { user, membership, tenantClient, tenantId }

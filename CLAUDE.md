@@ -116,6 +116,13 @@ The dev server connects to `ofppjltowsdvojixeflr` unless performing testing and 
 #### Stale Data in Dev
 `revalidate = 300` causes stale data in dev mode. KDS pages use `dynamic = 'force-dynamic'` to avoid this.
 
+### Quality Gates
+Before considering any code change complete, you MUST verify:
+1. **Lint**: `npm run lint` — must pass with zero warnings and zero errors
+2. **Build**: `npm run build` — must compile successfully
+
+If either check fails, fix the issues before moving on. Do not leave broken lint or build for the user to discover.
+
 ### Do NOT
 - Don't modify the database without first verifying which Supabase project `.env.local` points to
 - Don't delete `.next` without warning — it requires a full dev server restart

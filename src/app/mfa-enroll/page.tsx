@@ -11,6 +11,7 @@ function MFAEnrollContent() {
   const searchParams = useSearchParams()
   const returnUrl = searchParams.get('return') || '/platform'
 
+  const [factorId, setFactorId] = useState<string | null>(null)
   const [qrCode, setQrCode] = useState<string | null>(null)
   const [secret, setSecret] = useState<string | null>(null)
   const [verifyCode, setVerifyCode] = useState('')
@@ -23,8 +24,18 @@ function MFAEnrollContent() {
 
     try {
       const supabase = createClient()
+
+      // Remove any existing factors before enrolling a fresh one
+      const { data: existingFactors } = await supabase.auth.mfa.listFactors()
+      if (existingFactors?.all) {
+        for (const factor of existingFactors.all) {
+          await supabase.auth.mfa.unenroll({ factorId: factor.id })
+        }
+      }
+
       const { data, error } = await supabase.auth.mfa.enroll({
         factorType: 'totp',
+        friendlyName: 'Cafe Pulse Authenticator',
       })
 
       if (error) {
@@ -32,9 +43,12 @@ function MFAEnrollContent() {
         return
       }
 
-      if (data?.totp) {
-        setQrCode(data.totp.qr_code)
-        setSecret(data.totp.secret)
+      if (data) {
+        setFactorId(data.id)
+        if (data.totp) {
+          setQrCode(data.totp.qr_code)
+          setSecret(data.totp.secret)
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to enroll MFA')
@@ -49,19 +63,16 @@ function MFAEnrollContent() {
       return
     }
 
+    if (!factorId) {
+      setError('MFA enrollment not found. Please refresh and try again.')
+      return
+    }
+
     setIsLoading(true)
     setError(null)
 
     try {
       const supabase = createClient()
-      const factors = await supabase.auth.mfa.listFactors()
-
-      if (factors.error || !factors.data?.totp?.[0]) {
-        setError('MFA enrollment not found. Please try again.')
-        return
-      }
-
-      const factorId = factors.data.totp[0].id
 
       const { error } = await supabase.auth.mfa.challengeAndVerify({
         factorId,

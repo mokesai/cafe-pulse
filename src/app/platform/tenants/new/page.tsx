@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { createTenant, resendInvite } from '../actions'
+import { createTenant, resendInvite, connectSquareCredentials } from '../actions'
+import { ENV } from '@/lib/constants/app'
 import {
   Form,
   FormControl,
@@ -41,6 +42,8 @@ export default function OnboardNewTenantPage() {
   const [successResult, setSuccessResult] = useState<ActionState | null>(null)
   const [resendStatus, setResendStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
   const [resendError, setResendError] = useState<string | null>(null)
+  const [squareStatus, setSquareStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [squareError, setSquareError] = useState<string | null>(null)
   const router = useRouter()
 
   // React Hook Form for Step 1
@@ -69,10 +72,20 @@ export default function OnboardNewTenantPage() {
     }
   }
 
-  // Step 2 Square OAuth handler
-  const initiateSquareOAuth = (environment: 'sandbox' | 'production') => {
-    const tenantId = successResult?.tenantId
-    router.push(`/api/platform/square-oauth/authorize?tenant_id=${tenantId}&environment=${environment}`)
+  // Manual credentials handler
+  const handleSquareConnect = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!successResult?.tenantId) return
+    setSquareStatus('saving')
+    setSquareError(null)
+    const formData = new FormData(e.currentTarget)
+    const result = await connectSquareCredentials(successResult.tenantId, formData)
+    if (result.success) {
+      setSquareStatus('saved')
+    } else {
+      setSquareStatus('error')
+      setSquareError(result.errors?._form?.[0] ?? 'Failed to save credentials')
+    }
   }
 
   const handleResendInvite = async () => {
@@ -120,7 +133,9 @@ export default function OnboardNewTenantPage() {
             </div>
             <div>
               <dt className="text-gray-500">Square</dt>
-              <dd className="text-yellow-600">Not connected yet</dd>
+              <dd className={squareStatus === 'saved' ? 'text-green-600' : 'text-yellow-600'}>
+                {squareStatus === 'saved' ? 'Connected' : 'Not connected yet'}
+              </dd>
             </div>
           </dl>
         </div>
@@ -170,20 +185,70 @@ export default function OnboardNewTenantPage() {
           )}
         </div>
 
-        {/* Connect Square (optional) */}
+        {/* Connect Square */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-lg font-semibold mb-2">Connect Square (Optional)</h2>
-          <p className="text-sm text-gray-600 mb-3">
-            You can connect Square now or later from the tenant settings.
-          </p>
-          <div className="flex gap-2">
-            <Button onClick={() => initiateSquareOAuth('sandbox')} variant="outline" size="sm">
-              Connect Sandbox
-            </Button>
-            <Button onClick={() => initiateSquareOAuth('production')} size="sm">
-              Connect Production
-            </Button>
+          <div className="flex items-center gap-3 mb-2">
+            <h2 className="text-lg font-semibold">Connect Square</h2>
+            <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${ENV.SQUARE_ENVIRONMENT === 'production' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+              {ENV.SQUARE_ENVIRONMENT === 'production' ? 'Production' : 'Sandbox'}
+            </span>
           </div>
+          <p className="text-sm text-gray-600 mb-3">
+            Enter credentials from your{' '}
+            <a href="https://developer.squareup.com/apps" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
+              Square Developer Dashboard
+            </a>. You can also configure this later from the tenant detail page.
+          </p>
+          {squareStatus === 'saved' ? (
+            <div className="flex items-center gap-2 text-green-700">
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <span>Square credentials saved</span>
+            </div>
+          ) : (
+            <form onSubmit={handleSquareConnect} className="space-y-3">
+              <div>
+                <label htmlFor="application_id" className="block text-sm font-medium text-gray-700 mb-1">
+                  Application ID
+                </label>
+                <Input
+                  id="application_id"
+                  name="application_id"
+                  placeholder={ENV.SQUARE_ENVIRONMENT === 'production' ? 'sq0idb-...' : 'sandbox-sq0idb-...'}
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="access_token" className="block text-sm font-medium text-gray-700 mb-1">
+                  Access Token
+                </label>
+                <Input
+                  id="access_token"
+                  name="access_token"
+                  placeholder="EAAAl..."
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="location_id" className="block text-sm font-medium text-gray-700 mb-1">
+                  Location ID
+                </label>
+                <Input
+                  id="location_id"
+                  name="location_id"
+                  placeholder="L..."
+                  required
+                />
+              </div>
+              {squareStatus === 'error' && squareError && (
+                <p className="text-red-600 text-sm">{squareError}</p>
+              )}
+              <Button type="submit" isLoading={squareStatus === 'saving'} size="sm">
+                Save Credentials
+              </Button>
+            </form>
+          )}
         </div>
 
         {/* Navigation */}

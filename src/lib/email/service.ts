@@ -2,6 +2,7 @@ import { Resend } from 'resend'
 import { render } from '@react-email/render'
 import OrderConfirmation from './templates/OrderConfirmation'
 import OrderStatusUpdate from './templates/OrderStatusUpdate'
+import TeamNotification, { getTeamNotificationSubject, type TeamEventType } from './templates/TeamNotification'
 import { getTenantIdentity } from '@/lib/tenant/identity'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
@@ -132,6 +133,60 @@ export class EmailService {
     } catch (error) {
       console.error('Email service error:', error)
       throw error
+    }
+  }
+  /**
+   * Send a team notification email (invite, role change, or removal).
+   * Fire-and-forget — logs errors but does not throw.
+   */
+  static async sendTeamNotification({
+    recipientEmail,
+    recipientName,
+    eventType,
+    tenantName,
+    role,
+    previousRole,
+    loginUrl,
+  }: {
+    recipientEmail: string
+    recipientName?: string
+    eventType: TeamEventType
+    tenantName: string
+    role: string
+    previousRole?: string
+    loginUrl?: string
+  }) {
+    try {
+      const html = await render(
+        TeamNotification({
+          eventType,
+          recipientName,
+          tenantName,
+          role,
+          previousRole,
+          loginUrl,
+        })
+      )
+
+      const subject = getTeamNotificationSubject(eventType, tenantName)
+
+      const { data, error } = await resend.emails.send({
+        from: 'Cafe Pulse <noreply@jmcpastrycoffee.com>',
+        to: [recipientEmail],
+        subject,
+        html,
+      })
+
+      if (error) {
+        console.error(`Failed to send team ${eventType} email to ${recipientEmail}:`, error)
+        return null
+      }
+
+      console.log(`Team ${eventType} email sent to ${recipientEmail}:`, data?.id)
+      return data
+    } catch (error) {
+      console.error(`Team notification email error (${eventType}):`, error)
+      return null
     }
   }
 }

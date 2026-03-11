@@ -1,4 +1,6 @@
-# Cafe Web Platform
+# Cafe Pulse
+
+> Forked from [cafe-web](https://github.com/mccmmj/cafe-web) — now maintained at [mokesai/cafe-pulse](https://github.com/mokesai/cafe-pulse)
 
 A multi-tenant SaaS cafe management platform built with Next.js 15, featuring Square payments integration, kitchen display systems, real-time inventory management, purchase order workflows, cost-of-goods-sold tracking, and a platform control plane for onboarding and managing multiple tenant locations.
 
@@ -164,7 +166,7 @@ npm run seed-inventory
 ## 📁 Project Structure
 
 ```
-website/
+cafe-pulse/
 ├── src/app/
 │   ├── (site)/                     # Customer-facing pages
 │   │   ├── menu/, cart/, checkout/ # Ordering flow
@@ -410,4 +412,4 @@ Additional documentation in `doc/`:
 
 ---
 
-**Cafe Web Platform** — Multi-tenant cafe management ☕
+**Cafe Pulse** — Multi-tenant cafe management ☕

@@ -11,22 +11,26 @@ import { toast } from 'react-hot-toast'
 
 interface AdminLoginFormProps {
   tenantName: string
+  isPlatform?: boolean
+  returnTo?: string
+  initialMessage?: string
+  initialError?: string
 }
 
-export function AdminLoginForm({ tenantName }: AdminLoginFormProps) {
+export function AdminLoginForm({ tenantName, isPlatform, returnTo, initialMessage, initialError }: AdminLoginFormProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [message, setMessage] = useState('')
+  const [error, setError] = useState(initialError || '')
+  const [message, setMessage] = useState(initialMessage || '')
   const [isResetting, setIsResetting] = useState(false)
   const [phase, setPhase] = useState<'login' | 'mfa'>('login')
   const [mfaCode, setMfaCode] = useState('')
   const [mfaError, setMfaError] = useState<string | null>(null)
   const [mfaFactors, setMfaFactors] = useState<Factor[]>([])
   const [selectedFactorId, setSelectedFactorId] = useState<string | null>(null)
-  const [pendingUserId, setPendingUserId] = useState<string | null>(null)
+  const [, setPendingUserId] = useState<string | null>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -68,8 +72,8 @@ export function AdminLoginForm({ tenantName }: AdminLoginFormProps) {
         return
       }
 
-      // Auth succeeded — server-side requireAdmin() handles tenant membership check
-      router.push('/admin/dashboard')
+      // Auth succeeded — redirect to return URL or default admin dashboard
+      router.push(returnTo || '/admin/dashboard')
 
     } catch (error) {
       console.error('Admin login error:', error)
@@ -91,7 +95,7 @@ export function AdminLoginForm({ tenantName }: AdminLoginFormProps) {
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/admin/reset-password`
+        redirectTo: `${window.location.origin}/reset-password`
       })
 
       if (error) {
@@ -165,8 +169,8 @@ export function AdminLoginForm({ tenantName }: AdminLoginFormProps) {
         throw error
       }
 
-      // MFA verified — server-side requireAdmin() handles tenant membership check
-      router.push('/admin/dashboard')
+      // MFA verified — redirect to return URL or default admin dashboard
+      router.push(returnTo || '/admin/dashboard')
     } catch (err) {
       console.error('MFA verification failed', err)
       const message = err instanceof Error ? err.message : 'Verification failed. Try again.'
@@ -199,18 +203,31 @@ export function AdminLoginForm({ tenantName }: AdminLoginFormProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-green-100 flex items-center justify-center px-4">
+    <div className={`min-h-screen flex items-center justify-center px-4 ${isPlatform ? 'bg-gradient-to-br from-amber-50 to-orange-100' : 'bg-gradient-to-br from-primary-50 to-green-100'}`}>
       <div className="max-w-md w-full">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center mb-4">
-            <div className="bg-primary-600 p-3 rounded-full">
-              <Coffee className="w-8 h-8 text-white" />
-            </div>
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">{tenantName}</h1>
-          <h2 className="text-xl font-semibold text-gray-700 mb-2">Admin Login</h2>
-          <p className="text-gray-600">Access the admin dashboard to manage orders and inventory</p>
+          {isPlatform ? (
+            <>
+              <div className="flex items-center justify-center mb-4">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/images/cafe-pulse-logo.png" alt="Café Pulse" className="h-16" />
+              </div>
+              <h2 className="text-xl font-semibold text-gray-700 mb-2">Platform Login</h2>
+              <p className="text-gray-600">Sign in to manage tenants and platform settings</p>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center justify-center mb-4">
+                <div className="bg-primary-600 p-3 rounded-full">
+                  <Coffee className="w-8 h-8 text-white" />
+                </div>
+              </div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">{tenantName}</h1>
+              <h2 className="text-xl font-semibold text-gray-700 mb-2">Admin Login</h2>
+              <p className="text-gray-600">Access the admin dashboard to manage orders and inventory</p>
+            </>
+          )}
         </div>
 
         <div className="bg-white rounded-lg shadow-lg p-6 space-y-6">
@@ -274,9 +291,9 @@ export function AdminLoginForm({ tenantName }: AdminLoginFormProps) {
               <Button
                 type="submit"
                 disabled={loading || !email || !password}
-                className="w-full bg-primary-600 hover:bg-primary-700 text-white py-2 px-4 rounded-md font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className={`w-full text-white py-2 px-4 rounded-md font-medium disabled:opacity-50 disabled:cursor-not-allowed ${isPlatform ? 'bg-amber-600 hover:bg-amber-700' : 'bg-primary-600 hover:bg-primary-700'}`}
               >
-                {loading ? 'Signing In...' : 'Sign In to Admin Dashboard'}
+                {loading ? 'Signing In...' : isPlatform ? 'Sign In to Platform' : 'Sign In to Admin Dashboard'}
               </Button>
             </form>
           ) : (
@@ -363,12 +380,14 @@ export function AdminLoginForm({ tenantName }: AdminLoginFormProps) {
             <p className="text-sm text-gray-600">
               Need access? Contact the system administrator.
             </p>
-            <button
-              onClick={() => router.push('/')}
-              className="text-primary-600 hover:text-primary-700 text-sm font-medium mt-2"
-            >
-              ← Back to Customer Site
-            </button>
+            {!isPlatform && (
+              <button
+                onClick={() => router.push('/')}
+                className="text-primary-600 hover:text-primary-700 text-sm font-medium mt-2"
+              >
+                ← Back to Customer Site
+              </button>
+            )}
           </div>
         </div>
       </div>
