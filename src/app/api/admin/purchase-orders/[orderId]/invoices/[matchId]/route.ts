@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 interface RouteContext {
   params: Promise<{ orderId: string; matchId: string }>
@@ -22,7 +23,23 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       )
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
+
+    // Verify purchase order belongs to this tenant before deleting match
+    const { data: po, error: poFetchError } = await supabase
+      .from('purchase_orders')
+      .select('id')
+      .eq('id', orderId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+
+    if (poFetchError || !po) {
+      return NextResponse.json(
+        { error: 'Purchase order not found for this tenant' },
+        { status: 404 }
+      )
+    }
 
     const { data: match, error: fetchError } = await supabase
       .from('order_invoice_matches')

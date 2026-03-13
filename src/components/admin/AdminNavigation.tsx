@@ -18,6 +18,7 @@ import {
   DollarSign
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { useTenant } from '@/providers/TenantProvider'
 import type { User } from '@supabase/supabase-js'
 
 const navigation = [
@@ -29,6 +30,7 @@ const navigation = [
   { name: 'COGS', href: '/admin/cogs', icon: DollarSign },
   { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
   { name: 'Customers', href: '/admin/customers', icon: Users },
+  { name: 'Team', href: '/admin/team', icon: Users },
   { name: 'Settings', href: '/admin/settings', icon: Settings },
 ]
 
@@ -37,6 +39,7 @@ export function AdminNavigation() {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
+  const tenant = useTenant()
 
   useEffect(() => {
     // Get current user
@@ -66,7 +69,7 @@ export function AdminNavigation() {
       <div className="flex items-center justify-center h-16 px-4 bg-gray-800">
         <div className="flex items-center">
           <Coffee className="w-8 h-8 text-primary-500" />
-          <span className="ml-2 text-xl font-bold text-white">Little Cafe</span>
+          <span className="ml-2 text-xl font-bold text-white">{tenant.business_name || tenant.name}</span>
         </div>
       </div>
 

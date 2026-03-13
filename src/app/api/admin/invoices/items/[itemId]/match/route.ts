@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 interface RouteContext {
   params: Promise<{ itemId: string }>
@@ -31,13 +32,15 @@ export async function PUT(request: NextRequest, context: RouteContext) {
       )
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
 
     // Verify the invoice item exists
     const { data: invoiceItem, error: fetchError } = await supabase
       .from('invoice_items')
       .select('id, invoice_id, item_description')
       .eq('id', itemId)
+      .eq('tenant_id', tenantId)
       .single()
 
     if (fetchError || !invoiceItem) {
@@ -52,6 +55,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
       .from('inventory_items')
       .select('id, item_name, current_stock, unit_cost')
       .eq('id', matched_item_id)
+      .eq('tenant_id', tenantId)
       .single()
 
     if (inventoryError || !inventoryItem) {
@@ -72,6 +76,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         review_notes
       })
       .eq('id', itemId)
+      .eq('tenant_id', tenantId)
       .select(`
         id,
         item_description,
@@ -127,7 +132,8 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 
     const resolvedParams = await context.params
     const { itemId } = resolvedParams
-    const supabase = await createClient()
+    const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
 
     // Remove the match from the invoice item
     const { data: updatedItem, error: updateError } = await supabase
@@ -140,6 +146,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
         review_notes: 'Match removed manually'
       })
       .eq('id', itemId)
+      .eq('tenant_id', tenantId)
       .select('id, item_description')
       .single()
 

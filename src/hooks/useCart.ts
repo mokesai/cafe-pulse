@@ -1,7 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import type { MenuCategory, MenuItem } from '@/types/menu'
+import { getItem, setItem, removeItem } from '@/lib/utils/localStorage'
+import { useTenant } from '@/providers/TenantProvider'
 
 interface CartItem {
   itemId: string
@@ -10,6 +12,7 @@ interface CartItem {
 }
 
 export const useCart = (categories: MenuCategory[]) => {
+  const { slug: tenantSlug } = useTenant()
   const [cart, setCart] = useState<Record<string, CartItem>>({})
   const [selectedVariations, setSelectedVariations] = useState<Record<string, string>>({})
 
@@ -29,29 +32,17 @@ export const useCart = (categories: MenuCategory[]) => {
   }, [categories])
 
   // Load cart from localStorage on mount
-  useEffect(() => {
-    loadCartFromStorage()
-  }, [])
-
-  // Save cart to localStorage whenever cart changes
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('cafe-cart', JSON.stringify(cart))
-      localStorage.setItem('cafe-selected-variations', JSON.stringify(selectedVariations))
-    }
-  }, [cart, selectedVariations])
-
-  const loadCartFromStorage = () => {
+  const loadCartFromStorage = useCallback(() => {
     if (typeof window !== 'undefined') {
       try {
-        const savedCart = localStorage.getItem('cafe-cart')
-        const savedVariations = localStorage.getItem('cafe-selected-variations')
-        
+        const savedCart = getItem(tenantSlug, 'cart')
+        const savedVariations = getItem(tenantSlug, 'selected-variations')
+
         if (savedCart) {
           const parsedCart = JSON.parse(savedCart)
           // Check if old cart format (number values) and convert to new format
           const convertedCart: Record<string, CartItem> = {}
-          
+
           Object.entries(parsedCart).forEach(([key, value]) => {
             if (typeof value === 'number') {
               // Old format: convert to new format
@@ -61,10 +52,10 @@ export const useCart = (categories: MenuCategory[]) => {
               convertedCart[key] = value as CartItem
             }
           })
-          
+
           setCart(convertedCart)
         }
-        
+
         if (savedVariations) {
           const parsedVariations = JSON.parse(savedVariations)
           setSelectedVariations(parsedVariations)
@@ -73,7 +64,19 @@ export const useCart = (categories: MenuCategory[]) => {
         console.error('Error loading cart from storage:', error)
       }
     }
-  }
+  }, [tenantSlug])
+
+  useEffect(() => {
+    loadCartFromStorage()
+  }, [loadCartFromStorage])
+
+  // Save cart to localStorage whenever cart changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setItem(tenantSlug, 'cart', JSON.stringify(cart))
+      setItem(tenantSlug, 'selected-variations', JSON.stringify(selectedVariations))
+    }
+  }, [cart, selectedVariations, tenantSlug])
 
   // Helper function to create cart keys
   const createCartKey = (itemId: string, variationId?: string): string => {
@@ -156,8 +159,8 @@ export const useCart = (categories: MenuCategory[]) => {
     setCart({})
     setSelectedVariations({})
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('cafe-cart')
-      localStorage.removeItem('cafe-selected-variations')
+      removeItem(tenantSlug, 'cart')
+      removeItem(tenantSlug, 'selected-variations')
     }
   }
 

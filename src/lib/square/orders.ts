@@ -1,5 +1,6 @@
 import { createOrder, createPayment, getOrder, searchAllCatalogItems } from './fetch-client'
 import { validateTaxConfiguration } from './tax-validation'
+import type { SquareConfig } from './types'
 
 interface SimpleCartItem {
   id: string
@@ -67,37 +68,34 @@ interface SquareApiError {
 const isSquareApiError = (error: unknown): error is SquareApiError =>
   typeof error === 'object' && error !== null
 
-// Cache for catalog items to avoid repeated API calls
-let catalogItemsCache: CatalogObject[] | null = null
-let cacheTimestamp = 0
+// Tenant-scoped cache for catalog items to avoid repeated API calls
 const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+const catalogCacheByTenant = new Map<string, { items: CatalogObject[]; expiresAt: number }>()
 
-async function getCatalogItems(): Promise<CatalogObject[]> {
-  const now = Date.now()
-  
-  // Return cached items if cache is fresh
-  if (catalogItemsCache && (now - cacheTimestamp) < CACHE_DURATION) {
-    return catalogItemsCache
+async function getCatalogItems(config: SquareConfig, tenantId: string): Promise<CatalogObject[]> {
+  const cached = catalogCacheByTenant.get(tenantId)
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.items
   }
-  
+
   try {
-    const result = await searchAllCatalogItems() as CatalogSearchResponse
+    const result = await searchAllCatalogItems(config) as CatalogSearchResponse
     const items = result.objects?.filter((obj): obj is CatalogObject => obj.type === 'ITEM') || []
-    
-    catalogItemsCache = items
-    cacheTimestamp = now
+
+    catalogCacheByTenant.set(tenantId, { items, expiresAt: Date.now() + CACHE_DURATION })
     return items
   } catch (error) {
     console.error('Error fetching catalog items:', error)
-    return catalogItemsCache || [] // Return cached items or empty array on error
+    const stale = catalogCacheByTenant.get(tenantId)
+    return stale?.items || []
   }
 }
 
-async function getVariationIdForItem(itemId: string): Promise<string> {
+async function getVariationIdForItem(config: SquareConfig, tenantId: string, itemId: string): Promise<string> {
   try {
-    const catalogItems = await getCatalogItems()
+    const catalogItems = await getCatalogItems(config, tenantId)
     const item = catalogItems.find((obj) => obj.id === itemId)
-    
+
     if (item && item.item_data?.variations && item.item_data.variations.length > 0) {
       const firstVariationId = item.item_data.variations[0].id
       console.log(`Using first variation for item ${itemId}: ${firstVariationId}`)
@@ -112,21 +110,21 @@ async function getVariationIdForItem(itemId: string): Promise<string> {
   }
 }
 
-export async function previewSquareOrder(items: SimpleCartItem[]): Promise<{
+export async function previewSquareOrder(config: SquareConfig, tenantId: string, items: SimpleCartItem[]): Promise<{
   subtotal: number
   tax: number
   total: number
 }> {
   try {
     console.log('Creating Square order preview for tax calculation:', items)
-    
+
     // Validate tax configuration - REQUIRED for order creation
-    const taxConfig = await validateTaxConfiguration()
-    
+    const taxConfig = await validateTaxConfiguration(config)
+
     // For order creation, we need to use variation IDs, not item IDs
     const lineItems = await Promise.all(items.map(async (item) => {
-      const catalogObjectId = item.variationId || await getVariationIdForItem(item.id)
-      
+      const catalogObjectId = item.variationId || await getVariationIdForItem(config, tenantId, item.id)
+
       return {
         quantity: item.quantity.toString(),
         catalog_object_id: catalogObjectId
@@ -136,18 +134,18 @@ export async function previewSquareOrder(items: SimpleCartItem[]): Promise<{
     const orderData = {
       order: {
         line_items: lineItems,
-        source: { name: 'Little Cafe Website' },
+        source: { name: 'Online Ordering' },
         taxes: [{
           catalog_object_id: taxConfig.taxId,
           scope: 'ORDER' as const
         }]
       }
     }
-    
+
     console.log('Creating preview order with tax configuration:', orderData)
-    
+
     // Create the order
-    const result = await createOrder(orderData) as SquareOrderResponse
+    const result = await createOrder(config, orderData) as SquareOrderResponse
     const orderId = result.order?.id
     
     if (!orderId) {
@@ -155,7 +153,7 @@ export async function previewSquareOrder(items: SimpleCartItem[]): Promise<{
     }
     
     // Get the order details to extract calculated totals
-    const orderDetails = await getOrder(orderId) as SquareOrderResponse
+    const orderDetails = await getOrder(config, orderId) as SquareOrderResponse
     const order = orderDetails.order
     
     if (!order) {
@@ -193,9 +191,9 @@ export async function previewSquareOrder(items: SimpleCartItem[]): Promise<{
     
     // Return fallback calculations using tax service
     const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-    
+
     try {
-      const taxConfig = await validateTaxConfiguration()
+      const taxConfig = await validateTaxConfiguration(config)
       const tax = subtotal * ((taxConfig.percentage as unknown as number) / 100)
       return {
         subtotal,
@@ -213,18 +211,18 @@ export async function previewSquareOrder(items: SimpleCartItem[]): Promise<{
   }
 }
 
-export async function createSquareOrder(items: SimpleCartItem[]): Promise<string> {
+export async function createSquareOrder(config: SquareConfig, tenantId: string, items: SimpleCartItem[]): Promise<string> {
   try {
     console.log('Creating Square order with items:', items)
-    
+
     // Validate tax configuration - REQUIRED for order creation
     console.log('Validating tax configuration (required)...')
-    const taxConfig = await validateTaxConfiguration()
+    const taxConfig = await validateTaxConfiguration(config)
     console.log('Tax configuration validated:', taxConfig)
-    
+
     const lineItems = await Promise.all(items.map(async (item) => {
-      const catalogObjectId = item.variationId || await getVariationIdForItem(item.id)
-      
+      const catalogObjectId = item.variationId || await getVariationIdForItem(config, tenantId, item.id)
+
       return {
         quantity: item.quantity.toString(),
         catalog_object_id: catalogObjectId
@@ -239,7 +237,7 @@ export async function createSquareOrder(items: SimpleCartItem[]): Promise<string
       order: {
         line_items: lineItems, // Use snake_case for Square API
         source: {
-          name: 'Little Cafe Website'
+          name: 'Online Ordering'
         },
         // Include required tax configuration
         taxes: [{
@@ -265,14 +263,14 @@ export async function createSquareOrder(items: SimpleCartItem[]): Promise<string
     console.log('Creating order with data:', JSON.stringify(orderData, null, 2))
     console.log('Tax configuration included:', taxConfig.taxId)
 
-    const result = await createOrder(orderData) as SquareOrderResponse
-    
+    const result = await createOrder(config, orderData) as SquareOrderResponse
+
     if (!result.order?.id) {
       throw new Error('Failed to create order: No order ID returned')
     }
 
     // Get the order back to see what Square calculated as the total
-    const orderDetails = await getOrder(result.order.id) as SquareOrderResponse
+    const orderDetails = await getOrder(config, result.order.id) as SquareOrderResponse
     console.log('Created order details:', JSON.stringify(orderDetails, null, 2))
 
     return result.order.id
@@ -302,8 +300,9 @@ export async function createSquareOrder(items: SimpleCartItem[]): Promise<string
 }
 
 export async function processPayment(
-  paymentToken: string, 
-  orderId: string | null, 
+  config: SquareConfig,
+  paymentToken: string,
+  orderId: string | null,
   amount: number,
   customerEmail?: string
 ): Promise<{ paymentId: string; status: string }> {
@@ -316,7 +315,7 @@ export async function processPayment(
       orderId,
       customerEmail
     })
-    
+
     const paymentData = {
       source_id: paymentToken,
       amount_money: {
@@ -332,7 +331,7 @@ export async function processPayment(
     }
 
     console.log('Payment data being sent to Square:', JSON.stringify(paymentData, null, 2))
-    const result = await createPayment(paymentData) as SquarePaymentResponse
+    const result = await createPayment(config, paymentData) as SquarePaymentResponse
     
     if (!result.payment?.id) {
       throw new Error('Failed to process payment: No payment ID returned')

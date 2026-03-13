@@ -1,0 +1,9 @@
+screen,filename,alt_text,sort_order,is_active
+drinks,espresso-pour.jpg,Fresh espresso being poured,1,true
+drinks,latte-art.jpg,Latte with beautiful art,2,true
+drinks,iced-coffee.jpg,Refreshing iced coffee,3,true
+drinks,frappuccino.jpg,Blended frappuccino,4,true
+food,breakfast-burrito.jpg,Hearty breakfast burrito,1,true
+food,croissant.jpg,Flaky butter croissant,2,true
+food,danish.jpg,Fresh baked danish,3,true
+food,sandwich.jpg,Delicious sandwich,4,true

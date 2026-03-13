@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,6 +10,8 @@ export async function POST(request: NextRequest) {
       return authResult
     }
 
+    const tenantId = await getCurrentTenantId()
+
     const body = await request.json().catch(() => ({}))
     const { id } = body
 
@@ -16,10 +19,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required field: id' }, { status: 400 })
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
     const { data, error } = await supabase
       .from('inventory_items')
       .update({ deleted_at: null })
+      .eq('tenant_id', tenantId)
       .eq('id', id)
       .select()
       .single()

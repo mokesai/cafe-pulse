@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,12 +14,16 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const includeInactive = searchParams.get('includeInactive') === 'true'
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
+
+    // Get tenant ID
+    const tenantId = await getCurrentTenantId()
 
     // Build query
     let query = supabase
       .from('suppliers')
       .select('*')
+      .eq('tenant_id', tenantId)
 
     // Filter by active status unless including inactive
     if (!includeInactive) {
@@ -35,6 +40,8 @@ export async function GET(request: NextRequest) {
         { status: 500 }
       )
     }
+
+    console.log('✅ Fetched', suppliers?.length || 0, 'suppliers')
 
     return NextResponse.json({
       success: true,
@@ -84,7 +91,7 @@ export async function POST(request: NextRequest) {
 
     console.log('Creating new supplier:', name)
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     // Insert new supplier
     const { data: newSupplier, error } = await supabase

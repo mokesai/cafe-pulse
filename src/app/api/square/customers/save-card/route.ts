@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { findOrCreateCustomer, saveCustomerCard } from '@/lib/square/customers'
 import { createClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
+import { getTenantSquareConfig } from '@/lib/square/config'
 
 interface SaveCardRequest {
   paymentToken: string
@@ -47,8 +49,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Resolve tenant and load Square config
+    const tenantId = await getCurrentTenantId()
+    const squareConfig = await getTenantSquareConfig(tenantId)
+    if (!squareConfig) {
+      return NextResponse.json(
+        { error: 'Square integration not configured for this tenant' },
+        { status: 503 }
+      )
+    }
+
     // Find or create Square customer
-    const customerId = await findOrCreateCustomer(customerEmail, customerName)
+    const customerId = await findOrCreateCustomer(squareConfig, customerEmail, customerName)
 
     // Convert billing address format
     const squareBillingAddress = billingAddress ? {
@@ -59,7 +71,7 @@ export async function POST(request: NextRequest) {
     } : undefined
 
     // Save the card to Square
-    const cardId = await saveCustomerCard(customerId, {
+    const cardId = await saveCustomerCard(squareConfig, customerId, {
       sourceId: paymentToken,
       cardholderName,
       billingAddress: squareBillingAddress

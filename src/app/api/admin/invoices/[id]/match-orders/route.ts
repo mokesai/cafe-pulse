@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 import { findOrderMatches } from '@/lib/matching/item-matcher'
 
 interface RouteContext {
@@ -20,7 +21,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const resolvedParams = await context.params
     const { id } = resolvedParams
-    const supabase = await createClient()
+    const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
 
     console.log('🔍 Starting order matching for invoice:', id)
 
@@ -45,6 +47,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         )
       `)
       .eq('id', id)
+      .eq('tenant_id', tenantId)
       .single()
 
     if (invoiceError || !invoice) {
@@ -133,6 +136,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         )
       `)
       .eq('supplier_id', invoice.supplier_id)
+      .eq('tenant_id', tenantId)
       .in('status', ['sent', 'confirmed'])
       .gte('order_date', thirtyDaysAgo.toISOString())
       .order('order_date', { ascending: false })
@@ -384,7 +388,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     const resolvedParams = await context.params
     const { id } = resolvedParams
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     // Get existing order matches for the invoice
     const { data: matches, error } = await supabase

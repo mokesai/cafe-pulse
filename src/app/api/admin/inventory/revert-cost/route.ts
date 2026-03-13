@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 export async function POST(request: NextRequest) {
   const auth = await requireAdminAuth(request)
   if (!isAdminAuthSuccess(auth)) return auth
   const { userId } = auth
+
+  const tenantId = await getCurrentTenantId()
 
   const body = await request.json()
   const { item_id, target_cost, note } = body
@@ -19,11 +22,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'target_cost must be a non-negative number' }, { status: 400 })
   }
 
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const { data: existing, error: fetchError } = await supabase
     .from('inventory_items')
     .select('unit_cost, pack_size')
+    .eq('tenant_id', tenantId)
     .eq('id', item_id)
     .single()
 
@@ -37,6 +41,7 @@ export async function POST(request: NextRequest) {
   const { error: updateError } = await supabase
     .from('inventory_items')
     .update({ unit_cost: newCost, updated_at: new Date().toISOString() })
+    .eq('tenant_id', tenantId)
     .eq('id', item_id)
 
   if (updateError) {
@@ -47,6 +52,7 @@ export async function POST(request: NextRequest) {
   await supabase
     .from('inventory_item_cost_history')
     .insert({
+      tenant_id: tenantId,
       inventory_item_id: item_id,
       previous_unit_cost: previous,
       new_unit_cost: newCost,

@@ -3,10 +3,9 @@ import './globals.css'
 import QueryProvider from '@/providers/QueryProvider'
 
 export const metadata: Metadata = {
-  title: 'Little Cafe - Fresh Coffee & Pastries',
+  title: 'Cafe Pulse - Multi-Tenant Cafe Management',
   description:
-    'Welcome to Little Cafe, where we serve the finest coffee, delicious pastries, and create memorable moments. Visit us for a warm atmosphere and exceptional service.',
-  keywords: 'cafe, coffee, pastries, breakfast, lunch, coffee shop, Little Cafe'
+    'Cafe Pulse is a multi-tenant cafe management platform with Square payments, menu management, and admin dashboards.',
 }
 
 export default function RootLayout({

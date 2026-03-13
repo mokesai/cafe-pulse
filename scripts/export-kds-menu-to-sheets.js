@@ -11,10 +11,11 @@
  *   node scripts/export-kds-menu-to-sheets.js --out data/kds-menu-export.csv
  *
  * Options:
- *   --out <file>     Output path (default: data/kds-menu-export.csv)
- *   --categories     Also export categories CSV (data/kds-categories-export.csv)
- *   --images         Also export images template CSV (data/kds-images-template.csv)
- *   --all            Export all CSVs (menu, categories, images, settings)
+ *   --out <file>         Output path (default: data/kds-menu-export.csv)
+ *   --tenant-id <slug>   Use Square credentials from a tenant record instead of env vars
+ *   --categories         Also export categories CSV (data/kds-categories-export.csv)
+ *   --images             Also export images template CSV (data/kds-images-template.csv)
+ *   --all                Export all CSVs (menu, categories, images, settings)
  */
 
 require('dotenv').config({ path: '.env.local' })
@@ -22,6 +23,7 @@ require('dotenv').config({ path: '.env.local' })
 const fs = require('fs')
 const path = require('path')
 const { Client } = require('square/legacy')
+const { createClient } = require('@supabase/supabase-js')
 
 const DEFAULT_MENU_OUTPUT = path.join('data', 'kds-menu-export.csv')
 const DEFAULT_CATEGORIES_OUTPUT = path.join('data', 'kds-categories-export.csv')
@@ -32,6 +34,7 @@ function parseArgs() {
   const args = process.argv.slice(2)
   const options = {
     out: DEFAULT_MENU_OUTPUT,
+    tenantId: null,
     exportCategories: false,
     exportImages: false,
     exportSettings: false,
@@ -41,6 +44,9 @@ function parseArgs() {
     const arg = args[i]
     if (arg === '--out' && args[i + 1]) {
       options.out = args[i + 1]
+      i += 1
+    } else if (arg === '--tenant-id' && args[i + 1]) {
+      options.tenantId = args[i + 1]
       i += 1
     } else if (arg === '--categories') {
       options.exportCategories = true
@@ -59,12 +65,13 @@ Usage:
   node scripts/export-kds-menu-to-sheets.js [OPTIONS]
 
 Options:
-  --out FILE        Output CSV file for menu items (default: ${DEFAULT_MENU_OUTPUT})
-  --categories      Also export categories template CSV
-  --images          Also export images template CSV
-  --settings        Also export settings template CSV
-  --all             Export all templates (menu, categories, images, settings)
-  --help            Show this help message
+  --out FILE           Output CSV file for menu items (default: ${DEFAULT_MENU_OUTPUT})
+  --tenant-id SLUG     Use Square credentials from tenant record (slug or UUID)
+  --categories         Also export categories template CSV
+  --images             Also export images template CSV
+  --settings           Also export settings template CSV
+  --all                Export all templates (menu, categories, images, settings)
+  --help               Show this help message
 
 Output Files:
   Menu items:    ${DEFAULT_MENU_OUTPUT}
@@ -104,12 +111,51 @@ function toCSVRow(values) {
   return values.map(escapeCSV).join(',')
 }
 
-async function fetchCatalog() {
+/**
+ * Resolve tenant Square credentials from Supabase.
+ * Accepts a tenant slug or UUID, returns { accessToken, environment }.
+ */
+async function resolveTenantSquareCredentials(tenantIdOrSlug) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SECRET_KEY
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Missing Supabase credentials (NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY)')
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseKey)
+
+  // Try UUID first, then slug
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenantIdOrSlug)
+  const column = isUUID ? 'id' : 'slug'
+
+  const { data: tenant, error } = await supabase
+    .from('tenants')
+    .select('id, slug, name, square_access_token, square_environment')
+    .eq(column, tenantIdOrSlug)
+    .is('deleted_at', null)
+    .single()
+
+  if (error || !tenant) {
+    throw new Error(`Tenant "${tenantIdOrSlug}" not found: ${error?.message || 'no match'}`)
+  }
+
+  if (!tenant.square_access_token) {
+    throw new Error(`Tenant "${tenant.slug}" has no Square access token configured`)
+  }
+
+  console.log(`🏪 Using Square credentials for tenant: ${tenant.name} (${tenant.slug})`)
+  return {
+    accessToken: tenant.square_access_token,
+    environment: tenant.square_environment || 'sandbox',
+  }
+}
+
+async function fetchCatalog(squareCredentials) {
   const client = new Client({
     bearerAuthCredentials: {
-      accessToken: process.env.SQUARE_ACCESS_TOKEN
+      accessToken: squareCredentials.accessToken
     },
-    environment: (process.env.SQUARE_ENVIRONMENT || 'sandbox').toLowerCase()
+    environment: squareCredentials.environment.toLowerCase()
   })
 
   const items = []
@@ -408,13 +454,23 @@ function generateSettingsCSV() {
 async function main() {
   const options = parseArgs()
 
-  if (!process.env.SQUARE_ACCESS_TOKEN) {
-    console.error('❌ Missing SQUARE_ACCESS_TOKEN in environment')
-    process.exit(1)
+  // Resolve Square credentials: from tenant record or env vars
+  let squareCredentials
+  if (options.tenantId) {
+    squareCredentials = await resolveTenantSquareCredentials(options.tenantId)
+  } else {
+    if (!process.env.SQUARE_ACCESS_TOKEN) {
+      console.error('❌ Missing SQUARE_ACCESS_TOKEN in environment (or use --tenant-id)')
+      process.exit(1)
+    }
+    squareCredentials = {
+      accessToken: process.env.SQUARE_ACCESS_TOKEN,
+      environment: process.env.SQUARE_ENVIRONMENT || 'sandbox',
+    }
   }
 
   console.log('📦 Fetching Square catalog...')
-  const catalogObjects = await fetchCatalog()
+  const catalogObjects = await fetchCatalog(squareCredentials)
   console.log(`✅ Retrieved ${catalogObjects.length} catalog objects`)
 
   const { menuItems, categories } = extractMenuData(catalogObjects)

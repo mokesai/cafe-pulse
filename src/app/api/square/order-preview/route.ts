@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { previewSquareOrder } from '@/lib/square/orders'
 import { TaxConfigurationError } from '@/lib/square/tax-validation'
+import { getCurrentTenantId } from '@/lib/tenant/context'
+import { getTenantSquareConfig } from '@/lib/square/config'
 
 interface CartItem {
   id: string
@@ -17,6 +19,16 @@ interface PreviewRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    // Resolve tenant and load Square config
+    const tenantId = await getCurrentTenantId()
+    const squareConfig = await getTenantSquareConfig(tenantId)
+    if (!squareConfig) {
+      return NextResponse.json(
+        { error: 'Square not configured for this tenant' },
+        { status: 503 }
+      )
+    }
+
     const body: PreviewRequest = await request.json()
     const { items } = body
 
@@ -41,7 +53,7 @@ export async function POST(request: NextRequest) {
     console.log('Creating order preview for', items.length, 'items')
 
     // Get Square's calculated totals
-    const totals = await previewSquareOrder(items)
+    const totals = await previewSquareOrder(squareConfig, tenantId, items)
 
     console.log('Order preview totals:', totals)
 

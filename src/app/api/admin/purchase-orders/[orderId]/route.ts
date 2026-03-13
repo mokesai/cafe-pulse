@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/admin/middleware'
 import type { AdminAuthSuccess } from '@/lib/admin/middleware'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 import { canonicalStatus, canTransition, insertStatusHistory, isValidStatus } from '../status-utils'
 
 interface SupplierDetails {
@@ -128,7 +129,8 @@ export async function GET(
       )
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
 
     // Fetch purchase order with details
     const { data: order, error } = await supabase
@@ -158,6 +160,7 @@ export async function GET(
         )
       `)
       .eq('id', orderId)
+      .eq('tenant_id', tenantId)
       .single()
 
     if (error) {
@@ -258,15 +261,17 @@ export async function PATCH(
     }
 
     const body: PurchaseOrderPatchBody = await request.json()
-    
+
     console.log('Updating purchase order:', orderId, body)
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
 
     const { data: existingOrder, error: existingError } = await supabase
       .from('purchase_orders')
       .select('status')
       .eq('id', orderId)
+      .eq('tenant_id', tenantId)
       .maybeSingle()
 
     if (existingError) {
@@ -353,6 +358,7 @@ export async function PATCH(
       .from('purchase_orders')
       .update(updateData)
       .eq('id', orderId)
+      .eq('tenant_id', tenantId)
       .select()
       .single()
 
@@ -566,12 +572,14 @@ export async function PUT(
       }
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
 
     const { data: existingOrder, error: fetchError } = await supabase
       .from('purchase_orders')
       .select('id, status, expected_delivery_date')
       .eq('id', orderId)
+      .eq('tenant_id', tenantId)
       .maybeSingle()
 
     if (fetchError) {
@@ -653,6 +661,7 @@ export async function PUT(
       .from('purchase_orders')
       .update(updatePayload)
       .eq('id', orderId)
+      .eq('tenant_id', tenantId)
 
     if (updateError) {
       console.error('Database error updating purchase order:', updateError)
@@ -748,13 +757,15 @@ export async function DELETE(
 
     console.log('Deleting purchase order:', orderId)
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
 
     // Check if order can be deleted (only draft orders)
     const { data: order, error: checkError } = await supabase
       .from('purchase_orders')
       .select('status')
       .eq('id', orderId)
+      .eq('tenant_id', tenantId)
       .single()
 
     if (checkError) {
@@ -798,6 +809,7 @@ export async function DELETE(
       .from('purchase_orders')
       .delete()
       .eq('id', orderId)
+      .eq('tenant_id', tenantId)
 
     if (error) {
       console.error('Database error deleting purchase order:', error)

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 interface RouteContext {
   params: Promise<{ orderId: string }>
@@ -61,12 +62,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
       )
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
 
     const { data: order, error: orderError } = await supabase
       .from('purchase_orders')
       .select('id, supplier_id')
       .eq('id', orderId)
+      .eq('tenant_id', tenantId)
       .single()
 
     if (orderError || !order) {
@@ -110,6 +113,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
           created_at
         `)
         .eq('supplier_id', order.supplier_id)
+        .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false })
         .limit(20)
 
@@ -178,12 +182,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
       )
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
 
     const { data: order, error: orderError } = await supabase
       .from('purchase_orders')
       .select('id, supplier_id')
       .eq('id', orderId)
+      .eq('tenant_id', tenantId)
       .single()
 
     if (orderError || !order) {
@@ -197,6 +203,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .from('invoices')
       .select('id, supplier_id, status')
       .eq('id', invoice_id)
+      .eq('tenant_id', tenantId)
       .single()
 
     if (invoiceError || !invoice) {

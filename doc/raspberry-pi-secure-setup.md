@@ -130,10 +130,10 @@ Add these lines:
 
 ```
 # Allow pi to manage the app service without password
-pi ALL=(ALL) NOPASSWD: /bin/systemctl start cafe-web
-pi ALL=(ALL) NOPASSWD: /bin/systemctl stop cafe-web
-pi ALL=(ALL) NOPASSWD: /bin/systemctl restart cafe-web
-pi ALL=(ALL) NOPASSWD: /bin/systemctl status cafe-web
+pi ALL=(ALL) NOPASSWD: /bin/systemctl start cafe-pulse
+pi ALL=(ALL) NOPASSWD: /bin/systemctl stop cafe-pulse
+pi ALL=(ALL) NOPASSWD: /bin/systemctl restart cafe-pulse
+pi ALL=(ALL) NOPASSWD: /bin/systemctl status cafe-pulse
 
 # Allow pi to manage PM2 without password
 pi ALL=(ALL) NOPASSWD: /usr/bin/pm2 *

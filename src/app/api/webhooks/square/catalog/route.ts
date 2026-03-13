@@ -1,40 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { headers } from 'next/headers'
 import crypto from 'crypto'
-
-function getSupabaseClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseServiceKey = process.env.SUPABASE_SECRET_KEY
-
-  if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error('Missing Supabase environment variables for Square webhook')
-  }
-
-  return createClient(supabaseUrl, supabaseServiceKey)
-}
-
-function getSquareConfig() {
-  const squareWebhookSecret = process.env.SQUARE_WEBHOOK_SIGNATURE_KEY
-  const squareAccessToken = process.env.SQUARE_ACCESS_TOKEN
-  const squareEnvironment = process.env.SQUARE_ENVIRONMENT
-
-  if (!squareAccessToken) {
-    throw new Error('Missing required Square environment variables for webhook')
-  }
-
-  return { squareWebhookSecret, squareAccessToken, squareEnvironment }
-}
-
-function getSquareApiConfig() {
-  const { squareEnvironment } = getSquareConfig()
-  return {
-    SQUARE_BASE_URL: squareEnvironment === 'production'
-      ? 'https://connect.squareup.com'
-      : 'https://connect.squareupsandbox.com',
-    SQUARE_VERSION: '2024-12-18'
-  }
-}
+import { createServiceClient } from '@/lib/supabase/server'
+import { getTenantSquareConfig, resolveTenantFromMerchantId } from '@/lib/square/config'
+import type { SquareConfig } from '@/lib/square/types'
 
 interface SquareCatalogWebhookEvent {
   type: 'catalog.version.updated'
@@ -149,14 +118,14 @@ function verifySquareSignature(body: string, signature: string, secret: string):
     const url = `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/square/catalog`
     const timestamp = Math.floor(Date.now() / 1000).toString()
     const payload = `${url}${body}${timestamp}`
-    
+
     const hash = crypto
       .createHmac('sha256', secret)
       .update(payload)
       .digest('base64')
 
     const expectedSignature = `sha256=${hash}`
-    
+
     return crypto.timingSafeEqual(
       Buffer.from(signature),
       Buffer.from(expectedSignature)
@@ -167,22 +136,21 @@ function verifySquareSignature(body: string, signature: string, secret: string):
   }
 }
 
-function getSquareHeaders() {
-  const { squareAccessToken } = getSquareConfig()
-  const { SQUARE_VERSION } = getSquareApiConfig()
+function makeSquareHeaders(config: SquareConfig) {
   return {
-    'Square-Version': SQUARE_VERSION,
-    'Authorization': `Bearer ${squareAccessToken}`,
+    'Square-Version': '2024-12-18',
+    'Authorization': `Bearer ${config.accessToken}`,
     'Content-Type': 'application/json'
   }
 }
 
-async function getLastCatalogSync() {
+async function getLastCatalogSync(tenantId: string) {
   try {
-    const supabase = getSupabaseClient()
+    const supabase = createServiceClient()
     const { data: lastSync, error } = await supabase
       .from('webhook_events')
       .select('processed_at, event_data')
+      .eq('tenant_id', tenantId)
       .eq('event_type', 'catalog.version.updated')
       .order('processed_at', { ascending: false })
       .limit(1)
@@ -200,9 +168,12 @@ async function getLastCatalogSync() {
   }
 }
 
-async function fetchCatalogChanges(sinceTimestamp?: Date): Promise<CatalogResponse> {
+async function fetchCatalogChanges(config: SquareConfig, sinceTimestamp?: Date): Promise<CatalogResponse> {
   try {
-    const { SQUARE_BASE_URL } = getSquareApiConfig()
+    const baseUrl = config.environment === 'production'
+      ? 'https://connect.squareup.com'
+      : 'https://connect.squareupsandbox.com'
+
     const query: CatalogSearchRequest = {
       object_types: ['ITEM', 'CATEGORY'],
       include_related_objects: true
@@ -213,9 +184,9 @@ async function fetchCatalogChanges(sinceTimestamp?: Date): Promise<CatalogRespon
       query.begin_time = sinceTimestamp.toISOString()
     }
 
-    const response = await fetch(`${SQUARE_BASE_URL}/v2/catalog/search`, {
+    const response = await fetch(`${baseUrl}/v2/catalog/search`, {
       method: 'POST',
-      headers: getSquareHeaders(),
+      headers: makeSquareHeaders(config),
       body: JSON.stringify(query)
     })
 
@@ -231,22 +202,23 @@ async function fetchCatalogChanges(sinceTimestamp?: Date): Promise<CatalogRespon
   }
 }
 
-async function syncCatalogChanges(catalogData: CatalogResponse): Promise<SyncResult> {
+async function syncCatalogChanges(tenantId: string, catalogData: CatalogResponse): Promise<SyncResult> {
   if (!catalogData.objects || catalogData.objects.length === 0) {
     return { newItems: 0, updatedItems: 0, categories: 0 }
   }
 
   const categories = catalogData.objects.filter(isCategoryObject)
   const items = catalogData.objects.filter(isItemObject)
-  
+
   let newItems = 0
   let updatedItems = 0
 
-  // Get existing inventory items
-  const supabase = getSupabaseClient()
+  // Get existing inventory items for this tenant
+  const supabase = createServiceClient()
   const { data: existingItemsRaw, error } = await supabase
     .from('inventory_items')
     .select('id, square_item_id, item_name, updated_at, notes')
+    .eq('tenant_id', tenantId)
 
   if (error) {
     throw new Error(`Failed to fetch existing inventory: ${error.message}`)
@@ -261,10 +233,11 @@ async function syncCatalogChanges(catalogData: CatalogResponse): Promise<SyncRes
     }
   })
 
-  // Get supplier mappings
+  // Get supplier mappings for this tenant
   const { data: suppliersRaw, error: supplierError } = await supabase
     .from('suppliers')
     .select('id, name')
+    .eq('tenant_id', tenantId)
 
   if (supplierError) {
     throw new Error(`Failed to fetch suppliers: ${supplierError.message}`)
@@ -274,11 +247,11 @@ async function syncCatalogChanges(catalogData: CatalogResponse): Promise<SyncRes
   // Process catalog items
   for (const item of items) {
     const existingItem = existingItemMap.get(item.id)
-    
+
     if (existingItem) {
       // Update existing item (only item name and description from Square)
       const updates: Partial<Pick<ExistingInventoryItem, 'item_name' | 'notes'>> = {}
-      
+
       if (item.item_data?.name && item.item_data.name !== existingItem.item_name) {
         updates.item_name = item.item_data.name
         updates.notes = (existingItem.notes || '') + ` [Square update: ${new Date().toISOString()}]`
@@ -289,6 +262,7 @@ async function syncCatalogChanges(catalogData: CatalogResponse): Promise<SyncRes
           .from('inventory_items')
           .update(updates)
           .eq('id', existingItem.id)
+          .eq('tenant_id', tenantId)
 
         if (!updateError) {
           updatedItems++
@@ -302,6 +276,7 @@ async function syncCatalogChanges(catalogData: CatalogResponse): Promise<SyncRes
       const defaults = generateInventoryDefaults(item, categoryObj)
 
       const newInventoryItem = {
+        tenant_id: tenantId,
         square_item_id: item.id,
         item_name: item.item_data?.name || 'Unknown Item',
         current_stock: defaults.current_stock,
@@ -337,7 +312,7 @@ function mapItemToSupplier(
 ) {
   const itemName = item.item_data?.name?.toLowerCase() || ''
   const categoryName = category?.category_data?.name?.toLowerCase() || ''
-  
+
   const patterns = {
     'coffee': 'Premium Coffee Roasters',
     'dairy': 'Local Dairy Cooperative',
@@ -362,7 +337,7 @@ function generateInventoryDefaults(
 ): InventoryDefaults {
   const itemName = item.item_data?.name?.toLowerCase() || ''
   const categoryName = category?.category_data?.name?.toLowerCase() || ''
-  
+
   let defaultStock = 10
   let minThreshold = 3
   let reorderPoint = 6
@@ -407,13 +382,14 @@ function generateInventoryDefaults(
   }
 }
 
-async function logWebhookEvent(event: SquareCatalogWebhookEvent, syncResult: SyncResult) {
+async function logWebhookEvent(event: SquareCatalogWebhookEvent, syncResult: SyncResult, tenantId: string) {
   try {
     // Log webhook processing for audit trail
-    const supabase = getSupabaseClient()
+    const supabase = createServiceClient()
     const { error } = await supabase
       .from('webhook_events')
       .insert([{
+        tenant_id: tenantId,
         event_id: event.event_id,
         event_type: event.type,
         merchant_id: event.merchant_id,
@@ -435,23 +411,46 @@ export async function POST(request: NextRequest) {
     const body = await request.text()
     const event: SquareCatalogWebhookEvent = JSON.parse(body)
 
-    // Verify webhook signature if configured
-    const { squareWebhookSecret } = getSquareConfig()
+    // Resolve tenant from merchant_id
+    const tenantId = await resolveTenantFromMerchantId(event.merchant_id)
+    if (!tenantId) {
+      console.warn(`Unknown merchant_id in catalog webhook: ${event.merchant_id}`)
+      return NextResponse.json(
+        { success: false, message: 'Unknown merchant' },
+        { status: 200 }
+      )
+    }
+
+    // Load tenant's Square config
+    const squareConfig = await getTenantSquareConfig(tenantId)
+    if (!squareConfig) {
+      console.warn(`No Square config for tenant ${tenantId}`)
+      return NextResponse.json(
+        { success: false, message: 'Tenant not configured' },
+        { status: 200 }
+      )
+    }
+
+    // Verify webhook signature using tenant's key
     const headersList = await headers()
     const signature = headersList.get('x-square-signature') || ''
-    if (squareWebhookSecret && !verifySquareSignature(body, signature, squareWebhookSecret)) {
-      console.error('❌ Invalid webhook signature')
+    if (
+      squareConfig.webhookSignatureKey &&
+      !verifySquareSignature(body, signature, squareConfig.webhookSignatureKey)
+    ) {
+      console.error('Invalid webhook signature')
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }
 
     console.log('📨 Received Square catalog webhook:', event.event_id)
     console.log('📅 Catalog updated at:', event.data.object.catalog_version.updated_at)
 
-    // Check if this event was already processed
-    const supabase = getSupabaseClient()
+    // Check if this event was already processed (scoped to this tenant)
+    const supabase = createServiceClient()
     const { data: existingEvent } = await supabase
       .from('webhook_events')
       .select('id')
+      .eq('tenant_id', tenantId)
       .eq('event_id', event.event_id)
       .maybeSingle()
 
@@ -460,17 +459,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Event already processed' })
     }
 
-    // Get last sync timestamp
-    const lastSync = await getLastCatalogSync()
-    
-    // Fetch catalog changes since last sync
-    const catalogData = await fetchCatalogChanges(lastSync || undefined)
-    
-    // Sync changes to inventory
-    const syncResult = await syncCatalogChanges(catalogData)
-    
-    // Log the webhook event
-    await logWebhookEvent(event, syncResult)
+    // Get last sync timestamp for this tenant
+    const lastSync = await getLastCatalogSync(tenantId)
+
+    // Fetch catalog changes since last sync using tenant's credentials
+    const catalogData = await fetchCatalogChanges(squareConfig, lastSync || undefined)
+
+    // Sync changes to inventory (tenant-scoped)
+    const syncResult = await syncCatalogChanges(tenantId, catalogData)
+
+    // Log the webhook event (tenant-scoped)
+    await logWebhookEvent(event, syncResult, tenantId)
 
     console.log('✅ Catalog webhook processed successfully')
     console.log(`🆕 New items: ${syncResult.newItems}`)
@@ -483,16 +482,18 @@ export async function POST(request: NextRequest) {
       sync_result: syncResult,
       processed_at: new Date().toISOString()
     })
-
   } catch (error) {
     console.error('❌ Catalog webhook error:', error)
-    
+
     // Always return 200 to Square to prevent retries for application errors
-    return NextResponse.json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      processed_at: new Date().toISOString()
-    }, { status: 200 })
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        processed_at: new Date().toISOString()
+      },
+      { status: 200 }
+    )
   }
 }
 

@@ -1,21 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdminAuth } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 export async function GET(request: NextRequest) {
   try {
     // Verify admin authentication
     const authResult = await requireAdminAuth(request)
-    if (authResult instanceof NextResponse) {
+    if (!isAdminAuthSuccess(authResult)) {
       return authResult
     }
 
-    const supabase = await createClient()
+    const tenantId = await getCurrentTenantId()
+    const supabase = createServiceClient()
 
     // Fetch settings (there should only be one row)
     const { data: settings, error } = await supabase
       .from('inventory_settings')
       .select('*')
+      .eq('tenant_id', tenantId)
       .limit(1)
       .single()
 
@@ -66,9 +69,11 @@ export async function POST(request: NextRequest) {
   try {
     // Verify admin authentication
     const authResult = await requireAdminAuth(request)
-    if (authResult instanceof NextResponse) {
+    if (!isAdminAuthSuccess(authResult)) {
       return authResult
     }
+
+    const tenantId = await getCurrentTenantId()
 
     const body = await request.json()
     const { 
@@ -89,12 +94,13 @@ export async function POST(request: NextRequest) {
 
     console.log('Saving inventory settings:', body)
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     // Check if settings already exist
     const { data: existingSettings } = await supabase
       .from('inventory_settings')
       .select('id')
+      .eq('tenant_id', tenantId)
       .limit(1)
       .single()
 
@@ -120,6 +126,7 @@ export async function POST(request: NextRequest) {
       const { data: updatedSettings, error } = await supabase
         .from('inventory_settings')
         .update(settingsData)
+        .eq('tenant_id', tenantId)
         .eq('id', existingSettings.id)
         .select()
         .single()
@@ -137,7 +144,7 @@ export async function POST(request: NextRequest) {
       // Create new settings
       const { data: newSettings, error } = await supabase
         .from('inventory_settings')
-        .insert(settingsData)
+        .insert({ ...settingsData, tenant_id: tenantId })
         .select()
         .single()
 

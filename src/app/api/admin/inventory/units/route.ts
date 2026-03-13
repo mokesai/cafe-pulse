@@ -1,21 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdminAuth } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 export async function GET(request: NextRequest) {
   try {
     // Verify admin authentication
     const authResult = await requireAdminAuth(request)
-    if (authResult instanceof NextResponse) {
+    if (!isAdminAuthSuccess(authResult)) {
       return authResult
     }
 
-    const supabase = await createClient()
+    const tenantId = await getCurrentTenantId()
+    const supabase = createServiceClient()
 
     // Fetch all unit types
     const { data: units, error } = await supabase
       .from('inventory_unit_types')
       .select('*')
+      .eq('tenant_id', tenantId)
       .order('category', { ascending: true })
       .order('name', { ascending: true })
 
@@ -50,9 +53,11 @@ export async function POST(request: NextRequest) {
   try {
     // Verify admin authentication
     const authResult = await requireAdminAuth(request)
-    if (authResult instanceof NextResponse) {
+    if (!isAdminAuthSuccess(authResult)) {
       return authResult
     }
+
+    const tenantId = await getCurrentTenantId()
 
     const body = await request.json()
     const { name, symbol, category } = body
@@ -66,12 +71,13 @@ export async function POST(request: NextRequest) {
 
     console.log('Creating new inventory unit type:', { name, symbol, category })
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     // Check if symbol already exists
     const { data: existingUnit } = await supabase
       .from('inventory_unit_types')
       .select('id')
+      .eq('tenant_id', tenantId)
       .eq('symbol', symbol.trim())
       .single()
 
@@ -86,6 +92,7 @@ export async function POST(request: NextRequest) {
     const { data: newUnit, error } = await supabase
       .from('inventory_unit_types')
       .insert({
+        tenant_id: tenantId,
         name: name.trim(),
         symbol: symbol.trim(),
         category: category || 'Count',

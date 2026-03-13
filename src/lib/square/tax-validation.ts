@@ -1,4 +1,5 @@
 import { listCatalogTaxes } from './fetch-client'
+import type { SquareConfig } from './types'
 
 interface CatalogTaxObject {
   id: string
@@ -31,9 +32,9 @@ export class TaxConfigurationError extends Error {
  * Validates that Square has proper tax configuration
  * Throws TaxConfigurationError if taxes are not configured
  */
-export async function validateTaxConfiguration(): Promise<TaxConfiguration> {
+export async function validateTaxConfiguration(config: SquareConfig): Promise<TaxConfiguration> {
   try {
-    const taxesResult = await listCatalogTaxes() as CatalogTaxResponse
+    const taxesResult = await listCatalogTaxes(config) as CatalogTaxResponse
     
     if (!taxesResult.objects || taxesResult.objects.length === 0) {
       throw new TaxConfigurationError(
@@ -100,9 +101,9 @@ export async function validateTaxConfiguration(): Promise<TaxConfiguration> {
  * Gets tax configuration for frontend display
  * Returns null if no tax configuration (caller should handle gracefully)
  */
-export async function getTaxConfiguration(): Promise<TaxConfiguration | null> {
+export async function getTaxConfiguration(config: SquareConfig): Promise<TaxConfiguration | null> {
   try {
-    return await validateTaxConfiguration()
+    return await validateTaxConfiguration(config)
   } catch (error) {
     console.warn('Tax configuration not available:', error instanceof Error ? error.message : error)
     return null

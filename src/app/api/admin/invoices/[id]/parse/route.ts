@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 import { parseInvoiceWithAI } from '@/lib/ai/openai-service'
 import { processInvoiceFile, validateInvoiceText } from '@/lib/document/pdf-processor'
 import { InvoiceTextAnalysis } from '@/types/invoice'
@@ -37,7 +38,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       )
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
 
     console.log('🤖 Starting invoice parsing for ID:', id)
 
@@ -58,6 +60,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         )
       `)
       .eq('id', id)
+      .eq('tenant_id', tenantId)
       .single()
 
     if (fetchError || !invoice) {
@@ -225,6 +228,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           const { data: newSupplier, error: supplierError } = await supabase
             .from('suppliers')
             .insert({
+              tenant_id: tenantId,
               name: aiResult.data.supplier_info.name,
               contact_person: null,
               email: aiResult.data.supplier_info.email || null,
@@ -256,6 +260,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         const { data: newOrder, error: orderError } = await supabase
           .from('purchase_orders')
           .insert({
+            tenant_id: tenantId,
             supplier_id: finalSupplierId,
             order_number: `PO-${invoice.invoice_number}`,
             order_date: aiResult.data.invoice_date || new Date().toISOString().split('T')[0],

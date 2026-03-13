@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 interface OrderUpdatePayload {
   status: string
@@ -9,26 +11,12 @@ interface OrderUpdatePayload {
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    
-    // Check if user is authenticated and admin
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
-    }
-    
-    // Check admin role
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-    
-    if (profileError || profile?.role !== 'admin') {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
-    }
-    
+    const authResult = await requireAdminAuth(request)
+    if (!isAdminAuthSuccess(authResult)) return authResult
+
+    // Use service client for data queries with explicit tenant filtering
+    const supabase = createServiceClient()
+
     // Get query parameters
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get('limit') || '50')
@@ -36,7 +24,10 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status')
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
-    
+
+    // Get tenant ID
+    const tenantId = await getCurrentTenantId()
+
     // Build query - fetch orders and order_items, handle profiles separately
     let query = supabase
       .from('orders')
@@ -44,26 +35,27 @@ export async function GET(request: NextRequest) {
         *,
         order_items (*)
       `)
+      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
-    
+
     // Apply filters
     if (status && status !== 'all') {
       query = query.eq('status', status)
     }
-    
+
     if (startDate) {
       const startDateTime = new Date(startDate + 'T00:00:00.000Z')
       query = query.gte('created_at', startDateTime.toISOString())
     }
-    
+
     if (endDate) {
       const endDateTime = new Date(endDate + 'T23:59:59.999Z')
       query = query.lte('created_at', endDateTime.toISOString())
     }
-    
+
     const { data: orders, error: ordersError } = await query
-    
+
     if (ordersError) {
       console.error('Error fetching orders:', ordersError)
       return NextResponse.json({ error: 'Failed to fetch orders' }, { status: 500 })
@@ -91,32 +83,33 @@ export async function GET(request: NextRequest) {
         }
       }
     }
-    
+
     // Get total count for pagination
     let countQuery = supabase
       .from('orders')
       .select('*', { count: 'exact', head: true })
-    
+      .eq('tenant_id', tenantId)
+
     if (status && status !== 'all') {
       countQuery = countQuery.eq('status', status)
     }
-    
+
     if (startDate) {
       const startDateTime = new Date(startDate + 'T00:00:00.000Z')
       countQuery = countQuery.gte('created_at', startDateTime.toISOString())
     }
-    
+
     if (endDate) {
       const endDateTime = new Date(endDate + 'T23:59:59.999Z')
       countQuery = countQuery.lte('created_at', endDateTime.toISOString())
     }
-    
+
     const { count: totalOrders, error: countError } = await countQuery
-    
+
     if (countError) {
       console.error('Error counting orders:', countError)
     }
-    
+
     return NextResponse.json({
       orders: ordersWithProfiles,
       pagination: {
@@ -126,7 +119,7 @@ export async function GET(request: NextRequest) {
         hasMore: (totalOrders || 0) > offset + limit
       }
     })
-    
+
   } catch (error) {
     console.error('Error in admin orders API:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -135,55 +128,53 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    
-    // Check if user is authenticated and admin
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
-    }
-    
-    // Check admin role
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-    
-    if (profileError || profile?.role !== 'admin') {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
-    }
-    
+    const authResult = await requireAdminAuth(request)
+    if (!isAdminAuthSuccess(authResult)) return authResult
+
+    const { tenantId } = authResult
+
+    // Use service client for data queries
+    const supabase = createServiceClient()
+
     const body = await request.json()
     const { orderId, status, notes } = body
-    
+
     if (!orderId || !status) {
       return NextResponse.json({ error: 'Order ID and status are required' }, { status: 400 })
     }
-    
+
     // Update order status
-    const updates: OrderUpdatePayload = { 
+    const updates: OrderUpdatePayload = {
       status,
       updated_at: new Date().toISOString()
     }
-    
+
     if (notes) {
       updates.admin_notes = notes
     }
-    
+
     const { data: updatedOrder, error: updateError } = await supabase
       .from('orders')
       .update(updates)
       .eq('id', orderId)
+      .eq('tenant_id', tenantId)
       .select(`
         *,
         order_items (*)
       `)
       .single()
 
+    if (updateError) {
+      console.error('Error updating order:', updateError)
+      return NextResponse.json({ error: 'Failed to update order' }, { status: 500 })
+    }
+
+    if (!updatedOrder) {
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    }
+
     // Fetch profile data separately if needed
-    if (!updateError && updatedOrder && updatedOrder.user_id) {
+    if (updatedOrder.user_id) {
       const { data: profile } = await supabase
         .from('profiles')
         .select('id, full_name, email')
@@ -194,14 +185,9 @@ export async function PATCH(request: NextRequest) {
         updatedOrder.profiles = profile
       }
     }
-    
-    if (updateError) {
-      console.error('Error updating order:', updateError)
-      return NextResponse.json({ error: 'Failed to update order' }, { status: 500 })
-    }
-    
+
     // Create notification for order status update
-    if (updatedOrder && updatedOrder.user_id) {
+    if (updatedOrder.user_id) {
       try {
         await supabase.rpc('create_order_notification', {
           p_user_id: updatedOrder.user_id,
@@ -214,14 +200,14 @@ export async function PATCH(request: NextRequest) {
         // Don't fail the order update if notification creation fails
       }
     }
-    
+
     // TODO: Send notification email to customer about status change
     // if (updatedOrder.customer_email) {
     //   await sendOrderStatusEmail(updatedOrder)
     // }
-    
+
     return NextResponse.json({ order: updatedOrder })
-    
+
   } catch (error) {
     console.error('Error updating order:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

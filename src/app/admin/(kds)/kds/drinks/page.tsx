@@ -1,4 +1,5 @@
 import { getScreenData } from '@/lib/kds/queries'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 import { KDSDrinksMagazine } from '@/app/kds/components'
 
 // Always fetch fresh data (no ISR caching)
@@ -27,7 +28,8 @@ const PHOTO_STRIP_IMAGES = [
 ]
 
 export default async function DrinksDisplayPage() {
-  const data = await getScreenData('drinks')
+  const tenantId = await getCurrentTenantId()
+  const data = await getScreenData(tenantId, 'drinks')
 
   return (
     <KDSDrinksMagazine

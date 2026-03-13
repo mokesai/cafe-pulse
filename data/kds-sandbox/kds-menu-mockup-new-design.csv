@@ -1,0 +1,97 @@
+square_item_id,square_variation_id,name,variation_name,display_name,description,price,price_cents,display_price,square_category,kds_category,kds_screen,sort_order,is_visible,display_type,featured,bullet_color,parent_item
+# ==========================================
+# SCREEN 1: LITTLE CAFÉ (drinks screen, left panel)
+# ==========================================
+
+# === MOST POPULAR (Featured Section) ===
+# These items appear in the "MOST POPULAR" section with colored bullets
+# No prices displayed - just item names with color-coded bullets
+ITEM_LATTE_001,VAR_LATTE_001,Latte,Hot or Iced,Latte (Hot or Iced),Rich espresso with steamed milk,5.65,565,$5.65,Starbucks,most-popular,drinks,1,true,featured,true,green,
+ITEM_VANILLA_001,VAR_VANILLA_001,Vanilla Latte,Grande,Vanilla Latte,Vanilla-flavored espresso with steamed milk,5.95,595,$5.95,Starbucks,most-popular,drinks,2,true,featured,true,yellow,
+ITEM_CARAMEL_MAC_001,VAR_CARAMEL_MAC_001,Caramel Macchiato,Grande,Caramel Macchiato,Espresso marked with vanilla and caramel,5.95,595,$5.95,Starbucks,most-popular,drinks,3,true,featured,true,orange,
+ITEM_COLD_BREW_001,VAR_COLD_BREW_001,Cold Brew,Vanilla Sweet Cream,Cold Brew - Vanilla Sweet Cream,Slow-steeped cold brew with vanilla sweet cream,5.45,545,$5.45,Starbucks,most-popular,drinks,4,true,featured,true,brown,
+ITEM_PINK_DRINK_001,VAR_PINK_DRINK_001,Pink Drink,Grande,Pink Drink,Strawberry Acai Refresher with coconut milk,5.45,545,$5.45,Starbucks,most-popular,drinks,5,true,featured,true,pink,
+
+# === STARBUCKS ESPRESSO & COFFEE (Price Grid) ===
+# These items have Tall/Grande/Venti variations with price columns
+ITEM_CARAMEL_001,VAR_CARAMEL_TALL,Caramel Latte,Tall,Caramel,Caramel-flavored espresso latte,4.45,445,$4.45,Starbucks,espresso-coffee,drinks,1,true,price-grid,false,,
+ITEM_CARAMEL_001,VAR_CARAMEL_GRANDE,Caramel Latte,Grande,Caramel,Caramel-flavored espresso latte,4.95,495,$4.95,Starbucks,espresso-coffee,drinks,1,true,price-grid,false,,
+ITEM_CARAMEL_001,VAR_CARAMEL_VENTI,Caramel Latte,Venti,Caramel,Caramel-flavored espresso latte,5.45,545,$5.45,Starbucks,espresso-coffee,drinks,1,true,price-grid,false,,
+ITEM_MOCHA_001,VAR_MOCHA_TALL,Mocha,Tall,Mocha,Espresso with mocha and steamed milk,4.95,495,$4.95,Starbucks,espresso-coffee,drinks,2,true,price-grid,false,,
+ITEM_MOCHA_001,VAR_MOCHA_GRANDE,Mocha,Grande,Mocha,Espresso with mocha and steamed milk,5.45,545,$5.45,Starbucks,espresso-coffee,drinks,2,true,price-grid,false,,
+ITEM_MOCHA_001,VAR_MOCHA_VENTI,Mocha,Venti,Mocha,Espresso with mocha and steamed milk,5.45,545,$5.45,Starbucks,espresso-coffee,drinks,2,true,price-grid,false,,
+ITEM_JAVA_CHIP_001,VAR_JAVA_TALL,Java Chip,Tall,Java Chip,Espresso with mocha sauce and Frappuccino chips,4.95,495,$4.95,Starbucks,espresso-coffee,drinks,3,true,price-grid,false,,
+ITEM_JAVA_CHIP_001,VAR_JAVA_GRANDE,Java Chip,Grande,Java Chip,Espresso with mocha sauce and Frappuccino chips,5.95,595,$5.95,Starbucks,espresso-coffee,drinks,3,true,price-grid,false,,
+ITEM_JAVA_CHIP_001,VAR_JAVA_VENTI,Java Chip,Venti,Java Chip,Espresso with mocha sauce and Frappuccino chips,5.95,595,$5.95,Starbucks,espresso-coffee,drinks,3,true,price-grid,false,,
+ITEM_WHITE_MOCHA_001,VAR_WM_TALL,White Chocolate Mocha,Tall,White Chocolate Mocha,Espresso with white chocolate and steamed milk,5.25,525,$5.25,Starbucks,espresso-coffee,drinks,4,true,price-grid,false,,
+ITEM_WHITE_MOCHA_001,VAR_WM_GRANDE,White Chocolate Mocha,Grande,White Chocolate Mocha,Espresso with white chocolate and steamed milk,5.75,575,$5.75,Starbucks,espresso-coffee,drinks,4,true,price-grid,false,,
+ITEM_WHITE_MOCHA_001,VAR_WM_VENTI,White Chocolate Mocha,Venti,White Chocolate Mocha,Espresso with white chocolate and steamed milk,6.25,625,$6.25,Starbucks,espresso-coffee,drinks,4,true,price-grid,false,,
+
+# === FRAPPUCCINOS (Price Grid) ===
+ITEM_FRAP_CARAMEL_001,VAR_FC_TALL,Caramel Frappuccino,Tall,Caramel,Caramel blended with coffee milk and ice,5.35,535,$5.35,Starbucks,frappuccinos,drinks,1,true,price-grid,false,,
+ITEM_FRAP_CARAMEL_001,VAR_FC_GRANDE,Caramel Frappuccino,Grande,Caramel,Caramel blended with coffee milk and ice,5.85,585,$5.85,Starbucks,frappuccinos,drinks,1,true,price-grid,false,,
+ITEM_FRAP_CARAMEL_001,VAR_FC_VENTI,Caramel Frappuccino,Venti,Caramel,Caramel blended with coffee milk and ice,6.35,635,$6.35,Starbucks,frappuccinos,drinks,1,true,price-grid,false,,
+ITEM_FRAP_JAVA_001,VAR_FJ_TALL,Java Chip Frappuccino,Tall,Java Chip,Java Chip blended with coffee milk and ice,5.45,545,$5.45,Starbucks,frappuccinos,drinks,2,true,price-grid,false,,
+ITEM_FRAP_JAVA_001,VAR_FJ_GRANDE,Java Chip Frappuccino,Grande,Java Chip,Java Chip blended with coffee milk and ice,5.75,575,$5.75,Starbucks,frappuccinos,drinks,2,true,price-grid,false,,
+ITEM_FRAP_JAVA_001,VAR_FJ_VENTI,Java Chip Frappuccino,Venti,Java Chip,Java Chip blended with coffee milk and ice,6.35,635,$6.35,Starbucks,frappuccinos,drinks,2,true,price-grid,false,,
+ITEM_FRAP_WM_001,VAR_FWM_TALL,White Chocolate Mocha Frappuccino,Tall,White Chocolate Mocha,White Chocolate Mocha blended with milk and ice,3.45,345,$3.45,Starbucks,frappuccinos,drinks,3,true,price-grid,false,,
+ITEM_FRAP_WM_001,VAR_FWM_GRANDE,White Chocolate Mocha Frappuccino,Grande,White Chocolate Mocha,White Chocolate Mocha blended with milk and ice,5.75,575,$5.75,Starbucks,frappuccinos,drinks,3,true,price-grid,false,,
+ITEM_FRAP_WM_001,VAR_FWM_VENTI,White Chocolate Mocha Frappuccino,Venti,White Chocolate Mocha,White Chocolate Mocha blended with milk and ice,4.45,445,$4.45,Starbucks,frappuccinos,drinks,3,true,price-grid,false,,
+
+# ==========================================
+# SCREEN 2: FOOD & SPECIALTY DRINKS
+# ==========================================
+
+# === LOTUS ENERGY DRINKS (Single Price with Flavor Options) ===
+# Main item has single price; flavors listed with colored bullets
+ITEM_LOTUS_001,VAR_LOTUS_REG,Lotus Energy Regular,Regular,Regular (Most Popular),Energy drink in various flavors,6.45,645,$6.45,Energy Drinks,lotus-energy,food,1,true,single-price,true,,
+ITEM_LOTUS_BLUE,VAR_LOTUS_BLUE,Lotus Energy Blue Raspberry,Regular,Blue Raspberry,Blue Raspberry Lotus Energy,6.45,645,$6.45,Energy Drinks,lotus-flavors,food,1,true,flavor-option,false,blue,Lotus Energy
+ITEM_LOTUS_STRAW,VAR_LOTUS_STRAW,Lotus Energy Strawberry,Regular,Strawberry,Strawberry Lotus Energy,6.45,645,$6.45,Energy Drinks,lotus-flavors,food,2,true,flavor-option,false,red,Lotus Energy
+ITEM_LOTUS_PEACH,VAR_LOTUS_PEACH,Lotus Energy Peach,Regular,Peach,Peach Lotus Energy,6.45,645,$6.45,Energy Drinks,lotus-flavors,food,3,true,flavor-option,false,orange,Lotus Energy
+ITEM_LOTUS_MANGO,VAR_LOTUS_MANGO,Lotus Energy Mango,Regular,Mango,Mango Lotus Energy,6.45,645,$6.45,Energy Drinks,lotus-flavors,food,4,true,flavor-option,false,yellow,Lotus Energy
+ITEM_LOTUS_OCEAN,VAR_LOTUS_OCEAN,Lotus Energy Ocean,Regular,Ocean,Ocean flavor Lotus Energy,6.45,645,$6.45,Energy Drinks,lotus-flavors,food,5,true,flavor-option,false,teal,Lotus Energy
+
+# === SMOOTHIES (Size/Price Grid) ===
+ITEM_SMOOTH_MANGO,VAR_SM_TALL,Mango Smoothie,Tall,Mango,Fresh mango smoothie,5.35,535,$5.35,Smoothies,smoothies,food,1,true,price-grid,false,,
+ITEM_SMOOTH_MANGO,VAR_SM_VENTI,Mango Smoothie,Venti,Mango,Fresh mango smoothie,5.95,595,$5.95,Smoothies,smoothies,food,1,true,price-grid,false,,
+ITEM_SMOOTH_STRAW,VAR_SS_TALL,Strawberry Smoothie,Tall,Strawberry,Fresh strawberry smoothie,5.35,535,$5.35,Smoothies,smoothies,food,2,true,price-grid,false,,
+ITEM_SMOOTH_STRAW,VAR_SS_VENTI,Strawberry Smoothie,Venti,Strawberry,Fresh strawberry smoothie,5.95,595,$5.95,Smoothies,smoothies,food,2,true,price-grid,false,,
+
+# === OTHER FAVORITES (Size/Price Grid) ===
+ITEM_HOT_CHOC,VAR_HC_SERENE,Hot Chocolate,Serene,Hot Chocolate,Rich hot chocolate,3.35,335,$3.35,Hot Drinks,other-favorites,food,1,true,price-grid,false,,
+ITEM_HOT_CHOC,VAR_HC_VENTI,Hot Chocolate,Venti,Hot Chocolate,Rich hot chocolate,3.75,375,$3.75,Hot Drinks,other-favorites,food,1,true,price-grid,false,,
+ITEM_WHITE_HOT_CHOC,VAR_WHC_SERENE,White Hot Chocolate,Serene,White Hot Chocolate,Creamy white hot chocolate,3.45,345,$3.45,Hot Drinks,other-favorites,food,2,true,price-grid,false,,
+ITEM_WHITE_HOT_CHOC,VAR_WHC_VENTI,White Hot Chocolate,Venti,White Hot Chocolate,Creamy white hot chocolate,3.95,395,$3.95,Hot Drinks,other-favorites,food,2,true,price-grid,false,,
+ITEM_STEAMED_MILK,VAR_STEAM_SERENE,Steamed Milk,Serene,Steamed Milk,Fresh steamed milk,2.95,295,$2.95,Hot Drinks,other-favorites,food,3,true,price-grid,false,,
+ITEM_STEAMED_MILK,VAR_STEAM_VENTI,Steamed Milk,Venti,Steamed Milk,Fresh steamed milk,3.45,345,$3.45,Hot Drinks,other-favorites,food,3,true,price-grid,false,,
+
+# === TEAS (Size/Price Grid) - Column 2 ===
+ITEM_CHAI_LATTE,VAR_CHAI_TALL,Chai Tea Latte,Tall,Chai Latte,Spiced chai with steamed milk,4.25,425,$4.25,Teas,teas,food,1,true,price-grid,false,,
+ITEM_CHAI_LATTE,VAR_CHAI_GRANDE,Chai Tea Latte,Grande,Chai Latte,Spiced chai with steamed milk,4.75,475,$4.75,Teas,teas,food,1,true,price-grid,false,,
+ITEM_CHAI_LATTE,VAR_CHAI_VENTI,Chai Tea Latte,Venti,Chai Latte,Spiced chai with steamed milk,5.25,525,$5.25,Teas,teas,food,1,true,price-grid,false,,
+ITEM_GREEN_TEA,VAR_GT_TALL,Green Tea Latte,Tall,Green Tea Latte,Matcha green tea with steamed milk,4.45,445,$4.45,Teas,teas,food,2,true,price-grid,false,,
+ITEM_GREEN_TEA,VAR_GT_GRANDE,Green Tea Latte,Grande,Green Tea Latte,Matcha green tea with steamed milk,4.95,495,$4.95,Teas,teas,food,2,true,price-grid,false,,
+ITEM_GREEN_TEA,VAR_GT_VENTI,Green Tea Latte,Venti,Green Tea Latte,Matcha green tea with steamed milk,5.45,545,$5.45,Teas,teas,food,2,true,price-grid,false,,
+ITEM_LONDON_FOG,VAR_LF_TALL,London Fog,Tall,London Fog,Earl Grey with vanilla and steamed milk,4.25,425,$4.25,Teas,teas,food,3,true,price-grid,false,,
+ITEM_LONDON_FOG,VAR_LF_GRANDE,London Fog,Grande,London Fog,Earl Grey with vanilla and steamed milk,4.75,475,$4.75,Teas,teas,food,3,true,price-grid,false,,
+ITEM_LONDON_FOG,VAR_LF_VENTI,London Fog,Venti,London Fog,Earl Grey with vanilla and steamed milk,5.25,525,$5.25,Teas,teas,food,3,true,price-grid,false,,
+ITEM_HOT_TEA,VAR_HT_TALL,Hot Brewed Tea,Tall,Hot Brewed Tea,Selection of hot teas,2.45,245,$2.45,Teas,teas,food,4,true,price-grid,false,,
+ITEM_HOT_TEA,VAR_HT_GRANDE,Hot Brewed Tea,Grande,Hot Brewed Tea,Selection of hot teas,2.95,295,$2.95,Teas,teas,food,4,true,price-grid,false,,
+ITEM_HOT_TEA,VAR_HT_VENTI,Hot Brewed Tea,Venti,Hot Brewed Tea,Selection of hot teas,3.25,325,$3.25,Teas,teas,food,4,true,price-grid,false,,
+
+# === FRESH PASTRIES (Simple List) - Column 2 ===
+ITEM_CHEESE_DANISH,VAR_DANISH_REG,Cheese Danish,Regular,Cheese Danish,Flaky pastry with sweet cheese filling,3.95,395,$3.95,Food,fresh-pastries,food,1,true,simple-list,false,,
+ITEM_APPLE_FRITTER,VAR_FRITTER_REG,Apple Fritter,Regular,Apple Fritter,Classic apple cinnamon fritter,3.95,395,$3.95,Food,fresh-pastries,food,2,true,simple-list,false,,
+ITEM_CINN_ROLL,VAR_CINN_REG,Cinnamon Roll,Regular,Cinnamon Roll,Warm cinnamon roll with icing,4.45,445,$4.45,Food,fresh-pastries,food,3,true,simple-list,false,,
+ITEM_BANANA_BREAD,VAR_BANANA_REG,Banana Nut Bread,Regular,Banana Nut Bread,Moist banana bread with walnuts,3.75,375,$3.75,Food,fresh-pastries,food,4,true,simple-list,false,,
+ITEM_LEMON_LOAF,VAR_LEMON_REG,Lemon Loaf,Regular,Lemon Loaf,Tangy lemon pound cake,3.95,395,$3.95,Food,fresh-pastries,food,5,true,simple-list,false,,
+
+# === PERFECT WITH YOUR GRANDE COFFEE (Food Pairings - Simple List) - Column 3 ===
+ITEM_BFAST_BURRITO,VAR_BFAST_REG,Breakfast Burrito,Regular,Breakfast Burrito,Scrambled eggs cheese and protein in a warm tortilla,6.95,695,$6.95,Food,coffee-pairings,food,1,true,simple-list,false,,
+ITEM_HAM_CHEESE,VAR_HAM_REG,Ham & Cheese Croissant,Regular,Ham & Cheese Croissant,Savory croissant with ham and cheese,5.45,545,$5.45,Food,coffee-pairings,food,2,true,simple-list,false,,
+ITEM_BUTTER_CROIS,VAR_BUTTER_REG,Butter Croissant,Regular,Butter Croissant,Flaky buttery croissant,3.95,395,$3.95,Food,coffee-pairings,food,3,true,simple-list,false,,
+ITEM_BFAST_SAND,VAR_BFAST_SAND_REG,Breakfast Sandwich,Egg & Cheese,Sausage Egg & Cheese Muffin,Sausage egg and cheese on English muffin,5.45,545,$5.45,Food,coffee-pairings,food,4,true,simple-list,false,,
+ITEM_BLUEBERRY,VAR_BLUEBERRY_REG,Blueberry Muffin,Regular,Blueberry Muffin,Fresh baked blueberry muffin,3.95,395,$3.95,Food,coffee-pairings,food,5,true,simple-list,false,,
+ITEM_CHOC_COOKIE,VAR_CHOC_COOKIE_REG,Chocolate Chip Cookie,Regular,Chocolate Chip Cookie,Classic chocolate chip cookie,2.95,295,$2.95,Food,coffee-pairings,food,6,true,simple-list,false,,
+ITEM_EMPANADA,VAR_EMPANADA_REG,Empanada,Beef or Chicken,Empanada (Beef or Chicken),Savory hand pie with filling,4.95,495,$4.95,Food,coffee-pairings,food,7,true,simple-list,false,,
+ITEM_ICE_CREAM,VAR_ICE_CREAM_REG,Ice Cream Cup or Bar,Regular,Ice Cream Cup or Bar,Refreshing ice cream treat,3.45,345,$3.45,Food,coffee-pairings,food,8,true,simple-list,false,,

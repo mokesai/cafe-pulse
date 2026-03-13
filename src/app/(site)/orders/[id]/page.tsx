@@ -24,6 +24,7 @@ import Breadcrumbs from '@/components/layout/Breadcrumbs'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'react-hot-toast'
 import PrintableReceipt from '@/components/receipt/PrintableReceipt'
+import { useTenant } from '@/providers/TenantProvider'
 
 interface OrderItem {
   id: string
@@ -57,6 +58,8 @@ interface Order {
 }
 
 export default function OrderDetailsPage() {
+  const tenant = useTenant()
+  const tenantName = tenant.business_name || tenant.name
   const params = useParams()
   const router = useRouter()
   const [order, setOrder] = useState<Order | null>(null)
@@ -568,11 +571,10 @@ export default function OrderDetailsPage() {
                 <div className="space-y-4">
                   <div>
                     <p className="text-sm text-gray-600">Location</p>
-                    <p className="font-medium text-gray-900">Little Cafe</p>
-                    <p className="text-sm text-gray-600">
-                      Kaiser Permanente Medical Complex<br />
-                      10400 E Alameda Ave, Denver, CO
-                    </p>
+                    <p className="font-medium text-gray-900">{tenantName}</p>
+                    {tenant.business_address && (
+                      <p className="text-sm text-gray-600">{tenant.business_address}</p>
+                    )}
                   </div>
 
                   {order.pickup_time && (

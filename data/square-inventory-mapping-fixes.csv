@@ -1,0 +1,59 @@
+inventory_id,inventory_name,current_square_item_id,proposed_square_item_id,square_display_name,reason,score
+e86e0d92-c41a-4023-bfc4-df611edcedf6,Almond Croissant,2E4GJ4TJTEBMBLCPEFEQ5GFL,I6ATU46TLCIHM24OXD7MHXQC,Almond Croissant,Name similarity match to sales catalog id,1.0000
+9f432deb-2e91-416c-87b8-0a72b76ef361,Blueberry Muffin,ZKYQQBCOC2IP72MQ3HXAUHVH,2EWFTLWL7656HZF45IUOILF4,Blueberry Muffin,Name similarity match to sales catalog id,1.0000
+5aa8ee34-df7a-4e8d-9ab7-e04d1a2b7251,Boba Bubble Tea,UJJTX2DNPJGN7Y75BO66N42E,DQ3DEJPEOQ4DFRXEHG66RSIR,Boba Bubble Tea,Name similarity match to sales catalog id,1.0000
+650e2505-f3cf-4205-81bb-fdb04a4e0b98,Burrito Veggie Black Bean,XW4PSETSS7ES5JOLI4V77FQ2,7DCL6LXOCVWWFE7BGM77LTSZ,Burrito Veggie Black Bean,Name similarity match to sales catalog id,1.0000
+464e3d80-e704-4213-a46f-b4e44e57a043,Butter Croissant,ELAA3YKAUSRQH2R55N4NS6VX,XQQYMBZAFSPYS3U27BA7ZZ76,Butter Croissant,Name similarity match to sales catalog id,1.0000
+b5659730-2ab2-4c16-9333-8e3ece47aa2f,Cake Pop,LIWXSQMVIGJWEKL4IEPNWPG4,LYKB4ZTC6I6GBVURE3L34QJN,Cake Pop,Name similarity match to sales catalog id,1.0000
+9281e857-0a18-41fb-8ba6-b1f2503dc154,Cake Pop Birthday Cake,LATKY2V7RFTEA3DDAFSBBR4K,MB2TNW4IISDIWNAW5C3SXW7B,Cake Pop - Birthday Cake,Name similarity match to sales catalog id,1.0000
+1084b444-cbfd-43d0-b98a-fd5a2f62588b,Cake Pop Chocolate Cake,OFMYDCXJJU5GX63NR3P5HZMU,3DK2GEPTRJOQYNISV6BTUKNN,Cake Pop - Chocolate Cake,Name similarity match to sales catalog id,1.0000
+734f1f2b-2528-43dc-a773-b2f4704ec6c2,Cake Pop Strawberry Cake,X4KQOXE6CYREBM4IDTPZMSI4,EKT5ZFS7YUVFFDQRIGFF5B54,Cake Pop - Strawberry Cake,Name similarity match to sales catalog id,1.0000
+d1d753e1-7296-4e75-92af-5fcba2a16edb,Cake Pops 3 for $10,MTJ6E7RBFMRGK5A5JO254FUT,2HECROJRRIBT5ZGQVUNZT3S4,Cake Pops 3 for $10,Name similarity match to sales catalog id,1.0000
+7db1bd91-671f-4cda-b4ee-5bdfa51d5834,Celsius,LF3NWV6JS3UF7E526OJJDZQA,6ZCR77YUMKXESH3M57WFYELL,Celsius,Name similarity match to sales catalog id,1.0000
+740982b1-7513-49c8-a9a6-554a82c9d1b3,Chips,ZG3OOMQZCJSQ3YGSVXKWAXDB,BOMMY3YNE4F4XALBBPT776VD,Chips,Name similarity match to sales catalog id,1.0000
+fd7c8ff5-1852-4cbb-93f6-2687da5ee992,Chocolate Croissant,BRYU2UUL57H652LOQ2IBBPPS,R4ZZKRPHP7PDTHAIT2YVVB7Q,Chocolate Croissant,Name similarity match to sales catalog id,1.0000
+43bbf682-f0af-43fe-b756-5f2ed46ff274,Chocolate Muffin,OIF7WKM6KSTIGEGL27ICCFES,M2JVUY6GF7BJH6CPMP6KKVVH,Chocolate Muffin,Name similarity match to sales catalog id,1.0000
+ba15f927-c2c2-4e6e-a524-417ac8ea0dc4,Coffee cake,HSOLOJSBXTSHZZ3KVNHYYZTF,2GSUHZIZRUGZ4AJID4YN3OLX,Coffee cake,Name similarity match to sales catalog id,1.0000
+e1b30c35-709a-49fd-9d67-fd7dacedc972,Coke Bottle,EQIGYO6L5OUWXCJYH3KJ3XBY,ZBNL4SCLZF3M7TV655E35G5O,Coke Bottle,Name similarity match to sales catalog id,1.0000
+29721600-5fad-410f-bdbd-b8a8c255f74d,Coke Zero - can - 12 oz,PQZ2J5TDBGEG5C6ATNK2RL4Z,TVNZEYCDV6HESMX3GARWG2GC,Coke Zero - can - 12 oz,Name similarity match to sales catalog id,1.0000
+9e5c47d8-620f-47b4-851b-c16b1a9d6682,Cold Brew w/ Vanilla Sweet Cream,GMAZLMT4ZCVQI2LEX5LBSPUZ,B6TXOEXU2WMAYIASVAVJ552C,Cold Brew w/ Vanilla Sweet Cream - Tall,Name similarity match to sales catalog id,0.9259
+5d7f75d6-ff55-4410-8a63-d683ae30815b,Cream cheese 1.5oz,27KX73FQWVNSJ65XYFBA5IUN,2DLTMCWMLDRAHGN7U7Z4MSMD,Cream cheese 1.5oz,Name similarity match to sales catalog id,1.0000
+76cb82b1-b25c-448e-9937-eaebc2c9449e,Croissant,7752NQDQLEPMUMRWBRB344YV,YMR7Y2PODDCYL3T3DW4WZZGO,Croissant,Name similarity match to sales catalog id,1.0000
+0746fd2f-0ef4-4131-92a8-ffd950e48e73,Danish Apple,GAOSDTZ3XUGF5GXBECFDNKPZ,NCTQLWWGHJBL45IW3KP3MHQA,Danish - Apple,Name similarity match to sales catalog id,1.0000
+daea24e3-df34-4c14-ada9-855a897f89c1,Danish Blueberry,UMWD7X2HJ7F65VUP5Q3XLQ35,2MEGZSD6EPTHN26B3YK73QQC,Danish - Blueberry,Name similarity match to sales catalog id,1.0000
+a163543b-5dce-40bd-bab6-694c6f844dc4,Danish Cream Cheese,T4MKNIIJKI3ALVGQJZUIBNF6,XNXHVO6PETFRB7RITJRAQHTR,Danish - Cream Cheese,Name similarity match to sales catalog id,1.0000
+82a49aab-138f-4bd4-9f94-d4843b54e1d0,Danish Lemon,WPG5OQLMSXYGUDSIU4EXURVI,ZM7LK54RCGYRWT3RS7WH2AVX,Danish - Lemon,Name similarity match to sales catalog id,1.0000
+54d6cc66-96a0-4dcb-afe2-7254e9f6b7fe,Danish Raspberry,QPQFKC2N2ORJVTQMEPLFQEWW,JGW4QPQBJNG456DVJPJELW7B,Danish - Raspberry,Name similarity match to sales catalog id,1.0000
+5a32e599-3c45-4c13-954d-2245dedc235d,Fig Bar,VQLULL7GKGTZOZV5BPBUISNM,EF77FEOKLRXM7PUONSDGGISY,Fig Bar,Name similarity match to sales catalog id,1.0000
+687ebb6d-42b5-4c5c-8b3a-d2c415546de7,Gatorade - Assorted - 20 oz,UK4O2S44WKE34CWR3OQSGI6E,CAVGF3LVEHY5B2JD5IDFCBZL,Gatorade - Assorted - 20 oz,Name similarity match to sales catalog id,1.0000
+51bf78a7-a018-4bf3-b299-74ee0e60537e,Gatorade Zero - Assorted - 20 oz,R7LWYKLSFBSSZBA4ZEGEHYAM,P7BRUZJ6HLTO675QFJVX7X5J,Gatorade Zero - Assorted - 20 oz,Name similarity match to sales catalog id,1.0000
+fc257383-190c-45e1-9b88-3608faa0ac3c,Ice Cream - Cookie Dough,NR6FEV2KS47VHBQCIBIMU4L4,LII5ENTRTRTWXRUFKXRDG36J,Ice Cream - Cookie Dough,Name similarity match to sales catalog id,1.0000
+5fac7f8a-9428-470e-bada-fcc09b9aaecd,Ice Cream - Salty O,OWJ47VP62ARIUYQXRA5UK2TB,RW3KLDWOVMBCTOINK7BSBPV5,Ice Cream - Salted O,Name similarity match to sales catalog id,0.8148
+5b815cef-1d53-403c-8b04-801f400f9f1e,Ice Cream - Space Junkie,KO6BHB2WHEM7XKXE3YOULNDW,SNI2N4TYQXYPPNNP35TJSFVR,Ice Cream - Space Junkie,Name similarity match to sales catalog id,1.0000
+0ff4430d-73b2-427d-b583-113d0ca6e773,Ice Cream - Vanilla,V6WJBXB2ULODMJ4UFBOXOUF4,DFG7BF634TGDK7WAIZ7CEJOD,Ice Cream - Vanilla,Name similarity match to sales catalog id,1.0000
+48774efc-305f-4eb9-bb94-829f981aed1d,Ice Cream (bulk) - Vegan Chocolate Salty O,RLRHN6VUIMUKFVZILCT5ZJG2,3GD4BEMTCQLE24VSKSZHXG4Y,Ice Cream (bulk) - Vegan Chocolate Salty O - Pint,Name similarity match to sales catalog id,0.9394
+8ad45278-3580-44c5-914d-2f8fe1b19c80,Iced Brown Sugar Oat Shaken Espresso,2UCPPRMYHYZAYCKBFW7VJHF5,EJ3KKCZIKIQQ5OE6A3IG6H3L,Iced Brown Sugar Oat Shaken Espresso - Tall,Name similarity match to sales catalog id,0.9375
+ee35897a-a6de-4740-b3ca-b09842015ae6,Iced Pumpkin Cream Chai,NPGDPQBNKLLF2T7LSIC4526A,TUTHNSAPIXEXCTTEMB2K5AZM,Iced Pumpkin Cream Chai - Tall,Name similarity match to sales catalog id,0.9048
+d33f6616-cb94-432c-9915-64138fd11dc9,Izze Sparkling Water,2QCR77377C62YQLJBVYQUWNS,WARZSMRSVCIEXCXXFQJASPES,Izze Sparkling Water,Name similarity match to sales catalog id,1.0000
+145b56bb-10ed-464f-95e3-5185a616f25d,Kind Bar,F2AAYYGC6YALGU2GW37XNPHF,FMXCM3IVS3Q7Q4XQVYVI27R5,Kind Bar,Name similarity match to sales catalog id,1.0000
+bc00f39e-a2e3-4b3b-aef0-c68c5bb10411,Kind Bar Mini,N2TGAM7G6TS2ORQS7MP3UBUZ,2HJT4BQHOEDUHA7VCOAWUMBZ,Kind Bar Mini,Name similarity match to sales catalog id,1.0000
+6e9cbddd-9094-4661-98c7-0a0a307d1ecc,Mango & Strawberry Smoothie,TMAUDKG2RNADL4N5B2VC6EZZ,BKF4XJT35GO24HCUIWYUDDTV,Mango & Strawberry Smoothie - Tall,Name similarity match to sales catalog id,0.9259
+84d0866f-dac4-4619-bd79-b2c1a40b99ea,Mini Soda Can - assorted,77RDGI3SQOEQWSFJOB5LFIG3,7AQ2O7CEJT2753WSQZSPJ5RF,Mini Soda Can - assorted,Name similarity match to sales catalog id,1.0000
+eff84198-0821-458e-a7b5-18a1575f905e,Orange Creamsicle Lotus,SK6N4NQPSLZDDTMB4QHMEKVM,6OQVDJKQMOVGQK3PHN6EJS3I,Orange Creamsicle Lotus - King,Name similarity match to sales catalog id,0.9091
+0c285639-33e4-4d1d-bfa3-f6f5ce9fd957,Pumpkin Cream Cold Brew,667UFV4HAAIBAWBAIQ5OBC7P,TVCIQEYBKIILRGC4M4CJNSLU,Pumpkin Cream Cold Brew - Tall,Name similarity match to sales catalog id,0.9048
+64164c03-2cff-482f-bdf3-4fad57bb71a9,Pure Life Purified Water 16.9 oz,22YBHYEDYO2ONCSSPSXG62QD,GQYBV3WA3KHX3BQPUB2PDJFL,Pure Life Purified Water 16.9 oz,Name similarity match to sales catalog id,1.0000
+b7c15ca7-95ef-43ce-b1ab-331d4dce2418,Raspberry Croissant,FCDUEMQ2Q22KT6KVDMIJ67JD,5RVXX2O2ZBL4K2OSF3N4KRDL,Raspberry Croissant,Name similarity match to sales catalog id,1.0000
+1ab24d64-7b67-4bbc-ba74-488b9ba3be2e,Rich Brownies - Crack Brownie,ULDF7F24BO4V4G7WMPKOQZ3R,Q2RN4JEWPCFCLAPS3T7BH5OO,Rich Brownies - Crack Brownie,Name similarity match to sales catalog id,1.0000
+ad74b505-f330-4cad-af1e-df2f2a756c23,Rich Brownies - M&M Brownie,RKW2RENP6Y5EDRYGPUT2NE5P,QYRXKXU6ZYBW7RHRJJJVB6LE,Rich Brownies - M&M Brownie,Name similarity match to sales catalog id,1.0000
+68bf954a-e6b5-4b5f-89e7-63a8f5dd809c,Sammies Gluten Free Sandwich,A7HP3JJ2TEPGJXITXMQIRAS7,RD22GCGLECXGARICS2QORORW,Sammies Gluten Free Sandwich,Name similarity match to sales catalog id,1.0000
+87fe2253-f5ab-4bf8-921f-bcf9c27f6c51,Sammies Turkey Sandwich,FQWPC7NS4VAYUK6FS5EIFFPN,KIWO4CK3X4FBW5LACA4UNGRU,Sammies Turkey Sandwich,Name similarity match to sales catalog id,1.0000
+fc8bbbd9-553c-4ca9-bd88-f2c4acabf715,Savory Croissant,TURPYHLRNRP4Y4E4DQILDFR4,W72WWTJYSGQEHLRX54NMMHNP,Savory Croissant,Name similarity match to sales catalog id,1.0000
+1e3ed929-247b-40e0-b8f5-8dd879052ec0,Smart Water - 1L Bottle,IMAWFNZY6MKEFV7CSRSLNDU3,KHNRZB3E3T2UEPQX6UVRWT5F,Smart Water - 1L Bottle,Name similarity match to sales catalog id,1.0000
+50739250-0cfa-445e-b5e9-b940aee2eaf6,Snickerdoodle Cookie,5EL7ZZ676J7XYPX3VONSDFJN,N4RHIPJPBE2GWM2KU2IYUGXL,Snickerdoodle Cookie,Name similarity match to sales catalog id,1.0000
+2c4cd049-b179-47be-83b9-af7f915f60a4,Steamed Milk,C3SAHLUTSOIA5G75LAZSLI3O,YZ5H6LK6LB7LPS5QDYLH7GZV,Steamed Milk - Tall,Name similarity match to sales catalog id,0.8333
+1ea7d5c6-fb5f-468e-a96a-1c06821a729a,Strawberry Acai,EF5KHCUPSN7TMW6L65NV2WFK,6M6B2DC33TWXYBV7DBKC4Q5D,Strawberry Acai - Tall,Name similarity match to sales catalog id,0.8667
+2c9336d3-0269-4e0b-a3f5-ba478de5a53c,Strawberry Frappuccino,KRABMKKBILR74ZXYPZXKSGOB,7GZTLYBBN4GGWHECKR2HBW2B,Strawberry Frappuccino - Tall,Name similarity match to sales catalog id,0.9091
+4b6f89b3-3032-4b12-8f49-e0d87baed747,Strawberry Smoothie,XMDGVPI3OK7L73L2IM2AVC3B,EBDT45J4RJWPQPFXYPC3DRV7,Strawberry Smoothie - Tall,Name similarity match to sales catalog id,0.8947
+883ddbe9-843f-47d7-9e32-00ae68492b87,Vanilla Bean Frappuccino,IOZ35V34Y4VEIQZYKZGQRUPL,ECXPRKCYGHTI2NQ5ABQAQG6H,Vanilla Bean Frappuccino - Tall,Name similarity match to sales catalog id,0.9130
+75f98829-376e-4e25-856e-ed11ebd1039b,Vanilla Latte,JPOIZDZSWFHU37LNX2D2EXYJ,3ZKZYP2HYWA7N74DWVF55ID7,Vanilla Latte - Tall,Name similarity match to sales catalog id,0.8462
+b5fe730b-73ca-49de-bae8-089c49fac724,Waterloo - Sparkling Water - Assorted - 12 oz,TJZXHONKI6CYSJYEL2KNALJ7,IHICI3U3ZVOBCG75JFMMABGQ,Waterloo - Sparkling Water - Assorted - 12 oz,Name similarity match to sales catalog id,1.0000

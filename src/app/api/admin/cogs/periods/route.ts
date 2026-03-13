@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 type PeriodType = 'weekly' | 'monthly' | 'annual' | 'custom'
 
@@ -19,10 +20,12 @@ export async function GET(request: NextRequest) {
   const authResult = await requireAdminAuth(request)
   if (!isAdminAuthSuccess(authResult)) return authResult
 
+  const tenantId = await getCurrentTenantId()
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('cogs_periods')
     .select('id, period_type, start_at, end_at, status, closed_at, closed_by, notes, created_at, updated_at')
+    .eq('tenant_id', tenantId)
     .order('start_at', { ascending: false })
     .limit(100)
 
@@ -36,6 +39,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const authResult = await requireAdminAuth(request)
   if (!isAdminAuthSuccess(authResult)) return authResult
+
+  const tenantId = await getCurrentTenantId()
 
   const body = (await request.json().catch(() => ({}))) as {
     period_type?: unknown
@@ -63,6 +68,7 @@ export async function POST(request: NextRequest) {
   const { data, error } = await supabase
     .from('cogs_periods')
     .insert([{
+      tenant_id: tenantId,
       period_type: body.period_type,
       start_at: startAt,
       end_at: endAt,
@@ -80,4 +86,3 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({ period: data })
 }
-

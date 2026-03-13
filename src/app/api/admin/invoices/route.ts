@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 type TextQueue =
   | 'all'
@@ -74,7 +75,10 @@ export async function GET(request: NextRequest) {
     const end_date = searchParams.get('end_date')
     const text_queue = (searchParams.get('text_queue') as TextQueue) || 'all'
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
+
+    // Get tenant ID
+    const tenantId = await getCurrentTenantId()
     const filters: FilterParams = { status, supplier_id, start_date, end_date }
 
     const columns = `
@@ -101,6 +105,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from('invoices')
       .select(columns, { count: 'exact' })
+      .eq('tenant_id', tenantId)
 
     query = applyBaseFilters(query, filters)
     query = applyTextQueueFilter(query, text_queue)
@@ -126,14 +131,17 @@ export async function GET(request: NextRequest) {
       supabase
         .from('invoices')
         .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
         .in('status', ['uploaded', 'parsing', 'parsed', 'reviewing']),
       supabase
         .from('invoices')
         .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
         .eq('status', 'confirmed'),
       supabase
         .from('invoices')
         .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
         .eq('status', 'error')
     ])
 
@@ -144,6 +152,7 @@ export async function GET(request: NextRequest) {
         let queueQuery = supabase
           .from('invoices')
           .select('*', { count: 'exact', head: true })
+          .eq('tenant_id', tenantId)
         queueQuery = applyBaseFilters(queueQuery, filters)
         queueQuery = applyTextQueueFilter(queueQuery, queueId)
         const { count } = await queueQuery
@@ -209,12 +218,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
+
+    // Get tenant ID
+    const tenantId = await getCurrentTenantId()
 
     // Check for duplicate invoice
     const { data: existingInvoice } = await supabase
       .from('invoices')
       .select('id')
+      .eq('tenant_id', tenantId)
       .eq('supplier_id', supplier_id)
       .eq('invoice_number', invoice_number)
       .single()
@@ -230,6 +243,7 @@ export async function POST(request: NextRequest) {
     const { data: newInvoice, error } = await supabase
       .from('invoices')
       .insert({
+        tenant_id: tenantId,
         supplier_id,
         invoice_number,
         invoice_date,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 type InventoryItemRecord = {
   id: string
@@ -72,6 +73,8 @@ export async function GET(request: NextRequest) {
       return authResult
     }
 
+    const tenantId = await getCurrentTenantId()
+
     const { searchParams } = new URL(request.url)
     const range = searchParams.get('range') || '30d'
 
@@ -93,7 +96,7 @@ export async function GET(request: NextRequest) {
         startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     console.log('Generating inventory analytics for range:', range)
 
@@ -101,6 +104,7 @@ export async function GET(request: NextRequest) {
     const { data: inventoryItemsData, error: inventoryError } = await supabase
       .from('inventory_items')
       .select('id, item_name, current_stock, minimum_threshold, reorder_point, unit_cost, is_ingredient')
+      .eq('tenant_id', tenantId)
 
     if (inventoryError) {
       console.error('Error fetching inventory items:', inventoryError)
@@ -125,15 +129,16 @@ export async function GET(request: NextRequest) {
     const { data: stockMovementsData, error: movementsError } = await supabase
       .from('stock_movements')
       .select(`
-        id, 
-        movement_type, 
-        quantity_change, 
+        id,
+        movement_type,
+        quantity_change,
         created_at,
         inventory_items!inner (
           item_name,
           unit_type
         )
       `)
+      .eq('tenant_id', tenantId)
       .gte('created_at', startDate.toISOString())
 
     if (movementsError) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 function normalizeText(value: unknown) {
   return typeof value === 'string' ? value.trim() : ''
@@ -20,6 +21,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const authResult = await requireAdminAuth(request)
   if (!isAdminAuthSuccess(authResult)) return authResult
 
+  const tenantId = await getCurrentTenantId()
   const { id } = await params
   const productId = normalizeText(id)
   if (!productId) return NextResponse.json({ error: 'Missing product id' }, { status: 400 })
@@ -34,6 +36,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const { data, error } = await supabase
     .from('cogs_products')
     .update({ product_code: normalized })
+    .eq('tenant_id', tenantId)
     .eq('id', productId)
     .select('id, square_item_id, name, category, is_active, product_code, created_at, updated_at')
     .single()

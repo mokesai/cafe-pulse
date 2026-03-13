@@ -21,6 +21,32 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey)
 
+// Parse command line arguments
+function parseArgs() {
+  const args = process.argv.slice(2)
+
+  let tenantId = null
+  let tenantSlug = null
+  const tenantIdArg = args.find(arg => arg.startsWith('--tenant-id='))
+  if (tenantIdArg) tenantId = tenantIdArg.split('=')[1]
+  const tenantSlugArg = args.find(arg => arg.startsWith('--tenant-slug='))
+  if (tenantSlugArg) tenantSlug = tenantSlugArg.split('=')[1]
+
+  return { tenantId, tenantSlug }
+}
+
+// Resolve tenant by slug
+async function resolveTenantBySlug(supabase, slug) {
+  const { data, error } = await supabase
+    .from('tenants')
+    .select('id')
+    .eq('slug', slug)
+    .eq('is_active', true)
+    .single()
+  if (error || !data) throw new Error(`Tenant not found for slug: ${slug}`)
+  return data.id
+}
+
 // First get supplier IDs
 async function getSuppliers() {
   const { data: suppliers, error } = await supabase
@@ -38,8 +64,13 @@ async function getSuppliers() {
   }, {})
 }
 
-async function seedInventoryItems() {
+async function seedInventoryItems(tenantId = null) {
   console.log('🌱 Starting inventory seeding process...')
+  if (tenantId) {
+    console.log(`🏢 Targeting tenant: ${tenantId}`)
+  } else {
+    console.log('🏢 Using default tenant (backward compatible)')
+  }
 
   // Get supplier mappings
   const suppliers = await getSuppliers()
@@ -536,7 +567,20 @@ async function seedInventoryItems() {
 }
 
 // Run the seeding process
-seedInventoryItems()
+async function main() {
+  const { tenantId: parsedTenantId, tenantSlug } = parseArgs()
+
+  // Resolve tenant
+  let tenantId = parsedTenantId
+  if (tenantSlug) {
+    tenantId = await resolveTenantBySlug(supabase, tenantSlug)
+    console.log(`Resolved tenant slug "${tenantSlug}" to ID: ${tenantId}`)
+  }
+
+  await seedInventoryItems(tenantId)
+}
+
+main()
   .then(() => {
     console.log('\n✨ Inventory seeding process completed!')
     process.exit(0)

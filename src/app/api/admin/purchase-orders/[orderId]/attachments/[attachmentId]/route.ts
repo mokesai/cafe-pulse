@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 const STORAGE_BUCKET = 'purchase-order-attachments'
 
@@ -24,13 +25,15 @@ export async function DELETE(
       )
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
 
     const { data: attachment, error: fetchError } = await supabase
       .from('purchase_order_attachments')
       .select('*')
       .eq('id', attachmentId)
       .eq('purchase_order_id', orderId)
+      .eq('tenant_id', tenantId)
       .single()
 
     if (fetchError) {
@@ -60,6 +63,7 @@ export async function DELETE(
       .from('purchase_order_attachments')
       .delete()
       .eq('id', attachmentId)
+      .eq('tenant_id', tenantId)
 
     if (deleteError) {
       console.error('Failed to delete attachment record:', deleteError)

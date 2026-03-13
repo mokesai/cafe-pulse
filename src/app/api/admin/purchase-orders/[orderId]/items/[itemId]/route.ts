@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 export async function PATCH(
   request: NextRequest,
@@ -23,7 +24,20 @@ export async function PATCH(
       return NextResponse.json({ error: 'is_excluded must be boolean' }, { status: 400 })
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
+
+    // Verify purchase order belongs to this tenant
+    const { data: po, error: poFetchError } = await supabase
+      .from('purchase_orders')
+      .select('id')
+      .eq('id', orderId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+
+    if (poFetchError || !po) {
+      return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 })
+    }
 
     const { data: updated, error } = await supabase
       .from('purchase_order_items')
@@ -65,6 +79,7 @@ export async function PATCH(
       .from('purchase_orders')
       .update({ total_amount: totalAmount })
       .eq('id', orderId)
+      .eq('tenant_id', tenantId)
 
     if (poUpdateError) {
       console.warn('Failed to update purchase order total after item exclusion:', poUpdateError)

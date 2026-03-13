@@ -1,5 +1,5 @@
 {
-  "name": "website",
+  "name": "cafe-pulse",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -29,9 +29,14 @@
     "db:reset": "npx supabase db reset",
     "db:generate": "npx supabase gen types typescript --local",
     "db:link": "npx supabase link",
-    "test:ai": "node scripts/test-ai-invoice-parsing.js"
+    "test:ai": "node scripts/test-ai-invoice-parsing.js",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.2.2",
+    "@radix-ui/react-slot": "^1.2.4",
+    "@react-email/components": "^1.0.7",
     "@square/web-payments-sdk-types": "^1.75.1",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.56.0",
@@ -51,6 +56,8 @@
     "pdfjs-dist": "^5.4.394",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
+    "react-email": "^5.2.8",
+    "react-hook-form": "^7.71.1",
     "react-hot-toast": "^2.5.2",
     "react-square-web-payments-sdk": "^3.2.4-beta.1",
     "resend": "^4.8.0",
@@ -62,6 +69,8 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.58.2",
+    "@react-email/render": "^2.0.4",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

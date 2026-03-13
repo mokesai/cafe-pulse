@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 export async function POST(
   request: NextRequest,
   context: { params: Promise<{ itemId: string }> }
 ) {
   try {
+    const authResult = await requireAdminAuth(request)
+    if (!isAdminAuthSuccess(authResult)) {
+      return authResult
+    }
+
     const { itemId } = await context.params
     const { new_item_data, match_method } = await request.json()
     
@@ -22,12 +29,14 @@ export async function POST(
       }, { status: 400 })
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
 
     // Create new inventory item
     const { data: newItem, error: createError } = await supabase
       .from('inventory_items')
       .insert({
+        tenant_id: tenantId,
         item_name: new_item_data.name,
         current_stock: 0, // Start with 0 stock, will be updated when invoice is confirmed
         unit_cost: new_item_data.unit_cost,
@@ -65,6 +74,7 @@ export async function POST(
         updated_at: new Date().toISOString()
       })
       .eq('id', itemId)
+      .eq('tenant_id', tenantId)
 
     if (matchError) {
       console.error('Failed to match invoice item:', matchError)

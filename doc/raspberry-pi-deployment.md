@@ -47,23 +47,23 @@ sudo npm install -g pm2
 **Option A: Git clone (if repo is accessible)**
 ```bash
 cd ~
-git clone <your-repo-url> cafe-web
-cd cafe-web/website
+git clone <your-repo-url> cafe-pulse
+cd cafe-pulse/website
 ```
 
 **Option B: Rsync from your development machine**
 ```bash
 # Run this FROM your Mac/development machine
 rsync -avz --exclude 'node_modules' --exclude '.next' --exclude '.git' \
-  /path/to/cafe-web/website/ \
-  pi@<raspberry-pi-ip>:~/cafe-web/
+  /path/to/cafe-pulse/website/ \
+  pi@<raspberry-pi-ip>:~/cafe-pulse/
 ```
 
 ### 4. Setup Environment Variables
 
 ```bash
 # On the Pi
-cd ~/cafe-web
+cd ~/cafe-pulse
 nano .env.local
 ```
 
@@ -78,7 +78,7 @@ SUPABASE_SECRET_KEY=your_secret_key
 ### 5. Build and Run
 
 ```bash
-cd ~/cafe-web
+cd ~/cafe-pulse
 
 # Install dependencies
 npm install
@@ -87,7 +87,7 @@ npm install
 npm run build
 
 # Start with PM2
-pm2 start npm --name "cafe-web" -- start
+pm2 start npm --name "cafe-pulse" -- start
 
 # Save PM2 config to survive reboots
 pm2 save
@@ -188,16 +188,16 @@ DISPLAY=:0.1 chromium-browser --kiosk --app=http://localhost:3000/admin/kds/food
 
 ```bash
 # View app logs
-pm2 logs cafe-web
+pm2 logs cafe-pulse
 
 # View real-time logs
-pm2 logs cafe-web --lines 100
+pm2 logs cafe-pulse --lines 100
 
 # Restart app
-pm2 restart cafe-web
+pm2 restart cafe-pulse
 
 # Stop app
-pm2 stop cafe-web
+pm2 stop cafe-pulse
 
 # Check status
 pm2 status
@@ -211,7 +211,7 @@ pm2 monit
 ## Updating the App
 
 ```bash
-cd ~/cafe-web
+cd ~/cafe-pulse
 
 # If using git
 git pull
@@ -221,7 +221,7 @@ git pull
 # Rebuild and restart
 npm install
 npm run build
-pm2 restart cafe-web
+pm2 restart cafe-pulse
 ```
 
 ---
@@ -231,7 +231,7 @@ pm2 restart cafe-web
 ### App won't start
 ```bash
 # Check logs for errors
-pm2 logs cafe-web --lines 50
+pm2 logs cafe-pulse --lines 50
 
 # Verify environment variables
 cat .env.local

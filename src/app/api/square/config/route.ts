@@ -1,32 +1,24 @@
 import { NextResponse } from 'next/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
+import { getTenantSquareConfig } from '@/lib/square/config'
 
 export async function GET() {
   try {
-    // Validate required environment variables
-    const requiredVars = {
-      applicationId: process.env.SQUARE_APPLICATION_ID,
-      locationId: process.env.SQUARE_LOCATION_ID,
-      environment: process.env.SQUARE_ENVIRONMENT || 'sandbox',
-      accessToken: process.env.SQUARE_ACCESS_TOKEN
-    }
+    const tenantId = await getCurrentTenantId()
+    const config = await getTenantSquareConfig(tenantId)
 
-    const missingVars = Object.entries(requiredVars)
-      .filter(([key, value]) => !value && key !== 'environment')
-      .map(([key]) => key)
-
-    if (missingVars.length > 0) {
-      console.error('Missing Square environment variables:', missingVars)
+    if (!config) {
       return NextResponse.json(
-        { error: `Missing Square configuration: ${missingVars.join(', ')}` },
-        { status: 500 }
+        { error: 'Square configuration not available for this tenant' },
+        { status: 503 }
       )
     }
 
-    // Only return public configuration that's safe for the frontend
+    // Only return public-safe configuration
     return NextResponse.json({
-      applicationId: requiredVars.applicationId,
-      locationId: requiredVars.locationId,
-      environment: requiredVars.environment
+      applicationId: config.applicationId,
+      locationId: config.locationId,
+      environment: config.environment
     })
   } catch (error) {
     console.error('Error fetching Square config:', error)

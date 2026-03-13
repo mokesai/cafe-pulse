@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 import type { PostgrestError } from '@supabase/supabase-js'
 
 const RECEIPT_BUCKET = 'purchase-order-receipts'
@@ -63,7 +64,7 @@ function sanitizeFileName(name: string) {
 async function enrichReceipts(receipts: ReceiptRow[]) {
   if (receipts.length === 0) return receipts
 
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const receivedByIds = Array.from(
     new Set(
@@ -169,7 +170,24 @@ export async function GET(
       )
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
+
+    // Verify purchase order belongs to this tenant before fetching receipts
+    const { data: po, error: poCheckError } = await supabase
+      .from('purchase_orders')
+      .select('id')
+      .eq('id', orderId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+
+    if (poCheckError || !po) {
+      return NextResponse.json(
+        { error: 'Purchase order not found' },
+        { status: 404 }
+      )
+    }
+
     const { data, error } = await supabase
       .from('purchase_order_receipts')
       .select('*')
@@ -322,7 +340,23 @@ export async function POST(
       )
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
+
+    // Verify purchase order belongs to this tenant
+    const { data: po, error: poCheckError } = await supabase
+      .from('purchase_orders')
+      .select('id')
+      .eq('id', orderId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+
+    if (poCheckError || !po) {
+      return NextResponse.json(
+        { error: 'Purchase order not found' },
+        { status: 404 }
+      )
+    }
 
     // Block receipts for excluded/out-of-stock items
     const { data: poItemData, error: poItemError } = await supabase
@@ -382,7 +416,7 @@ export async function POST(
     }
 
     if (uploadFile && uploadFile.size > 0) {
-      const supabase = await createClient()
+      const supabase = createServiceClient()
       const sanitized = sanitizeFileName(uploadFile.name)
       const storagePath = `${orderId}/${purchaseOrderItemId}/${Date.now()}_${sanitized}`
       const arrayBuffer = await uploadFile.arrayBuffer()
@@ -461,7 +495,7 @@ export async function POST(
       console.error('Failed to log purchase order receipt:', error)
 
       if (uploadedPhotoPath) {
-        const supabase = await createClient()
+        const supabase = createServiceClient()
         await supabase.storage.from(RECEIPT_BUCKET).remove([uploadedPhotoPath])
       }
 
@@ -476,7 +510,7 @@ export async function POST(
     let enrichedReceipt: ReceiptRow | null = null
 
     if (receiptId) {
-      const supabase = await createClient()
+      const supabase = createServiceClient()
       const { data: receiptData, error: fetchError } = await supabase
         .from('purchase_order_receipts')
         .select('*')

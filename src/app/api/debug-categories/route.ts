@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { searchAllCatalogItems } from '@/lib/square/fetch-client'
+import { getCurrentTenantId } from '@/lib/tenant/context'
+import { getTenantSquareConfig } from '@/lib/square/config'
 
 interface CatalogCategoryData {
   name?: string
@@ -16,9 +18,15 @@ interface CatalogObjectSummary {
 
 export async function GET() {
   try {
+    const tenantId = await getCurrentTenantId()
+    const squareConfig = await getTenantSquareConfig(tenantId)
+    if (!squareConfig) {
+      return NextResponse.json({ error: 'Square not configured' }, { status: 503 })
+    }
+
     console.log('🔍 Debug: Fetching Square catalog for category analysis...')
-    
-    const catalogData = await searchAllCatalogItems() as { objects?: CatalogObjectSummary[] }
+
+    const catalogData = await searchAllCatalogItems(squareConfig) as { objects?: CatalogObjectSummary[] }
     
     if (!catalogData.objects) {
       return NextResponse.json({ 

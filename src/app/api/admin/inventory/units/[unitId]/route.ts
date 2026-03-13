@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdminAuth } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 export async function PATCH(
   request: NextRequest,
@@ -9,9 +10,11 @@ export async function PATCH(
   try {
     // Verify admin authentication
     const authResult = await requireAdminAuth(request)
-    if (authResult instanceof NextResponse) {
+    if (!isAdminAuthSuccess(authResult)) {
       return authResult
     }
+
+    const tenantId = await getCurrentTenantId()
 
     const resolvedParams = await params
     const { unitId } = resolvedParams
@@ -26,7 +29,7 @@ export async function PATCH(
     
     console.log('Updating inventory unit type:', unitId, body)
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     // Build update object with only provided fields
     const updateData: Record<string, unknown> = {}
@@ -39,6 +42,7 @@ export async function PATCH(
     const { data: updatedUnit, error } = await supabase
       .from('inventory_unit_types')
       .update(updateData)
+      .eq('tenant_id', tenantId)
       .eq('id', unitId)
       .select()
       .single()

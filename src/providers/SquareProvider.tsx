@@ -7,12 +7,16 @@ interface SquareContextType {
   payments: SquarePayments | null
   isLoading: boolean
   error: string | null
+  applicationId: string
+  locationId: string
 }
 
 const SquareContext = createContext<SquareContextType>({
   payments: null,
   isLoading: true,
-  error: null
+  error: null,
+  applicationId: '',
+  locationId: ''
 })
 
 export function useSquarePayments() {
@@ -21,6 +25,11 @@ export function useSquarePayments() {
     throw new Error('useSquarePayments must be used within a SquareProvider')
   }
   return context
+}
+
+export function useSquareConfig() {
+  const context = useContext(SquareContext)
+  return { applicationId: context.applicationId, locationId: context.locationId }
 }
 
 interface SquareProviderProps {
@@ -85,7 +94,7 @@ export function SquareProvider({
   }, [applicationId, locationId, environment])
 
   return (
-    <SquareContext.Provider value={{ payments, isLoading, error }}>
+    <SquareContext.Provider value={{ payments, isLoading, error, applicationId, locationId }}>
       {children}
     </SquareContext.Provider>
   )

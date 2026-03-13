@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 type ModifierSeen = {
   square_modifier_id: string
@@ -19,6 +20,7 @@ export async function GET(request: NextRequest) {
   const authResult = await requireAdminAuth(request)
   if (!isAdminAuthSuccess(authResult)) return authResult
 
+  const tenantId = await getCurrentTenantId()
   const url = new URL(request.url)
   const days = parsePositiveInt(url.searchParams.get('days'), 30)
   const limit = parsePositiveInt(url.searchParams.get('limit'), 200)
@@ -29,6 +31,7 @@ export async function GET(request: NextRequest) {
   const { data, error } = await supabase
     .from('sales_transaction_items')
     .select('metadata, created_at')
+    .eq('tenant_id', tenantId)
     .gte('created_at', since)
     .not('metadata', 'is', null)
     .order('created_at', { ascending: false })
@@ -65,4 +68,3 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({ since, days, seen })
 }
-

@@ -116,6 +116,13 @@ The dev server connects to `ofppjltowsdvojixeflr` unless performing testing and 
 #### Stale Data in Dev
 `revalidate = 300` causes stale data in dev mode. KDS pages use `dynamic = 'force-dynamic'` to avoid this.
 
+### Quality Gates
+Before considering any code change complete, you MUST verify:
+1. **Lint**: `npm run lint` — must pass with zero warnings and zero errors
+2. **Build**: `npm run build` — must compile successfully
+
+If either check fails, fix the issues before moving on. Do not leave broken lint or build for the user to discover.
+
 ### Do NOT
 - Don't modify the database without first verifying which Supabase project `.env.local` points to
 - Don't delete `.next` without warning — it requires a full dev server restart
@@ -125,7 +132,11 @@ The dev server connects to `ofppjltowsdvojixeflr` unless performing testing and 
 ### Environment Setup
 Required `.env.local` variables:
 - `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` / `SUPABASE_SECRET_KEY` — Supabase
-- `SQUARE_APPLICATION_ID` / `SQUARE_ACCESS_TOKEN` / `SQUARE_LOCATION_ID` / `SQUARE_ENVIRONMENT` — Square
+- `SQUARE_APPLICATION_ID` — Square application ID
+- `SQUARE_ACCESS_TOKEN` — Square API access token
+- `SQUARE_LOCATION_ID` — Square location ID
+- `SQUARE_ENVIRONMENT` — `sandbox` or `production`
+- `SQUARE_SECRET` — Square OAuth application secret (required for `/api/platform/square-oauth/callback`)
 - `OPENAI_API_KEY` — AI invoice parsing
 - `RESEND_API_KEY` — Email service
 - `KDS_MENU_CSV_URL` / `KDS_CATEGORIES_CSV_URL` — KDS Google Sheets data sources

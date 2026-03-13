@@ -1,9 +1,21 @@
 import { NextResponse } from 'next/server'
 import { fetchMenuCategories } from '@/lib/square/catalog'
+import { getCurrentTenantId } from '@/lib/tenant/context'
+import { getTenantSquareConfig } from '@/lib/square/config'
 
 export async function GET() {
+  // Resolve tenant and load Square config
+  const tenantId = await getCurrentTenantId()
+  const squareConfig = await getTenantSquareConfig(tenantId)
+  if (!squareConfig) {
+    return NextResponse.json(
+      { error: 'Square integration not configured for this tenant' },
+      { status: 503 }
+    )
+  }
+
   try {
-    const categories = await fetchMenuCategories()
+    const categories = await fetchMenuCategories(squareConfig)
     
     return NextResponse.json({
       success: true,

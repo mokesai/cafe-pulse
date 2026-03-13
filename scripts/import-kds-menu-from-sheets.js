@@ -35,6 +35,8 @@ const fs = require('fs')
 const path = require('path')
 const { createClient } = require('@supabase/supabase-js')
 
+const DEFAULT_TENANT_ID = '00000000-0000-0000-0000-000000000001'
+
 // Local file paths
 const LOCAL_MENU_FILE = path.join('data', 'kds-menu-export.csv')
 const LOCAL_CATEGORIES_FILE = path.join('data', 'kds-categories-export.csv')
@@ -45,6 +47,7 @@ function parseArgs() {
   const args = process.argv.slice(2)
   const options = {
     useLocal: false,
+    tenantId: null,
     importMenu: false,
     importCategories: false,
     importImages: false,
@@ -56,7 +59,10 @@ function parseArgs() {
 
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i]
-    if (arg === '--local' || arg === '-l') {
+    if (arg === '--tenant-id' && args[i + 1]) {
+      options.tenantId = args[i + 1]
+      i += 1
+    } else if (arg === '--local' || arg === '-l') {
       options.useLocal = true
     } else if (arg === '--menu' || arg === '-m') {
       options.importMenu = true
@@ -79,13 +85,14 @@ Usage:
   npm run import-kds-menu [OPTIONS]
 
 Options:
-  --local, -l       Import from local CSV files instead of URLs
-  --menu, -m        Import menu items only
-  --categories, -c  Import categories only
-  --images, -i      Import images only
-  --settings, -s    Import settings only
-  --clear           Clear existing data before import
-  --help            Show this help message
+  --local, -l          Import from local CSV files instead of URLs
+  --tenant-id SLUG     Import for a specific tenant (slug or UUID)
+  --menu, -m           Import menu items only
+  --categories, -c     Import categories only
+  --images, -i         Import images only
+  --settings, -s       Import settings only
+  --clear              Clear existing data before import (scoped to tenant)
+  --help               Show this help message
 
 If no specific table flags are provided, all tables are imported.
 
@@ -114,6 +121,28 @@ Local Files (with --local):
   }
 
   return options
+}
+
+/**
+ * Resolve a tenant slug or UUID to a tenant UUID.
+ */
+async function resolveTenantId(supabase, tenantIdOrSlug) {
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenantIdOrSlug)
+  const column = isUUID ? 'id' : 'slug'
+
+  const { data: tenant, error } = await supabase
+    .from('tenants')
+    .select('id, slug, name')
+    .eq(column, tenantIdOrSlug)
+    .is('deleted_at', null)
+    .single()
+
+  if (error || !tenant) {
+    throw new Error(`Tenant "${tenantIdOrSlug}" not found: ${error?.message || 'no match'}`)
+  }
+
+  console.log(`🏪 Importing for tenant: ${tenant.name} (${tenant.slug})`)
+  return tenant.id
 }
 
 function parseCSV(csvText) {
@@ -213,7 +242,7 @@ async function getCSVData(envVar, localPath, useLocal) {
 
 // Data transformation functions
 
-function transformCategory(row) {
+function transformCategory(row, tenantId) {
   // Parse boolean for show_size_header (default to true if not specified)
   let showSizeHeader = true
   if (row.show_size_header !== undefined && row.show_size_header !== '') {
@@ -221,6 +250,7 @@ function transformCategory(row) {
   }
 
   return {
+    tenant_id: tenantId,
     slug: row.slug,
     name: row.name,
     screen: row.screen,
@@ -235,7 +265,7 @@ function transformCategory(row) {
   }
 }
 
-function transformMenuItem(row, categoryMap) {
+function transformMenuItem(row, categoryMap, tenantId) {
   const categorySlug = row.kds_category || 'uncategorized'
   const categoryId = categoryMap.get(categorySlug)
 
@@ -257,6 +287,7 @@ function transformMenuItem(row, categoryMap) {
   const featured = row.featured === 'true' || row.featured === 'TRUE' || row.featured === '1' || row.featured === true
 
   return {
+    tenant_id: tenantId,
     square_item_id: row.square_item_id || null,
     square_variation_id: row.square_variation_id || null,
     name: row.name,
@@ -274,10 +305,11 @@ function transformMenuItem(row, categoryMap) {
   }
 }
 
-function transformImage(row) {
+function transformImage(row, tenantId) {
   const isActive = row.is_active === 'true' || row.is_active === 'TRUE' || row.is_active === '1' || row.is_active === true
 
   return {
+    tenant_id: tenantId,
     screen: row.screen,
     filename: row.filename,
     alt_text: row.alt_text || null,
@@ -286,7 +318,7 @@ function transformImage(row) {
   }
 }
 
-function transformSetting(row) {
+function transformSetting(row, tenantId) {
   // Try to parse value as JSON, fallback to string
   let value = row.value
   try {
@@ -299,6 +331,7 @@ function transformSetting(row) {
   }
 
   return {
+    tenant_id: tenantId,
     key: row.key,
     value: value,
   }
@@ -306,12 +339,12 @@ function transformSetting(row) {
 
 // Database operations
 
-async function clearTable(supabase, tableName) {
-  console.log(`🗑️  Clearing ${tableName}...`)
+async function clearTable(supabase, tableName, tenantId) {
+  console.log(`🗑️  Clearing ${tableName}${tenantId !== DEFAULT_TENANT_ID ? ` for tenant ${tenantId}` : ''}...`)
   const { error } = await supabase
     .from(tableName)
     .delete()
-    .neq('id', '00000000-0000-0000-0000-000000000000')
+    .eq('tenant_id', tenantId)
 
   if (error) {
     console.error(`Failed to clear ${tableName}:`, error)
@@ -320,21 +353,21 @@ async function clearTable(supabase, tableName) {
   return true
 }
 
-async function importCategories(supabase, rows, clearFirst) {
+async function importCategories(supabase, rows, clearFirst, tenantId) {
   console.log(`\n📁 Importing ${rows.length} categories...`)
 
   if (clearFirst) {
-    await clearTable(supabase, 'kds_menu_items') // Clear items first (FK constraint)
-    await clearTable(supabase, 'kds_categories')
+    await clearTable(supabase, 'kds_menu_items', tenantId) // Clear items first (FK constraint)
+    await clearTable(supabase, 'kds_categories', tenantId)
   }
 
-  const categories = rows.map(transformCategory)
+  const categories = rows.map(row => transformCategory(row, tenantId))
   let successCount = 0
 
   for (const category of categories) {
     const { error } = await supabase
       .from('kds_categories')
-      .upsert(category, { onConflict: 'slug' })
+      .upsert(category, { onConflict: 'tenant_id,slug' })
 
     if (error) {
       console.error(`❌ Failed to upsert category "${category.slug}":`, error.message)
@@ -347,13 +380,14 @@ async function importCategories(supabase, rows, clearFirst) {
   return successCount
 }
 
-async function importMenuItems(supabase, rows, clearFirst) {
+async function importMenuItems(supabase, rows, clearFirst, tenantId) {
   console.log(`\n🍽️  Importing ${rows.length} menu items...`)
 
-  // Build category slug -> id map
+  // Build category slug -> id map (scoped to tenant)
   const { data: categories, error: catError } = await supabase
     .from('kds_categories')
     .select('id, slug')
+    .eq('tenant_id', tenantId)
 
   if (catError) {
     console.error('❌ Failed to fetch categories:', catError.message)
@@ -366,7 +400,7 @@ async function importMenuItems(supabase, rows, clearFirst) {
   }
 
   if (clearFirst) {
-    await clearTable(supabase, 'kds_menu_items')
+    await clearTable(supabase, 'kds_menu_items', tenantId)
   }
 
   // Filter out uncategorized items (they won't display anyway)
@@ -382,7 +416,7 @@ async function importMenuItems(supabase, rows, clearFirst) {
     console.log(`⚠️  Skipping ${rows.length - validRows.length} items with unknown/uncategorized categories`)
   }
 
-  const menuItems = validRows.map(row => transformMenuItem(row, categoryMap))
+  const menuItems = validRows.map(row => transformMenuItem(row, categoryMap, tenantId))
   let successCount = 0
 
   if (clearFirst) {
@@ -417,10 +451,11 @@ async function importMenuItems(supabase, rows, clearFirst) {
     // Manual upsert: check if exists by square_variation_id, then insert or update
     for (const item of menuItems) {
       if (item.square_variation_id) {
-        // Check if exists
+        // Check if exists for this tenant
         const { data: existing } = await supabase
           .from('kds_menu_items')
           .select('id')
+          .eq('tenant_id', tenantId)
           .eq('square_variation_id', item.square_variation_id)
           .maybeSingle()
 
@@ -467,20 +502,20 @@ async function importMenuItems(supabase, rows, clearFirst) {
   return successCount
 }
 
-async function importImages(supabase, rows, clearFirst) {
+async function importImages(supabase, rows, clearFirst, tenantId) {
   console.log(`\n🖼️  Importing ${rows.length} images...`)
 
   if (clearFirst) {
-    await clearTable(supabase, 'kds_images')
+    await clearTable(supabase, 'kds_images', tenantId)
   }
 
-  const images = rows.map(transformImage)
+  const images = rows.map(row => transformImage(row, tenantId))
   let successCount = 0
 
   for (const image of images) {
     const { error } = await supabase
       .from('kds_images')
-      .upsert(image, { onConflict: 'filename' })
+      .upsert(image, { onConflict: 'tenant_id,filename' })
 
     if (error) {
       console.error(`❌ Failed to upsert image "${image.filename}":`, error.message)
@@ -493,18 +528,18 @@ async function importImages(supabase, rows, clearFirst) {
   return successCount
 }
 
-async function importSettings(supabase, rows, clearFirst) {
+async function importSettings(supabase, rows, clearFirst, tenantId) {
   console.log(`\n⚙️  Importing ${rows.length} settings...`)
 
   // Don't clear settings, just upsert
 
-  const settings = rows.map(transformSetting)
+  const settings = rows.map(row => transformSetting(row, tenantId))
   let successCount = 0
 
   for (const setting of settings) {
     const { error } = await supabase
       .from('kds_settings')
-      .upsert(setting, { onConflict: 'key' })
+      .upsert(setting, { onConflict: 'tenant_id,key' })
 
     if (error) {
       console.error(`❌ Failed to upsert setting "${setting.key}":`, error.message)
@@ -531,8 +566,15 @@ async function main() {
 
   const supabase = createClient(supabaseUrl, supabaseKey)
 
+  // Resolve tenant ID
+  let tenantId = DEFAULT_TENANT_ID
+  if (options.tenantId) {
+    tenantId = await resolveTenantId(supabase, options.tenantId)
+  }
+
   console.log('🚀 KDS Menu Import')
   console.log(`   Mode: ${options.useLocal ? 'Local files' : 'Google Sheets URLs'}`)
+  console.log(`   Tenant: ${tenantId}`)
   console.log(`   Clear first: ${options.clearFirst}`)
   console.log('')
 
@@ -548,28 +590,28 @@ async function main() {
     if (options.importCategories) {
       const csvText = await getCSVData('KDS_CATEGORIES_CSV_URL', LOCAL_CATEGORIES_FILE, options.useLocal)
       const rows = parseCSV(csvText)
-      results.categories = await importCategories(supabase, rows, options.clearFirst)
+      results.categories = await importCategories(supabase, rows, options.clearFirst, tenantId)
     }
 
     // Import menu items
     if (options.importMenu) {
       const csvText = await getCSVData('KDS_MENU_CSV_URL', LOCAL_MENU_FILE, options.useLocal)
       const rows = parseCSV(csvText)
-      results.menuItems = await importMenuItems(supabase, rows, options.clearFirst)
+      results.menuItems = await importMenuItems(supabase, rows, options.clearFirst, tenantId)
     }
 
     // Import images
     if (options.importImages) {
       const csvText = await getCSVData('KDS_IMAGES_CSV_URL', LOCAL_IMAGES_FILE, options.useLocal)
       const rows = parseCSV(csvText)
-      results.images = await importImages(supabase, rows, options.clearFirst)
+      results.images = await importImages(supabase, rows, options.clearFirst, tenantId)
     }
 
     // Import settings
     if (options.importSettings) {
       const csvText = await getCSVData('KDS_SETTINGS_CSV_URL', LOCAL_SETTINGS_FILE, options.useLocal)
       const rows = parseCSV(csvText)
-      results.settings = await importSettings(supabase, rows, options.clearFirst)
+      results.settings = await importSettings(supabase, rows, options.clearFirst, tenantId)
     }
 
     // Summary

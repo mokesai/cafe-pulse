@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/admin/middleware'
+import { getCurrentTenantId } from '@/lib/tenant/context'
+import { getTenantSquareConfig } from '@/lib/square/config'
 
-const squareAccessToken = process.env.SQUARE_ACCESS_TOKEN
-const squareEnvironment = process.env.SQUARE_ENVIRONMENT || 'sandbox'
-
-const SQUARE_BASE_URL =
-  squareEnvironment === 'production'
-    ? 'https://connect.squareup.com'
-    : 'https://connect.squareupsandbox.com'
 const SQUARE_VERSION = '2024-12-18'
 
 interface SquareCatalogObject {
@@ -38,11 +33,11 @@ export async function GET(request: NextRequest) {
       return authResult
     }
 
-    if (!squareAccessToken) {
-      return NextResponse.json(
-        { success: false, error: 'Square credentials are not configured' },
-        { status: 500 }
-      )
+    // Resolve tenant and load Square config
+    const tenantId = await getCurrentTenantId()
+    const squareConfig = await getTenantSquareConfig(tenantId)
+    if (!squareConfig) {
+      return NextResponse.json({ error: 'Square not configured' }, { status: 503 })
     }
 
     const query = request.nextUrl.searchParams.get('q')?.trim()
@@ -61,11 +56,15 @@ export async function GET(request: NextRequest) {
     // Fetch a larger batch from Square so we can filter and rank locally
     const fetchLimit = Math.min(displayLimit * 4, 100)
 
-    const response = await fetch(`${SQUARE_BASE_URL}/v2/catalog/search`, {
+    const baseUrl = squareConfig.environment === 'production'
+      ? 'https://connect.squareup.com'
+      : 'https://connect.squareupsandbox.com'
+
+    const response = await fetch(`${baseUrl}/v2/catalog/search`, {
       method: 'POST',
       headers: {
         'Square-Version': SQUARE_VERSION,
-        Authorization: `Bearer ${squareAccessToken}`,
+        Authorization: `Bearer ${squareConfig.accessToken}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({

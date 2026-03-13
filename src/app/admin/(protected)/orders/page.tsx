@@ -1,10 +1,6 @@
-import { requireAdmin } from '@/lib/admin/auth'
 import { OrdersManagement } from '@/components/admin/OrdersManagement'
 
 export default async function AdminOrdersPage() {
-  // Ensure user is admin (will redirect if not)
-  await requireAdmin()
-
   return (
     <div>
       <div className="mb-8">

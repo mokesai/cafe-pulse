@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 function normalizeText(value: unknown) {
   return typeof value === 'string' ? value.trim() : ''
@@ -33,6 +34,7 @@ export async function GET(request: NextRequest) {
   const authResult = await requireAdminAuth(request)
   if (!isAdminAuthSuccess(authResult)) return authResult
 
+  const tenantId = await getCurrentTenantId()
   const url = new URL(request.url)
   const modifierOptionId = normalizeText(url.searchParams.get('modifierOptionId'))
 
@@ -40,6 +42,7 @@ export async function GET(request: NextRequest) {
   let query = supabase
     .from('cogs_modifier_option_recipes')
     .select('id, modifier_option_id, version, effective_from, effective_to, notes, created_at, updated_at, cogs_modifier_options(name, square_modifier_id)')
+    .eq('tenant_id', tenantId)
     .order('effective_from', { ascending: false })
 
   if (modifierOptionId) {
@@ -55,6 +58,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const authResult = await requireAdminAuth(request)
   if (!isAdminAuthSuccess(authResult)) return authResult
+
+  const tenantId = await getCurrentTenantId()
 
   const body = (await request.json().catch(() => ({}))) as {
     modifier_option_id?: unknown
@@ -102,6 +107,7 @@ export async function POST(request: NextRequest) {
   const { data: recipe, error: recipeError } = await supabase
     .from('cogs_modifier_option_recipes')
     .insert([{
+      tenant_id: tenantId,
       modifier_option_id: modifierOptionId,
       effective_from: effectiveFrom,
       effective_to: effectiveTo,
@@ -118,6 +124,7 @@ export async function POST(request: NextRequest) {
   const { error: linesError } = await supabase
     .from('cogs_modifier_option_recipe_lines')
     .insert(lines.map(line => ({
+      tenant_id: tenantId,
       recipe_id: recipe.id,
       inventory_item_id: line.inventory_item_id,
       qty: line.qty,
@@ -131,4 +138,3 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({ recipeId: recipe.id })
 }
-

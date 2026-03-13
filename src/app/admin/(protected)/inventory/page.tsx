@@ -1,4 +1,3 @@
-import { requireAdmin } from '@/lib/admin/auth'
 import dynamic from 'next/dynamic'
 
 // Dynamically import heavy inventory component
@@ -14,8 +13,6 @@ const InventoryManagement = dynamic(() => import('@/components/admin/InventoryMa
 })
 
 export default async function AdminInventoryPage() {
-  // Ensure user is admin (will redirect if not)
-  await requireAdmin()
 
   return <InventoryManagement />
 }

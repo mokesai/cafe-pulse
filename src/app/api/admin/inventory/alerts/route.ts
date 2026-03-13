@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 export async function GET(request: NextRequest) {
   try {
     // Verify admin authentication
     const authResult = await requireAdminAuth(request)
-    if (authResult instanceof NextResponse) {
+    if (!isAdminAuthSuccess(authResult)) {
       return authResult
     }
     console.log('Admin fetching stock alerts...')
 
-    const supabase = await createClient()
+    const tenantId = await getCurrentTenantId()
+    const supabase = createServiceClient()
 
     // Fetch current stock alerts
     const { data: alerts, error } = await supabase
@@ -23,6 +25,7 @@ export async function GET(request: NextRequest) {
           current_stock
         )
       `)
+      .eq('tenant_id', tenantId)
       .eq('is_acknowledged', false)
       .order('created_at', { ascending: false })
 
@@ -50,9 +53,9 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Failed to fetch stock alerts:', error)
     return NextResponse.json(
-      { 
-        error: 'Failed to fetch stock alerts', 
-        details: error instanceof Error ? error.message : 'Unknown error' 
+      {
+        error: 'Failed to fetch stock alerts',
+        details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     )
@@ -67,6 +70,9 @@ export async function POST(request: NextRequest) {
       return authResult
     }
     const { userId } = authResult
+
+    const tenantId = await getCurrentTenantId()
+
     const body = await request.json()
     const { alertIds, acknowledged } = body
 
@@ -79,7 +85,7 @@ export async function POST(request: NextRequest) {
 
     console.log('Updating alert acknowledgment:', { alertIds, acknowledged })
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     // Update alert acknowledgment status
     const { data: updatedAlerts, error } = await supabase
@@ -89,6 +95,7 @@ export async function POST(request: NextRequest) {
         acknowledged_by: acknowledged ? userId : null,
         acknowledged_at: acknowledged ? new Date().toISOString() : null
       })
+      .eq('tenant_id', tenantId)
       .in('id', alertIds)
       .select()
 
@@ -111,9 +118,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Failed to update alerts:', error)
     return NextResponse.json(
-      { 
-        error: 'Failed to update alerts', 
-        details: error instanceof Error ? error.message : 'Unknown error' 
+      {
+        error: 'Failed to update alerts',
+        details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     )

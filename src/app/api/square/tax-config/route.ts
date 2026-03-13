@@ -1,12 +1,24 @@
 import { NextResponse } from 'next/server'
 import { listLocations, listCatalogTaxes } from '@/lib/square/fetch-client'
+import { getCurrentTenantId } from '@/lib/tenant/context'
+import { getTenantSquareConfig } from '@/lib/square/config'
 
 export async function GET() {
+  // Resolve tenant and load Square config
+  const tenantId = await getCurrentTenantId()
+  const squareConfig = await getTenantSquareConfig(tenantId)
+  if (!squareConfig) {
+    return NextResponse.json(
+      { error: 'Square integration not configured for this tenant' },
+      { status: 503 }
+    )
+  }
+
   try {
     console.log('Fetching Square location tax configuration...')
-    
+
     // Get location details which includes tax settings
-    const locationsResult = await listLocations()
+    const locationsResult = await listLocations(squareConfig)
     
     if (!locationsResult.locations || locationsResult.locations.length === 0) {
       return NextResponse.json(
@@ -24,7 +36,7 @@ export async function GET() {
     let catalogTaxes = null
     try {
       console.log('Fetching catalog tax objects...')
-      const taxesResult = await listCatalogTaxes()
+      const taxesResult = await listCatalogTaxes(squareConfig)
       catalogTaxes = taxesResult
       console.log('Catalog taxes:', JSON.stringify(catalogTaxes, null, 2))
     } catch (taxError) {

@@ -3,8 +3,11 @@
 import Navigation from '@/components/Navigation'
 import Breadcrumbs from '@/components/layout/Breadcrumbs'
 import Image from 'next/image'
+import { useTenant } from '@/providers/TenantProvider'
 
 export default function About() {
+  const tenant = useTenant()
+  const tenantName = tenant.business_name || tenant.name
   return (
     <main className="min-h-screen">
       <Navigation />
@@ -14,10 +17,10 @@ export default function About() {
       <section className="pt-16 py-20 bg-gradient-to-br from-primary-50 to-green-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
-            About <span className="text-primary-600">Little Cafe</span>
+            About <span className="text-primary-600">{tenantName}</span>
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Little Cafe is a friendly cafe stand located inside the medical complex, serving both visitors and staff. We offer a convenient spot to grab a quality coffee, refreshing drink, or a quick bite as you go about your day.
+            {tenantName} is a friendly cafe stand serving quality coffee, refreshing drinks, and quick bites.
           </p>
         </div>
       </section>
@@ -35,31 +38,26 @@ export default function About() {
                 Every drink is made to order using quality ingredients, and our pastries and sandwiches are always fresh. Whether you&apos;re stopping by for a morning coffee, a midday treat, or a quick lunch, we&apos;re here to serve you with a smile.
               </p>
               <p className="text-gray-600 mb-8 text-lg">
-                While we don&apos;t have a full dining area, we do have a couple of tables where you can enjoy your pastry or ice cream before heading on your way.
+                Stop by for a morning coffee, a midday treat, or a quick lunch — we&apos;re here to serve you with a smile.
               </p>
-              
-              <div className="grid grid-cols-2 gap-8 mb-8">
-                <div className="text-center">
-                  <div className="text-4xl font-bold text-primary-600">5+</div>
-                  <div className="text-gray-600 font-medium">Years of Service</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-4xl font-bold text-primary-600">1000+</div>
-                  <div className="text-gray-600 font-medium">Happy Customers</div>
-                </div>
-              </div>
             </div>
             
             {/* Image Content */}
             <div className="flex items-center justify-center">
-              <Image
-                src="/images/cafe-from-right.jpg"
-                alt="Cafe Interior"
-                width={500}
-                height={400}
-                className="rounded-2xl object-cover shadow-lg w-full h-auto"
-                priority
-              />
+              {tenant.logo_url ? (
+                <Image
+                  src={tenant.logo_url}
+                  alt={`${tenantName}`}
+                  width={500}
+                  height={400}
+                  className="rounded-2xl object-cover shadow-lg w-full h-auto"
+                  priority
+                />
+              ) : (
+                <div className="bg-gradient-to-br from-primary-100 to-green-100 rounded-2xl w-full h-80 flex items-center justify-center shadow-lg">
+                  <span className="text-8xl">☕</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -97,7 +95,7 @@ export default function About() {
                 <span className="text-2xl">⚡</span>
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-3">Convenience</h3>
-              <p className="text-gray-600">Quick, friendly service that fits perfectly into your busy day at the medical complex.</p>
+              <p className="text-gray-600">Quick, friendly service that fits perfectly into your busy day.</p>
             </div>
           </div>
         </div>
@@ -106,13 +104,13 @@ export default function About() {
       {/* Footer */}
       <footer className="bg-gray-900 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h3 className="text-2xl font-bold text-primary-400 mb-4">Little Cafe</h3>
+          <h3 className="text-2xl font-bold text-primary-400 mb-4">{tenantName}</h3>
           <p className="text-gray-400 mb-6">
             Where every cup tells a story. Thank you for being part of our community.
           </p>
           <div className="border-t border-gray-800 pt-6">
             <p className="text-gray-400 text-sm">
-              © 2024 Little Cafe. All rights reserved.
+              © {new Date().getFullYear()} {tenantName}. All rights reserved.
             </p>
           </div>
         </div>

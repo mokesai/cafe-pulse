@@ -1,21 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdminAuth } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 export async function GET(request: NextRequest) {
   try {
     // Verify admin authentication
     const authResult = await requireAdminAuth(request)
-    if (authResult instanceof NextResponse) {
+    if (!isAdminAuthSuccess(authResult)) {
       return authResult
     }
 
-    const supabase = await createClient()
+    const tenantId = await getCurrentTenantId()
+    const supabase = createServiceClient()
 
     // Fetch all locations
     const { data: locations, error } = await supabase
       .from('inventory_locations')
       .select('*')
+      .eq('tenant_id', tenantId)
       .order('name')
 
     if (error) {
@@ -49,9 +52,11 @@ export async function POST(request: NextRequest) {
   try {
     // Verify admin authentication
     const authResult = await requireAdminAuth(request)
-    if (authResult instanceof NextResponse) {
+    if (!isAdminAuthSuccess(authResult)) {
       return authResult
     }
+
+    const tenantId = await getCurrentTenantId()
 
     const body = await request.json()
     const { name, description } = body
@@ -65,12 +70,13 @@ export async function POST(request: NextRequest) {
 
     console.log('Creating new inventory location:', name)
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     // Insert new location
     const { data: newLocation, error } = await supabase
       .from('inventory_locations')
       .insert({
+        tenant_id: tenantId,
         name: name.trim(),
         description: description?.trim() || null,
         is_active: true

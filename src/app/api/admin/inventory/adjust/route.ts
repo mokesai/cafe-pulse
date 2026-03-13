@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,6 +10,8 @@ export async function POST(request: NextRequest) {
       return authResult
     }
     const { userId } = authResult
+
+    const tenantId = await getCurrentTenantId()
 
     const body = await request.json()
     const { inventory_item_id, new_stock, reason, notes, reference_id } = body ?? {}
@@ -29,10 +32,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
     const { data: currentItem, error: fetchError } = await supabase
       .from('inventory_items')
       .select('id, item_name, current_stock, unit_cost, minimum_threshold, reorder_point, square_item_id, pack_size, deleted_at')
+      .eq('tenant_id', tenantId)
       .eq('id', inventory_item_id)
       .single()
 
@@ -51,6 +55,7 @@ export async function POST(request: NextRequest) {
       const { data: baseItem } = await supabase
         .from('inventory_items')
         .select('id')
+        .eq('tenant_id', tenantId)
         .eq('square_item_id', currentItem.square_item_id)
         .eq('pack_size', 1)
         .is('deleted_at', null)
@@ -82,6 +87,7 @@ export async function POST(request: NextRequest) {
     const { data: updatedItem, error: updateError } = await supabase
       .from('inventory_items')
       .update(updateData)
+      .eq('tenant_id', tenantId)
       .eq('id', inventory_item_id)
       .select()
       .single()
@@ -103,6 +109,7 @@ export async function POST(request: NextRequest) {
     const { error: movementError } = await supabase
       .from('stock_movements')
       .insert({
+        tenant_id: tenantId,
         inventory_item_id,
         movement_type: 'adjustment',
         quantity_change: quantityChange,
@@ -130,6 +137,7 @@ export async function POST(request: NextRequest) {
           acknowledged_by: userId,
           acknowledged_at: nowIso
         })
+        .eq('tenant_id', tenantId)
         .eq('inventory_item_id', inventory_item_id)
         .eq('is_acknowledged', false)
 

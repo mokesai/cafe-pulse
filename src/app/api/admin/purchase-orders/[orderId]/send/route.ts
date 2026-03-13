@@ -2,7 +2,8 @@ import { Buffer } from 'node:buffer'
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 import { fetchPurchaseOrderForIssuance } from '@/lib/purchase-orders/load'
 import { generatePurchaseOrderPdf } from '@/lib/purchase-orders/pdf'
 import { fetchSupplierTemplate, buildPurchaseOrderTemplateContext, renderTemplate } from '@/lib/purchase-orders/templates'
@@ -49,7 +50,24 @@ export async function POST(
 
     const body: SendRequestBody = await request.json().catch(() => ({}))
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
+
+    // Verify purchase order belongs to this tenant before proceeding
+    const { data: poCheck, error: poCheckError } = await supabase
+      .from('purchase_orders')
+      .select('id')
+      .eq('id', orderId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+
+    if (poCheckError || !poCheck) {
+      return NextResponse.json(
+        { error: 'Purchase order not found' },
+        { status: 404 }
+      )
+    }
+
     const { order, error } = await fetchPurchaseOrderForIssuance(supabase, orderId)
 
     if (error) {
@@ -156,6 +174,7 @@ export async function POST(
       .from('purchase_orders')
       .update({ total_amount: filteredOrder.total_amount })
       .eq('id', order.id)
+      .eq('tenant_id', tenantId)
     if (totalUpdateError) {
       console.warn('Failed to update purchase order total after exclusions:', totalUpdateError)
     }
@@ -222,6 +241,7 @@ export async function POST(
           sent_by: admin.userId
         })
         .eq('id', order.id)
+        .eq('tenant_id', tenantId)
 
       if (updateError) {
         console.error('Failed to update purchase order after email:', updateError)

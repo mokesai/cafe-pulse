@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/admin/middleware'
-
-const SQUARE_BASE_URL = process.env.SQUARE_ENVIRONMENT === 'production' 
-  ? 'https://connect.squareup.com'
-  : 'https://connect.squareupsandbox.com'
+import { getCurrentTenantId } from '@/lib/tenant/context'
+import { getTenantSquareConfig } from '@/lib/square/config'
+import type { SquareConfig } from '@/lib/square/types'
 
 const SQUARE_VERSION = '2024-12-18'
 
-function getHeaders() {
+function getHeaders(config: SquareConfig) {
   return {
     'Square-Version': SQUARE_VERSION,
-    'Authorization': `Bearer ${process.env.SQUARE_ACCESS_TOKEN}`,
+    'Authorization': `Bearer ${config.accessToken}`,
     'Content-Type': 'application/json'
   }
 }
@@ -70,6 +69,17 @@ export async function PUT(
       return authResult
     }
 
+    // Resolve tenant and load Square config
+    const tenantId = await getCurrentTenantId()
+    const squareConfig = await getTenantSquareConfig(tenantId)
+    if (!squareConfig) {
+      return NextResponse.json({ error: 'Square not configured' }, { status: 503 })
+    }
+
+    const baseUrl = squareConfig.environment === 'production'
+      ? 'https://connect.squareup.com'
+      : 'https://connect.squareupsandbox.com'
+
     const resolvedParams = await params
     const { itemId } = resolvedParams
     const updateData: UpdateItemRequest = await request.json()
@@ -78,10 +88,10 @@ export async function PUT(
 
     // First, get the current item to preserve structure
     const currentItemResponse = await fetch(
-      `${SQUARE_BASE_URL}/v2/catalog/object/${itemId}`,
+      `${baseUrl}/v2/catalog/object/${itemId}`,
       {
         method: 'GET',
-        headers: getHeaders()
+        headers: getHeaders(squareConfig)
       }
     )
 
@@ -139,9 +149,9 @@ export async function PUT(
     }
 
     // Update the item in Square
-    const updateResponse = await fetch(`${SQUARE_BASE_URL}/v2/catalog/batch-upsert`, {
+    const updateResponse = await fetch(`${baseUrl}/v2/catalog/batch-upsert`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: getHeaders(squareConfig),
       body: JSON.stringify({
         idempotency_key: `admin-update-${itemId}-${Date.now()}`,
         batches: [
@@ -188,15 +198,26 @@ export async function DELETE(
       return authResult
     }
 
+    // Resolve tenant and load Square config
+    const tenantId = await getCurrentTenantId()
+    const squareConfig = await getTenantSquareConfig(tenantId)
+    if (!squareConfig) {
+      return NextResponse.json({ error: 'Square not configured' }, { status: 503 })
+    }
+
+    const baseUrl = squareConfig.environment === 'production'
+      ? 'https://connect.squareup.com'
+      : 'https://connect.squareupsandbox.com'
+
     const resolvedParams = await params
     const { itemId } = resolvedParams
 
     console.log(`Admin deleting menu item ${itemId}`)
 
     // Delete the item from Square catalog
-    const deleteResponse = await fetch(`${SQUARE_BASE_URL}/v2/catalog/object/${itemId}`, {
+    const deleteResponse = await fetch(`${baseUrl}/v2/catalog/object/${itemId}`, {
       method: 'DELETE',
-      headers: getHeaders()
+      headers: getHeaders(squareConfig)
     })
 
     if (!deleteResponse.ok) {

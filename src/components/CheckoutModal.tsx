@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { X, CreditCard, Loader2 } from 'lucide-react'
 import { PaymentForm, CreditCard as SquareCreditCard } from 'react-square-web-payments-sdk'
 import type { MenuItem, MenuCategory } from '@/types/menu'
+import { useSquareConfig } from '@/providers/SquareProvider'
 
 interface SquarePaymentToken {
   token?: string
@@ -43,18 +44,21 @@ export default function CheckoutModal({
     postalCode: ''
   })
 
+  // Call hooks before any conditional returns
+  const { applicationId, locationId } = useSquareConfig()
+
   // Reset form when modal opens/closes
   useEffect(() => {
     if (isOpen) {
       setIsPaymentFormReady(false)
       setPaymentError(null)
       setIsProcessing(false)
-      
+
       // Add global error handler for uncaught Square SDK errors
       const handleGlobalError = (event: ErrorEvent) => {
         if (event.error && event.error.message && event.error.message.includes('Tokenization failed')) {
           console.error('Caught Square SDK error:', event.error)
-          
+
           // Parse Square error message
           const errorMessage = event.error.message
           if (errorMessage.includes('Credit card number is not valid')) {
@@ -68,20 +72,20 @@ export default function CheckoutModal({
           } else {
             setPaymentError('Please check your card information and try again')
           }
-          
+
           // Prevent the error from propagating
           event.preventDefault()
           return false
         }
       }
-      
+
       window.addEventListener('error', handleGlobalError)
-      
+
       // Small delay to ensure DOM is ready
       const timer = setTimeout(() => {
         setIsPaymentFormReady(true)
       }, 500)
-      
+
       return () => {
         clearTimeout(timer)
         window.removeEventListener('error', handleGlobalError)
@@ -172,29 +176,22 @@ export default function CheckoutModal({
     }
   }
 
-  const applicationId = process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID || process.env.SQUARE_APPLICATION_ID
-  const locationId = process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID || process.env.SQUARE_LOCATION_ID
-
-  if (!applicationId || !locationId) {
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl max-w-md w-full p-6">
-          <div className="text-center">
-            <h3 className="text-lg font-semibold text-red-600 mb-2">Payment Configuration Error</h3>
-            <p className="text-gray-600">Square payment system is not properly configured.</p>
-            <button
-              onClick={onClose}
-              className="mt-4 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
-            >
-              Close
-            </button>
-          </div>
+  return !applicationId || !locationId ? (
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl max-w-md w-full p-6">
+        <div className="text-center">
+          <h3 className="text-lg font-semibold text-red-600 mb-2">Payment Configuration Error</h3>
+          <p className="text-gray-600">Square payment system is not properly configured.</p>
+          <button
+            onClick={onClose}
+            className="mt-4 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
+          >
+            Close
+          </button>
         </div>
       </div>
-    )
-  }
-
-  return (
+    </div>
+  ) : (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden">
         {/* Header */}

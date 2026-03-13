@@ -24,16 +24,10 @@ require('dotenv').config({ path: '.env' })
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseServiceKey = process.env.SUPABASE_SECRET_KEY
-const squareAccessToken = process.env.SQUARE_ACCESS_TOKEN
-const squareEnvironment = process.env.SQUARE_ENVIRONMENT
-const squareLocationId = process.env.SQUARE_LOCATION_ID
 
 const adminEmail = process.env.ADMIN_EMAIL || 'jerry.mccommas@gmail.com'
 
 // Square API configuration
-const SQUARE_BASE_URL = squareEnvironment === 'production'
-  ? 'https://connect.squareup.com'
-  : 'https://connect.squareupsandbox.com'
 const SQUARE_VERSION = '2024-12-18'
 
 function showUsage() {
@@ -43,39 +37,53 @@ function showUsage() {
   console.log('\nOptions:')
   console.log('  --dry-run           Show what would be synchronized without making changes')
   console.log('  --admin-email=EMAIL Admin email for verification (default: jerry.mccommas@gmail.com)')
+  console.log('  --tenant-id=UUID    Target a specific tenant by UUID')
+  console.log('  --tenant-slug=SLUG  Target a specific tenant by slug (resolved to UUID)')
   console.log('\nExamples:')
   console.log('  node scripts/sync-square-catalog.js --dry-run')
   console.log('  node scripts/sync-square-catalog.js')
   console.log('  node scripts/sync-square-catalog.js --admin-email=admin@example.com')
+  console.log('  node scripts/sync-square-catalog.js --tenant-id=00000000-0000-0000-0000-000000000002')
+  console.log('  node scripts/sync-square-catalog.js --tenant-slug=demo-cafe')
   console.log('')
 }
 
 function parseArgs() {
   const args = process.argv.slice(2)
-  
+
   if (args.includes('--help') || args.includes('-h')) {
     showUsage()
     process.exit(0)
   }
 
   const dryRun = args.includes('--dry-run')
-  
+
   let adminEmailArg = adminEmail
   const emailArg = args.find(arg => arg.startsWith('--admin-email='))
   if (emailArg) {
     adminEmailArg = emailArg.split('=')[1]
   }
 
-  return { dryRun, adminEmail: adminEmailArg }
+  // Add tenant flag parsing
+  let tenantId = null
+  let tenantSlug = null
+  const tenantIdArg = args.find(arg => arg.startsWith('--tenant-id='))
+  if (tenantIdArg) tenantId = tenantIdArg.split('=')[1]
+  const tenantSlugArg = args.find(arg => arg.startsWith('--tenant-slug='))
+  if (tenantSlugArg) tenantSlug = tenantSlugArg.split('=')[1]
+
+  return { dryRun, adminEmail: adminEmailArg, tenantId, tenantSlug }
 }
 
-async function validateEnvironment() {
+async function validateEnvironment(squareAccessToken, squareLocationId, squareEnvironment) {
   const missing = []
-  
+
   if (!supabaseUrl) missing.push('NEXT_PUBLIC_SUPABASE_URL')
   if (!supabaseServiceKey) missing.push('SUPABASE_SECRET_KEY')
-  if (!squareAccessToken) missing.push('SQUARE_ACCESS_TOKEN')
-  if (!squareLocationId) missing.push('SQUARE_LOCATION_ID')
+
+  // Only validate Square env vars if no tenant is specified
+  if (!squareAccessToken) missing.push('SQUARE_ACCESS_TOKEN (or use --tenant-id/--tenant-slug)')
+  if (!squareLocationId) missing.push('SQUARE_LOCATION_ID (or use --tenant-id/--tenant-slug)')
 
   if (missing.length > 0) {
     console.error('❌ Missing required environment variables:')
@@ -89,9 +97,30 @@ async function validateEnvironment() {
   console.log(`📍 Location ID: ${squareLocationId}`)
 }
 
+async function resolveTenantBySlug(supabase, slug) {
+  const { data, error } = await supabase
+    .from('tenants')
+    .select('id')
+    .eq('slug', slug)
+    .eq('is_active', true)
+    .single()
+  if (error || !data) throw new Error(`Tenant not found for slug: ${slug}`)
+  return data.id
+}
+
+async function loadTenantSquareCredentials(supabase, tenantId) {
+  const { data, error } = await supabase.rpc('get_tenant_square_credentials_internal', {
+    p_tenant_id: tenantId
+  })
+  if (error || !data || data.length === 0) {
+    throw new Error(`Failed to load Square credentials for tenant ${tenantId}: ${error?.message || 'No data returned'}`)
+  }
+  return data[0]
+}
+
 async function validateAdminAccess(supabase, email) {
   console.log(`🔐 Verifying admin access for: ${email}`)
-  
+
   try {
     const { data: profile, error } = await supabase
       .from('profiles')
@@ -119,21 +148,28 @@ async function validateAdminAccess(supabase, email) {
   }
 }
 
-function getSquareHeaders() {
+function getSquareHeaders(accessToken) {
   return {
     'Square-Version': SQUARE_VERSION,
-    'Authorization': `Bearer ${squareAccessToken}`,
+    'Authorization': `Bearer ${accessToken}`,
     'Content-Type': 'application/json'
   }
 }
 
-async function fetchSquareCatalog() {
+function getSquareBaseUrl(environment) {
+  return environment === 'production'
+    ? 'https://connect.squareup.com'
+    : 'https://connect.squareupsandbox.com'
+}
+
+async function fetchSquareCatalog(accessToken, environment) {
   console.log('📦 Fetching Square catalog...')
-  
+
   try {
-    const response = await fetch(`${SQUARE_BASE_URL}/v2/catalog/search`, {
+    const baseUrl = getSquareBaseUrl(environment)
+    const response = await fetch(`${baseUrl}/v2/catalog/search`, {
       method: 'POST',
-      headers: getSquareHeaders(),
+      headers: getSquareHeaders(accessToken),
       body: JSON.stringify({
         object_types: ['ITEM', 'CATEGORY'],
         include_related_objects: true
@@ -147,7 +183,7 @@ async function fetchSquareCatalog() {
 
     const data = await response.json()
     console.log(`✅ Retrieved ${data.objects?.length || 0} catalog objects`)
-    
+
     return data
   } catch (error) {
     console.error('❌ Error fetching Square catalog:', error.message)
@@ -671,18 +707,41 @@ function displaySyncSummary(stats, syncResult, dryRun, suppliers) {
 }
 
 async function main() {
-  const { dryRun, adminEmail: userEmail } = parseArgs()
+  const { dryRun, adminEmail: userEmail, tenantId: parsedTenantId, tenantSlug } = parseArgs()
 
   console.log('🔄 Square Catalog Synchronization Tool')
   console.log(`👤 Admin: ${userEmail}`)
   console.log(`🔍 Mode: ${dryRun ? 'DRY RUN' : 'SYNC'}`)
   console.log('')
 
-  // Validate environment
-  await validateEnvironment()
-
   // Initialize Supabase client
   const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+  // Resolve tenant
+  let tenantId = parsedTenantId
+  if (tenantSlug) {
+    tenantId = await resolveTenantBySlug(supabase, tenantSlug)
+    console.log(`Resolved tenant slug "${tenantSlug}" to ID: ${tenantId}`)
+  }
+
+  // Load Square credentials
+  let squareAccessToken, squareEnvironment, squareLocationId
+  if (tenantId) {
+    // Load from Vault
+    const creds = await loadTenantSquareCredentials(supabase, tenantId)
+    squareAccessToken = creds.access_token
+    squareEnvironment = creds.environment
+    squareLocationId = creds.location_id
+    console.log(`Loaded Square credentials for tenant ${tenantId} from Vault`)
+  } else {
+    // Default: use env vars (backward compatible)
+    squareAccessToken = process.env.SQUARE_ACCESS_TOKEN
+    squareEnvironment = process.env.SQUARE_ENVIRONMENT || 'sandbox'
+    squareLocationId = process.env.SQUARE_LOCATION_ID
+  }
+
+  // Validate environment
+  await validateEnvironment(squareAccessToken, squareLocationId, squareEnvironment)
 
   // Validate admin access
   await validateAdminAccess(supabase, userEmail)
@@ -694,7 +753,7 @@ async function main() {
   const existingSquareIds = await getExistingInventoryItems(supabase)
 
   // Fetch Square catalog
-  const catalogData = await fetchSquareCatalog()
+  const catalogData = await fetchSquareCatalog(squareAccessToken, squareEnvironment)
 
   // Process catalog and generate inventory items
   const { newItems, categories, stats } = processSquareCatalog(catalogData, suppliers, existingSquareIds)

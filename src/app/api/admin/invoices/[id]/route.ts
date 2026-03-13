@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -32,7 +33,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     const resolvedParams = await context.params
     const { id } = resolvedParams
-    const supabase = await createClient()
+    const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
 
     // Get invoice with related data
     const { data: invoice, error } = await supabase
@@ -107,6 +109,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         )
       `)
       .eq('id', id)
+      .eq('tenant_id', tenantId)
       .single()
 
     if (error) {
@@ -160,7 +163,8 @@ export async function PUT(request: NextRequest, context: RouteContext) {
       parsing_error
     } = body
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
 
     // Update invoice
     const updateData: InvoiceUpdatePayload = {}
@@ -183,6 +187,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
       .from('invoices')
       .update(updateData)
       .eq('id', id)
+      .eq('tenant_id', tenantId)
       .select(`
         id,
         invoice_number,
@@ -240,13 +245,15 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 
     const resolvedParams = await context.params
     const { id } = resolvedParams
-    const supabase = await createClient()
+    const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
 
     // Check if invoice exists and get file info for cleanup
     const { data: invoice, error: fetchError } = await supabase
       .from('invoices')
       .select('id, invoice_number, file_url')
       .eq('id', id)
+      .eq('tenant_id', tenantId)
       .single()
 
     if (fetchError) {
@@ -268,6 +275,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       .from('invoices')
       .delete()
       .eq('id', id)
+      .eq('tenant_id', tenantId)
 
     if (deleteError) {
       console.error('Error deleting invoice:', deleteError)

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -23,6 +24,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const authResult = await requireAdminAuth(request)
   if (!isAdminAuthSuccess(authResult)) return authResult
 
+  const tenantId = await getCurrentTenantId()
   const { id: periodId } = await context.params
   if (!periodId) {
     return NextResponse.json({ error: 'Missing period id' }, { status: 400 })
@@ -33,6 +35,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const { data: period, error: periodError } = await supabase
     .from('cogs_periods')
     .select('id, period_type, start_at, end_at, status, closed_at')
+    .eq('tenant_id', tenantId)
     .eq('id', periodId)
     .single()
 
@@ -43,6 +46,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const { data: report, error: reportError } = await supabase
     .from('cogs_reports')
     .select('begin_inventory_value, purchases_value, end_inventory_value, periodic_cogs_value, currency, created_at')
+    .eq('tenant_id', tenantId)
     .eq('period_id', periodId)
     .maybeSingle()
 
@@ -53,6 +57,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const { data: valuations, error: valuationsError } = await supabase
     .from('inventory_valuations')
     .select('inventory_item_id, qty_on_hand, unit_cost, value, method, computed_at, inventory_items(item_name)')
+    .eq('tenant_id', tenantId)
     .eq('period_id', periodId)
     .order('value', { ascending: false })
 

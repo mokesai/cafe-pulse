@@ -9,8 +9,9 @@ export async function GET(request: NextRequest) {
     return authResult
   }
   try {
-    const settings = await getSiteSettings()
-    const status = await getSiteStatusUsingServiceClient()
+    const { tenantId } = authResult
+    const settings = await getSiteSettings(tenantId)
+    const status = await getSiteStatusUsingServiceClient(tenantId)
 
     return addSecurityHeaders(NextResponse.json({
       success: true,
@@ -33,6 +34,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const { tenantId } = authResult
     const body = await request.json()
 
     const allowedKeys = [
@@ -57,8 +59,8 @@ export async function POST(request: NextRequest) {
       ))
     }
 
-    const saved = await saveSiteSettings(payload, authResult.userId)
-    const status = await getSiteStatusUsingServiceClient()
+    const saved = await saveSiteSettings(tenantId, payload, authResult.userId)
+    const status = await getSiteStatusUsingServiceClient(tenantId)
 
     return addSecurityHeaders(NextResponse.json({
       success: true,

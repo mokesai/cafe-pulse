@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 function normalizeText(value: unknown) {
   return typeof value === 'string' ? value.trim() : ''
@@ -33,6 +34,7 @@ export async function GET(request: NextRequest) {
   const authResult = await requireAdminAuth(request)
   if (!isAdminAuthSuccess(authResult)) return authResult
 
+  const tenantId = await getCurrentTenantId()
   const url = new URL(request.url)
   const productId = normalizeText(url.searchParams.get('productId'))
 
@@ -40,6 +42,7 @@ export async function GET(request: NextRequest) {
   let query = supabase
     .from('cogs_product_recipes')
     .select('id, product_id, version, effective_from, effective_to, yield_qty, yield_unit, notes, created_at, cogs_products(name, square_item_id)')
+    .eq('tenant_id', tenantId)
     .order('effective_from', { ascending: false })
 
   if (productId) {
@@ -55,6 +58,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const authResult = await requireAdminAuth(request)
   if (!isAdminAuthSuccess(authResult)) return authResult
+
+  const tenantId = await getCurrentTenantId()
 
   const body = (await request.json().catch(() => ({}))) as {
     product_id?: unknown
@@ -110,6 +115,7 @@ export async function POST(request: NextRequest) {
   const { data: recipe, error: recipeError } = await supabase
     .from('cogs_product_recipes')
     .insert([{
+      tenant_id: tenantId,
       product_id: productId,
       effective_from: effectiveFrom,
       effective_to: effectiveTo,
@@ -128,6 +134,7 @@ export async function POST(request: NextRequest) {
   const { error: linesError } = await supabase
     .from('cogs_product_recipe_lines')
     .insert(lines.map(line => ({
+      tenant_id: tenantId,
       recipe_id: recipe.id,
       inventory_item_id: line.inventory_item_id,
       qty: line.qty,

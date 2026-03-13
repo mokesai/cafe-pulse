@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,9 +12,12 @@ export async function GET(request: NextRequest) {
     }
     console.log('Admin fetching inventory items...')
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
     const { searchParams } = new URL(request.url)
     const includeArchived = searchParams.get('includeArchived') === '1'
+
+    // Get tenant ID
+    const tenantId = await getCurrentTenantId()
 
     // Fetch inventory items with supplier information (excluding archived)
     let query = supabase
@@ -25,6 +29,7 @@ export async function GET(request: NextRequest) {
           name
         )
       `)
+      .eq('tenant_id', tenantId)
       .order('item_name')
 
     if (!includeArchived) {
@@ -40,6 +45,8 @@ export async function GET(request: NextRequest) {
         { status: 500 }
       )
     }
+
+    console.log('✅ Fetched', inventoryItems?.length || 0, 'inventory items')
 
     // Process the data to include supplier name
     const processedItems = inventoryItems?.map(item => ({
@@ -117,7 +124,7 @@ export async function POST(request: NextRequest) {
 
     console.log('Creating new inventory item:', { square_item_id: finalSquareId, item_name, current_stock })
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     // Insert new inventory item
     const { data: newItem, error } = await supabase
@@ -220,7 +227,7 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     // Load current values for change tracking (unit_cost, pack_size)
     const { data: existing, error: existingError } = await supabase
@@ -328,7 +335,7 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
     const { data, error } = await supabase
       .from('inventory_items')
       .update({ deleted_at: new Date().toISOString() })

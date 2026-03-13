@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -38,6 +39,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const authResult = await requireAdminAuth(request)
   if (!isAdminAuthSuccess(authResult)) return authResult
 
+  const tenantId = await getCurrentTenantId()
   const { id } = await context.params
   if (!id) return NextResponse.json({ error: 'Missing recipe id' }, { status: 400 })
 
@@ -46,6 +48,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const { data: recipe, error: recipeError } = await supabase
     .from('cogs_modifier_option_recipes')
     .select('id, modifier_option_id, version, effective_from, effective_to, notes, created_at, updated_at, cogs_modifier_options(id, name, square_modifier_id)')
+    .eq('tenant_id', tenantId)
     .eq('id', id)
     .single()
 
@@ -56,6 +59,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const { data: lines, error: linesError } = await supabase
     .from('cogs_modifier_option_recipe_lines')
     .select('id, inventory_item_id, qty, unit, loss_pct, created_at, inventory_items(id, item_name, unit_type)')
+    .eq('tenant_id', tenantId)
     .eq('recipe_id', id)
     .order('created_at', { ascending: true })
 
@@ -70,6 +74,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   const authResult = await requireAdminAuth(request)
   if (!isAdminAuthSuccess(authResult)) return authResult
 
+  const tenantId = await getCurrentTenantId()
   const { id } = await context.params
   if (!id) return NextResponse.json({ error: 'Missing recipe id' }, { status: 400 })
 
@@ -118,6 +123,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   const { data: existing, error: existingError } = await supabase
     .from('cogs_modifier_option_recipes')
     .select('id')
+    .eq('tenant_id', tenantId)
     .eq('id', id)
     .maybeSingle()
 
@@ -134,6 +140,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
       approved_by: authResult.userId ?? null,
       updated_at: new Date().toISOString(),
     })
+    .eq('tenant_id', tenantId)
     .eq('id', id)
 
   if (updateError) {
@@ -143,6 +150,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   const { error: deleteError } = await supabase
     .from('cogs_modifier_option_recipe_lines')
     .delete()
+    .eq('tenant_id', tenantId)
     .eq('recipe_id', id)
 
   if (deleteError) {
@@ -152,6 +160,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   const { error: insertError } = await supabase
     .from('cogs_modifier_option_recipe_lines')
     .insert(lines.map(line => ({
+      tenant_id: tenantId,
       recipe_id: id,
       inventory_item_id: line.inventory_item_id,
       qty: line.qty,
@@ -165,4 +174,3 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
   return NextResponse.json({ success: true })
 }
-

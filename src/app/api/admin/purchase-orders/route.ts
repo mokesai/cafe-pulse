@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/admin/middleware'
 import type { AdminAuthSuccess } from '@/lib/admin/middleware'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { canonicalStatus, insertStatusHistory } from './status-utils'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 interface SupplierProfileInfo {
   full_name?: string | null
@@ -95,7 +96,10 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status')
     const dateFilter = searchParams.get('dateFilter')
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
+
+    // Get tenant ID
+    const tenantId = await getCurrentTenantId()
 
     // Build query with supplier information
     let query = supabase
@@ -124,6 +128,7 @@ export async function GET(request: NextRequest) {
           note
         )
       `)
+      .eq('tenant_id', tenantId)
 
     // Filter by status
     if (status && status !== 'all') {
@@ -306,7 +311,10 @@ export async function POST(request: NextRequest) {
 
     console.log('Creating new purchase order:', order_number)
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
+
+    // Get tenant ID
+    const tenantId = await getCurrentTenantId()
 
     // Fetch pack sizes from inventory for missing values
     const inventoryIds = Array.from(new Set(itemInputs.map(item => item.inventory_item_id).filter(Boolean)))
@@ -315,6 +323,7 @@ export async function POST(request: NextRequest) {
       const { data: invRows } = await supabase
         .from('inventory_items')
         .select('id, pack_size')
+        .eq('tenant_id', tenantId)
         .in('id', inventoryIds)
       const typedRows = (invRows || []) as Array<{ id: string; pack_size: number | null }>
       typedRows.forEach(row => {

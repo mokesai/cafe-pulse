@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSquareOrder, processPayment } from '@/lib/square/orders'
 import { TaxConfigurationError } from '@/lib/square/tax-validation'
 import { getOrder } from '@/lib/square/fetch-client'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createTenantClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
+import { getTenantSquareConfig } from '@/lib/square/config'
 import { rateLimiters } from '@/lib/security/rate-limiter'
 import { validateAmount, validateCustomerInfo, ValidationError, sanitizeString } from '@/lib/security/input-validation'
 import { addSecurityHeaders } from '@/lib/security/headers'
@@ -33,6 +35,16 @@ interface PaymentRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    // Resolve tenant and load Square config
+    const tenantId = await getCurrentTenantId()
+    const squareConfig = await getTenantSquareConfig(tenantId)
+    if (!squareConfig) {
+      return addSecurityHeaders(NextResponse.json(
+        { error: 'Square not configured for this tenant' },
+        { status: 503 }
+      ))
+    }
+
     // Apply strict rate limiting for payment processing
     const rateLimitResult = rateLimiters.payment(request)
     if (!rateLimitResult.success) {
@@ -48,7 +60,7 @@ export async function POST(request: NextRequest) {
 
     const body: PaymentRequest = await request.json()
     const { paymentToken, customerInfo, cartItems, useSavedCard } = body
-    
+
     // Fix floating point precision issues by rounding to 2 decimal places
     const amount = Math.round(body.amount * 100) / 100
 
@@ -93,13 +105,13 @@ export async function POST(request: NextRequest) {
     let orderId
     let squareOrderTotal = amount // Default to our calculated amount
     let squareOrderTax = 0 // Default to 0, will be updated with Square's calculation
-    
+
     try {
-      orderId = await createSquareOrder(cartItems)
+      orderId = await createSquareOrder(squareConfig, tenantId, cartItems)
       console.log('Square order created:', orderId)
-      
+
       // Get the actual order total and tax from Square
-      const orderDetails = await getOrder(orderId)
+      const orderDetails = await getOrder(squareConfig, orderId)
       const actualOrderTotal = orderDetails.order?.total_money?.amount || 0
       const actualTaxAmount = orderDetails.order?.total_tax_money?.amount || 0
       console.log('Order total extraction:', {
@@ -144,8 +156,9 @@ export async function POST(request: NextRequest) {
     // Process payment with the order
     console.log('Processing payment with order...')
     console.log('Using saved card:', useSavedCard)
-    
+
     const paymentResult = await processPayment(
+      squareConfig,
       paymentToken, // For saved cards this is the card ID, for new cards it's the payment token
       orderId, // Include the order ID
       squareOrderTotal, // Use Square's calculated total if available
@@ -156,16 +169,20 @@ export async function POST(request: NextRequest) {
     // Save order to database
     console.log('Saving order to database...')
     const supabase = await createClient()
-    
+
     // Get authenticated user if available
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     console.log('User auth status:', { userId: user?.id, email: user?.email, authError })
-    
+
+    // Use tenant-scoped client for data writes so RLS policies apply
+    const tenantSupabase = await createTenantClient(tenantId)
+
     // Create order record (match actual database schema)
-    const { data: orderData, error: orderError } = await supabase
+    const { data: orderData, error: orderError } = await tenantSupabase
       .from('orders')
       .insert([
         {
+          tenant_id: tenantId,
           user_id: user?.id || null, // Set user_id if authenticated, null for anonymous
           square_order_id: orderId, // Include the Square order ID
           customer_email: customerInfo.email,
@@ -193,6 +210,7 @@ export async function POST(request: NextRequest) {
 
     // Create order items (match actual database schema)
     const orderItems = cartItems.map(item => ({
+      tenant_id: tenantId,
       order_id: orderData.id,
       square_item_id: item.id,
       item_name: item.name,
@@ -203,7 +221,7 @@ export async function POST(request: NextRequest) {
       modifiers: {} // No modifiers for now
     }))
 
-    const { error: itemsError } = await supabase
+    const { error: itemsError } = await tenantSupabase
       .from('order_items')
       .insert(orderItems)
 

@@ -1,0 +1,60 @@
+=== Module-Level Cache Security Audit ===
+Generated: Mon Feb 16 17:52:56 MST 2026
+
+---
+File: src/lib/services/siteSettings.edge.ts
+
+Cache declarations:
+39:  const cache = globalThis.__siteStatusCacheEdge
+46:  globalThis.__siteStatusCacheEdge = {
+55:  globalThis.__siteStatusCacheEdge = undefined
+
+Status: ⚠️  WARNING
+Cache: __siteStatusCacheEdge (CacheEntry - single object)
+Key pattern: None (singleton cache)
+Evidence:
+13:  var __siteStatusCacheEdge: CacheEntry | undefined
+39:  const cache = globalThis.__siteStatusCacheEdge
+46:  globalThis.__siteStatusCacheEdge = {
+55:  globalThis.__siteStatusCacheEdge = undefined
+
+Recommendation: Review if site status should be per-tenant or global
+If per-tenant: Change to Map<string, CacheEntry> keyed by tenantId
+If global: Document why shared cache is intentional
+
+---
+File: src/lib/square/config.ts
+
+Cache declarations:
+19:  if (!globalThis.__squareConfigCache) {
+20:    globalThis.__squareConfigCache = new Map()
+22:  return globalThis.__squareConfigCache
+
+Status: ✓ PASS
+Cache: __squareConfigCache (Map<string, { config, expiresAt }>)
+Key pattern: tenantId
+Evidence:
+35:  const cached = cache.get(tenantId)
+
+---
+File: src/lib/tenant/cache.ts
+
+Cache declarations:
+18:  if (!globalThis.__tenantCache) {
+19:    globalThis.__tenantCache = new Map()
+21:  return globalThis.__tenantCache
+
+Status: ✓ PASS
+Cache: __tenantCache (Map<string, TenantCacheEntry>)
+Key pattern: slug (tenant identifier)
+Evidence:
+30:  const entry = cache.get(slug)
+
+=== AUDIT SUMMARY ===
+Total caches analyzed: 3
+[0;32m✓ PASS: 2[0m
+[1;33m⚠️  WARNING: 1[0m
+[0;31m✗ FAIL: 0[0m
+
+[1;33mWARNING: 1 caches need manual review[0m
+Review audits/cache-findings.txt for details

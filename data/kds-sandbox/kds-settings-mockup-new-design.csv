@@ -1,0 +1,21 @@
+key,value
+# === General Settings ===
+cafe_name,Little Café
+theme,warm
+image_rotation_interval,6000
+refresh_interval,300000
+header_location,Kaiser Permanente · Denver
+header_hours,8AM-6PM Mon-Fri
+
+# === Screen 1: Drinks (Left Panel) ===
+# Uses cafe_name as header with Starbucks WPS branding below
+drinks_subtitle,We Proudly Serve Starbucks
+drinks_tagline,Freshly Brewed Every Day
+drinks_show_starbucks_logo,true
+
+# === Screen 2: Food (Right Panel) ===
+# Uses different header - not cafe_name
+food_header,FOOD & SPECIALTY DRINKS
+food_subtitle,
+food_tagline,Baked Fresh Daily
+food_show_starbucks_logo,false

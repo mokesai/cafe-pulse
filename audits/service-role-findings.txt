@@ -1,0 +1,501 @@
+=== Service-Role Query Security Audit ===
+Generated: Mon Feb 16 18:50:17 MST 2026
+
+---
+File: src/app/api/admin/check-role/route.ts
+Status: ✗ FAIL
+Reason: Service-role query without explicit tenant_id filtering
+Risk: CRITICAL - Can leak cross-tenant data
+Queries found:
+17:      .from('profiles')
+
+Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+
+---
+File: src/app/api/admin/cogs/catalog/sync-square/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+216:        .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/cogs/modifier-option-recipes/[id]/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+51:    .eq('tenant_id', tenantId)
+62:    .eq('tenant_id', tenantId)
+126:    .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/cogs/modifier-option-recipes/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+45:    .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/cogs/modifiers/options/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+23:    .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/cogs/modifiers/seen/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+34:    .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/cogs/modifiers/sets/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+22:    .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/cogs/periods/[id]/close/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+31:    .eq('tenant_id', tenantId)
+62:    .eq('tenant_id', tenantId)
+106:    .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/cogs/periods/[id]/export/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+38:    .eq('tenant_id', tenantId)
+49:    .eq('tenant_id', tenantId)
+60:    .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/cogs/periods/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+28:    .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/cogs/product-recipes/[id]/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+51:    .eq('tenant_id', tenantId)
+62:    .eq('tenant_id', tenantId)
+136:    .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/cogs/product-recipes/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+45:    .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/cogs/products/[id]/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+39:    .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/cogs/products/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+25:    .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/cogs/report/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+194:    .eq('tenant_id', tenantId)
+210:      .eq('tenant_id', tenantId)
+220:    .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/cogs/sellable-overrides/[id]/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+122:    .eq('tenant_id', tenantId)
+133:    .eq('tenant_id', tenantId)
+179:    .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/cogs/sellable-overrides/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+121:    .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/cogs/sellables/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+23:    .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/customers/[customerId]/orders/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+38:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/customers/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+21:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/dashboard/stats/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+45:      .eq('tenant_id', tenantId)
+67:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/inventory/adjust/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+39:      .eq('tenant_id', tenantId)
+58:        .eq('tenant_id', tenantId)
+90:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/inventory/alerts/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+28:      .eq('tenant_id', tenantId)
+98:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/inventory/analytics/export/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+91:        .eq('tenant_id', tenantId),
+103:        .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/inventory/analytics/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+107:      .eq('tenant_id', tenantId)
+141:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/inventory/cost-history/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+24:    .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/inventory/locations/[locationId]/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+44:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/inventory/locations/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+21:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/inventory/push-to-square/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+57:    .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/inventory/restock/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+41:      .eq('tenant_id', tenantId)
+60:        .eq('tenant_id', tenantId)
+84:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/inventory/restore/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+26:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/inventory/revert-cost/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+30:    .eq('tenant_id', tenantId)
+44:    .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/inventory/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+33:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/inventory/sales-sync/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+45:    .eq('tenant_id', tenantId)
+98:    .eq('tenant_id', tenantId)
+110:    .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/inventory/sales-sync/status/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+20:        .eq('tenant_id', tenantId)
+29:        .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/inventory/settings/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+21:      .eq('tenant_id', tenantId)
+103:      .eq('tenant_id', tenantId)
+129:        .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/inventory/sync-square/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+120:    .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/inventory/units/[unitId]/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+45:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/inventory/units/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+21:      .eq('tenant_id', tenantId)
+80:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/invoices/[id]/confirm/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+40:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/invoices/[id]/file/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+32:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/invoices/[id]/link-order/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+35:      .eq('tenant_id', tenantId)
+49:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/invoices/[id]/match-items/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+113:      .eq('tenant_id', tenantId)
+147:      .eq('tenant_id', tenantId)
+314:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/invoices/[id]/match-orders/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+50:      .eq('tenant_id', tenantId)
+139:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/invoices/[id]/parse/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+63:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/invoices/[id]/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+112:      .eq('tenant_id', tenantId)
+190:      .eq('tenant_id', tenantId)
+256:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/invoices/items/[itemId]/create-and-match/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+77:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/invoices/items/[itemId]/match/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+43:      .eq('tenant_id', tenantId)
+58:      .eq('tenant_id', tenantId)
+79:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/invoices/items/[itemId]/skip/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+38:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/invoices/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+109:      .eq('tenant_id', tenantId)
+228:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/invoices/upload/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+97:        .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/orders/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+56:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/purchase-orders/[orderId]/attachments/[attachmentId]/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+36:      .eq('tenant_id', tenantId)
+66:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/purchase-orders/[orderId]/attachments/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+74:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/purchase-orders/[orderId]/invoices/[matchId]/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+34:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/purchase-orders/[orderId]/invoices/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+72:      .eq('tenant_id', tenantId)
+116:        .eq('tenant_id', tenantId)
+192:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/purchase-orders/[orderId]/items/[itemId]/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+35:      .eq('tenant_id', tenantId)
+82:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/purchase-orders/[orderId]/pdf/route.ts
+Status: ✓ PASS (no queries)
+Reason: Uses service client but doesn't query tables
+
+---
+File: src/app/api/admin/purchase-orders/[orderId]/receipts/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+181:      .eq('tenant_id', tenantId)
+351:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/purchase-orders/[orderId]/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+163:      .eq('tenant_id', tenantId)
+274:      .eq('tenant_id', tenantId)
+361:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/purchase-orders/[orderId]/send/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+61:      .eq('tenant_id', tenantId)
+177:      .eq('tenant_id', tenantId)
+244:        .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/purchase-orders/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+132:      .eq('tenant_id', tenantId)
+328:        .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/suppliers/[supplierId]/email-templates/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+32:      .eq('tenant_id', tenantId)
+110:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/suppliers/[supplierId]/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+86:      .eq('tenant_id', tenantId)
+168:      .eq('tenant_id', tenantId)
+237:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/suppliers/bulk-upload/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+85:        .eq('tenant_id', tenantId)
+115:            .eq('tenant_id', tenantId)
+123:              .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/admin/suppliers/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+27:      .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/platform/square-oauth/callback/route.ts
+Status: ✓ PASS (platform admin route)
+Reason: Platform admin routes legitimately need to see all tenants
+
+---
+File: src/app/api/webhooks/square/catalog/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+153:      .eq('tenant_id', tenantId)
+221:    .eq('tenant_id', tenantId)
+240:    .eq('tenant_id', tenantId)
+
+---
+File: src/app/api/webhooks/square/inventory/route.ts
+Status: ✓ PASS (explicit tenant_id filter)
+80:    .eq('tenant_id', tenantId)
+109:      .eq('tenant_id', tenantId)
+165:        .eq('tenant_id', tenantId)
+
+---
+File: src/app/platform/page.tsx
+Status: ✓ PASS (platform admin route)
+Reason: Platform admin routes legitimately need to see all tenants
+
+---
+File: src/app/platform/tenants/[tenantId]/edit/page.tsx
+Status: ✓ PASS (platform admin route)
+Reason: Platform admin routes legitimately need to see all tenants
+
+---
+File: src/app/platform/tenants/[tenantId]/page.tsx
+Status: ✓ PASS (platform admin route)
+Reason: Platform admin routes legitimately need to see all tenants
+
+---
+File: src/app/platform/tenants/actions.ts
+Status: ✓ PASS (platform admin route)
+Reason: Platform admin routes legitimately need to see all tenants
+
+---
+File: src/app/platform/tenants/page.tsx
+Status: ✓ PASS (platform admin route)
+Reason: Platform admin routes legitimately need to see all tenants
+
+---
+File: src/lib/admin/setup.ts
+Status: ✓ PASS (explicit tenant_id filter)
+28:    .eq('tenant_id', tenantId)
+50:    .eq('tenant_id', tenantId)
+71:    .eq('tenant_id', tenantId)
+
+---
+File: src/lib/kds/queries.ts
+Status: ✓ PASS (explicit tenant_id filter)
+86:    .eq('tenant_id', tenantId)
+109:    .eq('tenant_id', tenantId)
+129:    .eq('tenant_id', tenantId)
+
+---
+File: src/lib/services/siteSettings.ts
+Status: ✓ PASS (explicit tenant_id filter)
+22:    .eq('tenant_id', tenantId)
+71:      .eq('tenant_id', tenantId)
+86:    .eq('tenant_id', tenantId)
+
+---
+File: src/lib/square/config.ts
+Status: ✓ PASS (Square config)
+Reason: Uses get_tenant_square_credentials_internal RPC with tenant_id parameter
+
+---
+File: src/lib/supabase/database.ts
+Status: ✗ FAIL
+Reason: Service-role query without explicit tenant_id filtering
+Risk: CRITICAL - Can leak cross-tenant data
+Queries found:
+9:    .from('profiles')
+26:    .from('profiles')
+39:    .from('profiles')
+92:    .from('orders')
+121:    .from('order_items')
+
+Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+
+---
+File: src/lib/supabase/server.ts
+Status: ✓ PASS (no queries)
+Reason: Uses service client but doesn't query tables
+
+---
+File: src/lib/tenant/context.ts
+Status: ✓ PASS (tenant resolution)
+Reason: Tenant context resolution legitimately queries tenants table
+
+---
+File: src/lib/tenant/identity.ts
+Status: ✗ FAIL
+Reason: Service-role query without explicit tenant_id filtering
+Risk: CRITICAL - Can leak cross-tenant data
+Queries found:
+26:    .from('tenants')
+
+Recommended fix: Add .eq('tenant_id', tenantId) to all queries
+
+=== AUDIT SUMMARY ===
+Total files analyzed: 82
+[0;32m✓ PASS: 79[0m
+[1;33m⚠️  WARNING: 0[0m
+[0;31m✗ FAIL: 3[0m
+
+[0;31mCRITICAL: 3 files with potential cross-tenant data leakage[0m
+Review audits/service-role-findings.txt for details

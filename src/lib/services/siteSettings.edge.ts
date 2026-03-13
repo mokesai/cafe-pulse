@@ -10,12 +10,20 @@ type CacheEntry = {
 const CACHE_TTL_MS = 5 * 1000
 
 declare global {
-  var __siteStatusCacheEdge: CacheEntry | undefined
+  var __siteStatusCacheEdge: Map<string, CacheEntry> | undefined
 }
 
-async function fetchSiteStatus(request: NextRequest): Promise<SiteStatus> {
+function getCache(): Map<string, CacheEntry> {
+  if (!globalThis.__siteStatusCacheEdge) {
+    globalThis.__siteStatusCacheEdge = new Map()
+  }
+  return globalThis.__siteStatusCacheEdge
+}
+
+async function fetchSiteStatus(request: NextRequest, tenantId: string): Promise<SiteStatus> {
   try {
     const statusUrl = new URL('/api/public/site-status', request.url)
+    statusUrl.searchParams.set('tenantId', tenantId)
     const response = await fetch(statusUrl, {
       headers: { 'Content-Type': 'application/json' },
       cache: 'no-store'
@@ -34,23 +42,25 @@ async function fetchSiteStatus(request: NextRequest): Promise<SiteStatus> {
   }
 }
 
-export async function getCachedSiteStatus(request: NextRequest, forceRefresh = false): Promise<SiteStatus> {
+export async function getCachedSiteStatus(request: NextRequest, tenantId: string, forceRefresh = false): Promise<SiteStatus> {
   const now = Date.now()
-  const cache = globalThis.__siteStatusCacheEdge
+  const cache = getCache()
+  const cached = cache.get(tenantId)
 
-  if (!forceRefresh && cache && cache.expiresAt > now) {
-    return cache.status
+  if (!forceRefresh && cached && cached.expiresAt > now) {
+    return cached.status
   }
 
-  const status = await fetchSiteStatus(request)
-  globalThis.__siteStatusCacheEdge = {
-    status,
-    expiresAt: now + CACHE_TTL_MS
-  } as CacheEntry
+  const status = await fetchSiteStatus(request, tenantId)
+  cache.set(tenantId, { status, expiresAt: now + CACHE_TTL_MS })
 
   return status
 }
 
-export function invalidateSiteStatusCache() {
-  globalThis.__siteStatusCacheEdge = undefined
+export function invalidateSiteStatusCache(tenantId?: string) {
+  if (tenantId) {
+    getCache().delete(tenantId)
+  } else {
+    globalThis.__siteStatusCacheEdge = undefined
+  }
 }

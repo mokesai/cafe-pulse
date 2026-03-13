@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 import type { PostgrestError } from '@supabase/supabase-js'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
@@ -79,7 +80,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
 
     // Check for duplicate invoice (only if supplier_id is provided)
     let existingInvoice: {
@@ -92,6 +94,7 @@ export async function POST(request: NextRequest) {
       const { data } = await supabase
         .from('invoices')
         .select('id, status, file_path')
+        .eq('tenant_id', tenantId)
         .eq('supplier_id', supplier_id)
         .eq('invoice_number', invoice_number)
         .maybeSingle()
@@ -222,6 +225,7 @@ export async function POST(request: NextRequest) {
       const { data, error } = await supabase
         .from('invoices')
         .insert({
+          tenant_id: tenantId,
           supplier_id: supplier_id || null,
           invoice_number,
           invoice_date,

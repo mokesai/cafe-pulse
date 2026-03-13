@@ -1,16 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
 
 export async function PUT(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authResult = await requireAdminAuth(request)
+    if (!isAdminAuthSuccess(authResult)) {
+      return authResult
+    }
+
     const { id } = await context.params
-    
+
     console.log('✅ Confirming invoice import:', id)
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
 
     // Get the invoice and its items
     const { data: invoice, error: invoiceError } = await supabase
@@ -29,6 +37,7 @@ export async function PUT(
         suppliers(name)
       `)
       .eq('id', id)
+      .eq('tenant_id', tenantId)
       .single()
 
     if (invoiceError) {
