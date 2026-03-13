@@ -18,6 +18,7 @@ export type ActionState = {
   tenantName?: string;
   tenantSlug?: string;
   adminEmail?: string;
+  inviteId?: string;
   inviteSuccess?: boolean;
   inviteError?: string;
   userExists?: boolean;
@@ -159,13 +160,14 @@ export async function createTenant(
   let inviteError: string | undefined;
 
   // 5. Send invite email to admin (GAP-4) - only if user doesn't exist
+  // Redirect to bare domain where AuthHashRedirect handles the hash fragment.
+  // After account setup (password + MFA), smart redirect routes to tenant.
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-  const tenantRedirectUrl = siteUrl.replace('://', `://${validatedFields.data.slug}.`);
 
   if (!userExists) {
     const { error } = await supabase.auth.admin.inviteUserByEmail(
       validatedFields.data.admin_email,
-      { redirectTo: tenantRedirectUrl }
+      { redirectTo: siteUrl }
     );
     inviteSuccess = !error;
     inviteError = error?.message;
@@ -176,14 +178,16 @@ export async function createTenant(
   }
 
   // 6. Record pending invite regardless (enables first-login claim)
-  await supabase
+  const { data: pendingInvite } = await supabase
     .from('tenant_pending_invites')
     .insert({
       tenant_id: tenant.id,
       invited_email: validatedFields.data.admin_email,
       role: 'owner',
       invited_by: auth.userId,
-    });
+    })
+    .select('id')
+    .single();
 
   // 7. Revalidate tenant list
   revalidatePath('/platform/tenants');
@@ -194,6 +198,7 @@ export async function createTenant(
     tenantName: validatedFields.data.name,
     tenantSlug: validatedFields.data.slug,
     adminEmail: validatedFields.data.admin_email,
+    inviteId: pendingInvite?.id,
     inviteSuccess,
     inviteError,
     userExists, // Pass this to UI so it can show appropriate message
@@ -267,10 +272,11 @@ export async function connectSquareCredentials(
 }
 
 /**
- * Resend invite email to a tenant's pending admin (Plan 90-03)
+ * Resend invite email for a specific pending invite.
  */
 export async function resendInvite(
-  tenantId: string
+  tenantId: string,
+  inviteId: string
 ): Promise<{ success?: boolean; error?: string }> {
   // Auth guard (SEC-2)
   const auth = await getAuthenticatedPlatformAdmin();
@@ -280,35 +286,26 @@ export async function resendInvite(
 
   const supabase = createServiceClient();
 
-  // Look up active pending invite and tenant slug
-  const [{ data: invite, error: lookupError }, { data: tenant }] = await Promise.all([
-    supabase
-      .from('tenant_pending_invites')
-      .select('id, invited_email')
-      .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
-      .single(),
-    supabase
-      .from('tenants')
-      .select('slug')
-      .eq('id', tenantId)
-      .single(),
-  ]);
+  // Look up the specific pending invite
+  const { data: invite, error: lookupError } = await supabase
+    .from('tenant_pending_invites')
+    .select('id, invited_email')
+    .eq('id', inviteId)
+    .eq('tenant_id', tenantId)
+    .is('deleted_at', null)
+    .single();
 
   if (lookupError || !invite) {
-    return { error: 'No pending invite found for this tenant' };
+    return { error: 'Pending invite not found' };
   }
 
-  // Build tenant-specific redirect URL
+  // Redirect to bare domain where AuthHashRedirect handles the hash fragment
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-  const tenantRedirectUrl = tenant?.slug
-    ? siteUrl.replace('://', `://${tenant.slug}.`)
-    : siteUrl;
 
   // Resend invite
   const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(
     invite.invited_email,
-    { redirectTo: tenantRedirectUrl }
+    { redirectTo: siteUrl }
   );
 
   if (inviteError) {
@@ -395,7 +392,7 @@ export async function inviteTeamMember(
   const { data: existingUsers } = await supabase.auth.admin.listUsers();
   const userExists = existingUsers?.users?.some(u => u.email === email);
 
-  // Build tenant-specific redirect URL
+  // Build redirect URLs
   const { data: tenant } = await supabase
     .from('tenants')
     .select('slug')
@@ -411,9 +408,10 @@ export async function inviteTeamMember(
 
   if (!userExists) {
     // Send Supabase invite email for new users
+    // Redirect to bare domain where AuthHashRedirect handles the hash fragment
     const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(
       email,
-      { redirectTo: tenantRedirectUrl }
+      { redirectTo: siteUrl }
     );
 
     if (inviteError) {

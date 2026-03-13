@@ -193,7 +193,7 @@ export default async function TenantDetailPage({
                     invited {new Date(invite.invited_at).toLocaleDateString()}
                   </span>
                 </div>
-                <ResendInviteButton tenantId={tenant.id} />
+                <ResendInviteButton tenantId={tenant.id} inviteId={invite.id} />
               </div>
             ))}
           </div>

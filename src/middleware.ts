@@ -13,6 +13,8 @@ function shouldBypassMaintenance(request: NextRequest) {
     pathname.startsWith('/api') ||
     pathname.startsWith('/reset-password') ||
     pathname.startsWith('/update-password') ||
+    pathname.startsWith('/mfa-enroll') ||
+    pathname.startsWith('/mfa-challenge') ||
     pathname.startsWith('/under-construction') ||
     pathname.startsWith('/landing') ||
     pathname === '/favicon.ico'

@@ -10,6 +10,7 @@ function MFAEnrollContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const returnUrl = searchParams.get('return') || '/platform'
+  const isInviteFlow = searchParams.get('flow') === 'invite'
 
   const [factorId, setFactorId] = useState<string | null>(null)
   const [qrCode, setQrCode] = useState<string | null>(null)
@@ -84,8 +85,15 @@ function MFAEnrollContent() {
         return
       }
 
-      // MFA enabled successfully - redirect to return URL
-      router.push(returnUrl)
+      if (isInviteFlow) {
+        // Invite flow: sign out and redirect to tenant login
+        // (user will log in fresh on the correct subdomain)
+        await supabase.auth.signOut()
+        window.location.href = returnUrl
+      } else {
+        // Normal flow: stay logged in, navigate to return URL
+        router.push(returnUrl)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Verification failed')
     } finally {

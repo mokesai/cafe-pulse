@@ -33,7 +33,9 @@ export default function ResetPasswordCallbackPage() {
       }
 
       // Session established — redirect to password update form
-      window.location.replace('/update-password')
+      // Detect invite vs recovery flow from the hash type param
+      const flowType = params.get('type') === 'invite' ? 'invite' : 'recovery'
+      window.location.replace(`/update-password?flow=${flowType}`)
     }
 
     handleCallback()

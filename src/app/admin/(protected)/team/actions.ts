@@ -128,17 +128,8 @@ export async function inviteAppTeamMember(
     return { error: 'Failed to create invite: ' + insertError.message };
   }
 
-  // Build tenant-specific redirect URL
-  const { data: tenant } = await supabase
-    .from('tenants')
-    .select('slug')
-    .eq('id', tenantId)
-    .single();
-
+  // Redirect to bare domain where AuthHashRedirect handles the hash fragment
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-  const tenantRedirectUrl = tenant?.slug
-    ? siteUrl.replace('://', `://${tenant.slug}.`)
-    : siteUrl;
 
   const tenantInfo = await getTenantInfo(tenantId);
 
@@ -146,7 +137,7 @@ export async function inviteAppTeamMember(
   if (!targetUser) {
     const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(
       email,
-      { redirectTo: tenantRedirectUrl }
+      { redirectTo: siteUrl }
     );
 
     if (inviteError) {

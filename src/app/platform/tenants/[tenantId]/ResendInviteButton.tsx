@@ -4,14 +4,14 @@ import { useState } from 'react';
 import Button from '@/components/ui/Button';
 import { resendInvite } from '../actions';
 
-export function ResendInviteButton({ tenantId }: { tenantId: string }) {
+export function ResendInviteButton({ tenantId, inviteId }: { tenantId: string; inviteId: string }) {
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
 
   const handleResend = async () => {
     setStatus('sending');
     setError(null);
-    const result = await resendInvite(tenantId);
+    const result = await resendInvite(tenantId, inviteId);
     if (result.success) {
       setStatus('sent');
     } else {

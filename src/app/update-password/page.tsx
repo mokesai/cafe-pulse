@@ -1,12 +1,17 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
-import { getPasswordResetRedirect } from './actions'
+import { getPasswordResetRedirect, getInviteRedirect } from './actions'
 
-export default function UpdatePasswordPage() {
+function UpdatePasswordContent() {
+  const searchParams = useSearchParams()
+  const flow = searchParams.get('flow') // 'invite' or 'recovery' (default)
+  const isInvite = flow === 'invite'
+
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -37,13 +42,17 @@ export default function UpdatePasswordPage() {
         return
       }
 
-      // Determine where to send the user based on their roles
-      const redirectUrl = await getPasswordResetRedirect()
-
-      // Sign out the recovery session so the next login starts clean
-      await supabase.auth.signOut()
-
-      window.location.replace(redirectUrl)
+      if (isInvite) {
+        // Invite flow: stay logged in, get tenant login URL, go to MFA enrollment
+        const tenantLoginUrl = await getInviteRedirect()
+        const encodedReturn = encodeURIComponent(tenantLoginUrl)
+        window.location.replace(`/mfa-enroll?flow=invite&return=${encodedReturn}`)
+      } else {
+        // Recovery flow: sign out and redirect to login
+        const redirectUrl = await getPasswordResetRedirect()
+        await supabase.auth.signOut()
+        window.location.replace(redirectUrl)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update password')
     } finally {
@@ -58,8 +67,14 @@ export default function UpdatePasswordPage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/images/cafe-pulse-logo.png" alt="Café Pulse" className="h-12" />
         </div>
-        <h1 className="text-2xl font-bold mb-2 text-gray-900 text-center">Set Your Password</h1>
-        <p className="text-gray-600 mb-6 text-center">Choose a password for your account.</p>
+        <h1 className="text-2xl font-bold mb-2 text-gray-900 text-center">
+          {isInvite ? 'Create Your Password' : 'Set Your Password'}
+        </h1>
+        <p className="text-gray-600 mb-6 text-center">
+          {isInvite
+            ? 'Welcome! Set a password to activate your account.'
+            : 'Choose a password for your account.'}
+        </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
@@ -85,10 +100,28 @@ export default function UpdatePasswordPage() {
             isLoading={isLoading}
             disabled={isLoading || !password || !confirmPassword}
           >
-            {isLoading ? 'Updating...' : 'Set Password'}
+            {isLoading ? 'Updating...' : isInvite ? 'Create Password & Continue' : 'Set Password'}
           </Button>
         </form>
+
+        {isInvite && (
+          <p className="text-xs text-gray-500 mt-4 text-center">
+            Next step: Set up two-factor authentication
+          </p>
+        )}
       </div>
     </div>
+  )
+}
+
+export default function UpdatePasswordPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 to-orange-100">
+        <div className="text-gray-600">Loading...</div>
+      </div>
+    }>
+      <UpdatePasswordContent />
+    </Suspense>
   )
 }

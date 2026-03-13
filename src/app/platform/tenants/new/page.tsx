@@ -89,10 +89,10 @@ export default function OnboardNewTenantPage() {
   }
 
   const handleResendInvite = async () => {
-    if (!successResult?.tenantId) return
+    if (!successResult?.tenantId || !successResult?.inviteId) return
     setResendStatus('sending')
     setResendError(null)
-    const result = await resendInvite(successResult.tenantId)
+    const result = await resendInvite(successResult.tenantId, successResult.inviteId)
     if (result.success) {
       setResendStatus('sent')
     } else {
