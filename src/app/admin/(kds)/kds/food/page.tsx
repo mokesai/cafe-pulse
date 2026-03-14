@@ -1,6 +1,4 @@
-import { getScreenData } from '@/lib/kds/queries'
-import { getCurrentTenantId } from '@/lib/tenant/context'
-import { KDSFoodMagazine } from '@/app/kds/components'
+import KDSDynamicScreen from '@/app/kds/components/KDSDynamicScreen'
 
 // Always fetch fresh data (no ISR caching)
 export const dynamic = 'force-dynamic'
@@ -18,17 +16,16 @@ const LOTUS_IMAGE = '/images/kds/photos/lotus-energy-drinks.png'
 const FOOD_IMAGE = '/images/kds/photos/breakfast-foods.png'
 const PASTRIES_IMAGE = '/images/kds/photos/pastries-assorted.png'
 
-export default async function FoodDisplayPage() {
-  const tenantId = await getCurrentTenantId()
-  const data = await getScreenData(tenantId, 'food')
-
+export default function FoodDisplayPage() {
   return (
-    <KDSFoodMagazine
-      data={data}
-      headerImages={HEADER_IMAGES}
-      lotusImage={LOTUS_IMAGE}
-      foodImage={FOOD_IMAGE}
-      pastriesImage={PASTRIES_IMAGE}
+    <KDSDynamicScreen
+      screen="food"
+      fallbackProps={{
+        headerImages: HEADER_IMAGES,
+        lotusImage: LOTUS_IMAGE,
+        foodImage: FOOD_IMAGE,
+        pastriesImage: PASTRIES_IMAGE,
+      }}
     />
   )
 }
