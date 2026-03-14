@@ -49,7 +49,8 @@ export default function KdsConfigPage() {
 
   useEffect(() => {
     if (!tenant?.id) return
-    supabase
+    const client = supabase
+    client
       .from('tenant_kds_sheets')
       .select('google_sheet_url, last_synced_at, last_imported_at')
       .eq('tenant_id', tenant.id)
@@ -58,6 +59,7 @@ export default function KdsConfigPage() {
         setSheetStatus(data ?? { google_sheet_url: null, last_synced_at: null, last_imported_at: null })
         setLoading(false)
       })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenant?.id])
 
   const hasSheet = !!sheetStatus?.google_sheet_url
