@@ -23,3 +23,5 @@ export { default as KDSFoodMagazine } from './KDSFoodMagazine'
 export { default as KDSDrinksMagazine } from './KDSDrinksMagazine'
 // Theme wrapper for dynamic theme switching
 export { default as KDSThemeWrapper } from './KDSThemeWrapper'
+// Dynamic screen renderer with layout JSON support
+export { default as KDSDynamicScreen } from './KDSDynamicScreen'
