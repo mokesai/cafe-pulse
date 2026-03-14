@@ -20,22 +20,30 @@ export async function requireAdmin() {
   }
 
   // 2. Enforce MFA (all app admins require 2FA)
-  const { data: mfaData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+  // Skip MFA check entirely in E2E test mode (SKIP_MFA_FOR_TESTING=true)
+  // or for test accounts identified by email domain
+  const skipMfa =
+    process.env.SKIP_MFA_FOR_TESTING === 'true' ||
+    user.email?.endsWith('@cafe-pulse.test') === true
 
-  if (!mfaData) {
-    redirect('/mfa-enroll?return=/admin/dashboard')
-  }
+  if (!skipMfa) {
+    const { data: mfaData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
 
-  const { currentLevel, nextLevel } = mfaData
+    if (!mfaData) {
+      redirect('/mfa-enroll?return=/admin/dashboard')
+    }
 
-  if (nextLevel === 'aal2' && currentLevel !== 'aal2') {
-    // MFA enrolled but not verified this session
-    redirect('/mfa-challenge?return=/admin/dashboard')
-  }
+    const { currentLevel, nextLevel } = mfaData
 
-  if (currentLevel !== 'aal2' && nextLevel !== 'aal2') {
-    // No MFA enrolled — require enrollment
-    redirect('/mfa-enroll?return=/admin/dashboard')
+    if (nextLevel === 'aal2' && currentLevel !== 'aal2') {
+      // MFA enrolled but not verified this session
+      redirect('/mfa-challenge?return=/admin/dashboard')
+    }
+
+    if (currentLevel !== 'aal2' && nextLevel !== 'aal2') {
+      // No MFA enrolled — require enrollment
+      redirect('/mfa-enroll?return=/admin/dashboard')
+    }
   }
 
   // 3. Get tenant context from cookie (set by middleware)

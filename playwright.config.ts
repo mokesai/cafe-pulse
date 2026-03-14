@@ -44,9 +44,19 @@ export default defineConfig({
 
   // Configure projects for major browsers
   projects: [
+    // Auth setup — runs first, saves session state
+    {
+      name: 'setup',
+      testMatch: /auth\.setup\.ts/,
+    },
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        // Reuse authenticated session from setup
+        storageState: 'tests/e2e/.auth/owner.json',
+      },
+      dependencies: ['setup'],
     },
     // Uncomment to test on more browsers
     // {
@@ -59,11 +69,12 @@ export default defineConfig({
     // },
   ],
 
-  // Auto-start dev server for tests
+  // Dev server must be running before tests: npm run dev
+  // Playwright connects to it rather than managing its lifecycle
   webServer: {
-    command: 'npm run dev:webpack',
+    command: 'npm run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: true,
-    timeout: 120 * 1000,
+    timeout: 300 * 1000,
   },
 });

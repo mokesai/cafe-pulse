@@ -68,3 +68,4 @@ RENAME.md
 
 # Test credentials (never commit)
 .env.test.local
+tests/e2e/.auth/
