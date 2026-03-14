@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "dev:webpack": "next dev",
-    "build": "next build",
+    "build": "NODE_OPTIONS='--max-old-space-size=4096' next build",
     "start": "next start",
     "lint": "next lint",
     "seed-square": "node scripts/seed-square-catalog-fixed.js",
