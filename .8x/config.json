@@ -1,0 +1,5 @@
+{
+  "plan_command": "claude -p",
+  "implement_command": "claude",
+  "review_command": "claude -p"
+}
