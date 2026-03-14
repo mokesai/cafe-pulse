@@ -1,4 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
+import { config } from 'dotenv';
+
+// Load test credentials
+config({ path: '.env.test.local', override: false })
+config({ path: '.env.test', override: false })
 
 /**
  * Playwright E2E Testing Configuration for Multi-Tenant SaaS
@@ -54,12 +59,11 @@ export default defineConfig({
     // },
   ],
 
-  // Run local dev server before starting tests (optional)
-  // Uncomment if you want Playwright to start the dev server automatically
-  // webServer: {
-  //   command: 'npm run dev',
-  //   url: 'http://localhost:3000',
-  //   reuseExistingServer: !process.env.CI,
-  //   timeout: 120 * 1000,
-  // },
+  // Auto-start dev server for tests
+  webServer: {
+    command: 'npm run dev:webpack',
+    url: 'http://localhost:3000',
+    reuseExistingServer: true,
+    timeout: 120 * 1000,
+  },
 });

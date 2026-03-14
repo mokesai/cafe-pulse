@@ -65,3 +65,6 @@ next-env.d.ts
 # Wanda workspace files (not for repo)
 RENAME.md
 .8x/
+
+# Test credentials (never commit)
+.env.test.local
