@@ -156,17 +156,19 @@ export default function KdsConfigPage() {
             </div>
           </Link>
 
-          {/* Grid Editor — Phase 3 */}
-          <div className="flex items-start gap-4 p-4 bg-gray-800 border border-gray-700 rounded-lg opacity-50 cursor-not-allowed">
-            <div className="p-2 bg-gray-700 rounded-lg">
-              <Grid className="w-5 h-5 text-gray-500" />
+          {/* Grid Editor */}
+          <Link
+            href="/admin/kds-config/editor/drinks"
+            className="flex items-start gap-4 p-4 bg-gray-800 hover:bg-gray-750 border border-gray-700 hover:border-blue-500 rounded-lg transition-colors group"
+          >
+            <div className="p-2 bg-blue-500/10 rounded-lg group-hover:bg-blue-500/20 transition-colors">
+              <Grid className="w-5 h-5 text-blue-400" />
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-400">Layout Editor</p>
-              <p className="text-xs text-gray-500 mt-0.5">Visual drag-and-drop screen builder</p>
-              <span className="inline-block mt-1 text-xs bg-gray-700 text-gray-400 px-2 py-0.5 rounded">Coming soon</span>
+              <p className="text-sm font-medium text-white">Layout Editor</p>
+              <p className="text-xs text-gray-400 mt-0.5">Visual drag-and-drop screen builder</p>
             </div>
-          </div>
+          </Link>
 
           {/* Preview — Phase 4 */}
           <div className="flex items-start gap-4 p-4 bg-gray-800 border border-gray-700 rounded-lg opacity-50 cursor-not-allowed">
