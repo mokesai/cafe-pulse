@@ -152,61 +152,109 @@ updated_at      timestamptz
 UNIQUE(tenant_id, screen, is_draft)
 ```
 
-### Layout JSON Schema (v1)
+### Layout JSON Schema (v2 — Hierarchical Column Model)
 
-```json
-{
-  "version": 1,
-  "grid": {
-    "columns": 2,
-    "rows": 3
-  },
-  "sections": [
-    {
-      "id": "section-1",
-      "type": "category",
-      "category_slug": "hot-drinks",
-      "position": { "col": 0, "row": 0 },
-      "span": { "cols": 1, "rows": 2 },
-      "display_type": "price-grid"
-    },
-    {
-      "id": "section-2",
-      "type": "image",
-      "position": { "col": 1, "row": 0 },
-      "span": { "cols": 1, "rows": 1 },
-      "image_url": "/images/kds/promo-banner.png",
-      "fit": "cover"
-    }
-  ],
-  "overlays": [
-    {
-      "id": "logo-1",
-      "type": "image",
-      "image_url": "/images/kds/logo.png",
-      "position": { "x": "85%", "y": "5%" },
-      "size": { "width": "120px", "height": "auto" }
-    }
-  ],
-  "header": {
-    "visible": true,
-    "show_logo": true,
-    "logo_position": "left"
-  },
-  "footer": {
-    "visible": true,
-    "type": "image-rotator"
-  }
+The layout uses a hierarchical column → row → division model. Each column has independent rows with adjustable heights. Rows can optionally be split into two horizontal divisions.
+
+```typescript
+interface KDSLayoutV2 {
+  version: 2
+  theme?: KDSTheme
+  columns: KDSColumn[]
+  overlays?: KDSLayoutOverlay[]   // free-positioned, unchanged
+  header?: KDSLayoutHeader        // unchanged
+  footer?: KDSLayoutFooter        // unchanged
+}
+
+interface KDSColumn {
+  id: string              // stable ID for drag tracking
+  width: number           // percentage of screen width (columns sum to 100)
+  rows: KDSRow[]
+}
+
+interface KDSRow {
+  id: string
+  height: number          // percentage of column height (rows in column sum to 100)
+  content?: KDSCellContent        // present when row is NOT split
+  divisions?: [KDSDivision, KDSDivision]  // present when row IS split (exactly 2)
+}
+
+interface KDSDivision {
+  id: string
+  width: number           // percentage of row width (two divisions sum to 100)
+  content: KDSCellContent
+}
+
+interface KDSCellContent {
+  type: 'category' | 'image' | 'empty'
+  category_slug?: string
+  display_type?: KDSDisplayType
+  image_url?: string
+  image_fit?: 'cover' | 'contain' | 'fill'
 }
 ```
 
-### Dynamic Renderer: `KDSDynamicScreen`
+**Example: 3 columns, left has 3 rows, middle has 2, right has 1:**
+
+```json
+{
+  "version": 2,
+  "columns": [
+    {
+      "id": "col-1", "width": 40,
+      "rows": [
+        { "id": "r1", "height": 40, "content": { "type": "category", "category_slug": "hot-drinks", "display_type": "price-grid" } },
+        { "id": "r2", "height": 30, "content": { "type": "category", "category_slug": "cold-drinks", "display_type": "simple-list" } },
+        { "id": "r3", "height": 30, "divisions": [
+          { "id": "d1", "width": 50, "content": { "type": "category", "category_slug": "pastries", "display_type": "featured" } },
+          { "id": "d2", "width": 50, "content": { "type": "image", "image_url": "/images/promo.png", "image_fit": "cover" } }
+        ]}
+      ]
+    },
+    {
+      "id": "col-2", "width": 35,
+      "rows": [
+        { "id": "r4", "height": 60, "content": { "type": "category", "category_slug": "espresso", "display_type": "price-grid" } },
+        { "id": "r5", "height": 40, "content": { "type": "category", "category_slug": "teas", "display_type": "simple-list" } }
+      ]
+    },
+    {
+      "id": "col-3", "width": 25,
+      "rows": [
+        { "id": "r6", "height": 100, "content": { "type": "image", "image_url": "/images/hero.png", "image_fit": "cover" } }
+      ]
+    }
+  ],
+  "overlays": [
+    { "id": "logo-1", "type": "image", "image_url": "/images/logo.png", "position": { "x": "85%", "y": "5%" }, "size": { "width": "120px", "height": "auto" } }
+  ]
+}
+```
+
+**Constraints:**
+- Max 6 columns
+- Max 6 rows per column
+- Column widths sum to 100%
+- Row heights sum to 100% within their column
+- Division widths sum to 100% within their row
+- Minimum column width: 15%
+- Minimum row height: 10%
+- Minimum division width: 20%
+
+**V1 → V2 migration:** No runtime fallback needed. Existing `tenant_kds_layouts` rows will be deleted via migration. Tenants start fresh with the v2 editor. The `KDSDynamicScreen` default fallback (hardcoded `KDSDrinksMagazine`/`KDSFoodMagazine`) remains for tenants with no custom layout.
+
+### Dynamic Renderer: `KDSDynamicScreen` (v2)
 
 1. Checks `tenant_kds_layouts` for current tenant + screen (where `is_draft = false`)
-2. If layout exists → renders sections/overlays from JSON using CSS Grid
-3. If no layout → falls back to existing `KDSDrinksMagazine` / `KDSFoodMagazine`
-
-Zero impact on existing tenants.
+2. If layout exists → renders from v2 JSON using nested flexbox:
+   - Outer container: `display: flex; flex-direction: row` (columns)
+   - Each column: `flex: 0 0 {width}%`; inner `display: flex; flex-direction: column` (rows)
+   - Each row: `flex: 0 0 {height}%`
+   - If row has divisions: inner `display: flex; flex-direction: row`
+   - Each division: `flex: 0 0 {width}%`
+   - Content rendering (category sections, images) reuses existing KDS display components
+3. Overlays rendered as absolutely-positioned elements on top (unchanged)
+4. If no layout → falls back to existing `KDSDrinksMagazine` / `KDSFoodMagazine`
 
 ---
 
@@ -222,24 +270,101 @@ Zero impact on existing tenants.
 
 ### Editor Layout
 
-**Left panel (70%) — Canvas:**
-- Visual KDS screen at reduced scale
-- Grid with sections as labeled blocks
-- Drag-and-drop to rearrange sections
-- Drag edges to resize (snap to grid: 1x1, 1x2, 2x1, 2x2)
-- Drop images/logos anywhere (becomes overlay)
-- Click section to select → properties in right panel
+**Left panel (70%, expandable to 100%) — Canvas:**
+- Visual KDS screen at 35% scale (1920×1080 → 672×378)
+- Renders the same nested flexbox structure as the live renderer
+- Columns, rows, and divisions rendered as labeled blocks with content type indicators
+- Click any element to select → properties in right panel
+- Drop images/logos anywhere outside the column structure (becomes overlay)
 
-**Right panel (30%) — Properties:**
-- Category section selected: category dropdown, display type, items list with visibility toggles and reorder
-- Image/overlay selected: source, size, fit mode, delete
-- Nothing selected: grid dimensions, header/footer config, theme
+**Right panel (30%, collapsible) — Properties:**
+- Collapse/expand toggle (chevron button on panel edge)
+- When collapsed, canvas expands to fill full width
+- Context-sensitive controls based on selection (see Properties Panel section)
 
 **Top toolbar:**
 - Screen toggle: Drinks / Food
-- Add Section, Add Image buttons
 - Save (writes draft), Publish (draft → published), Reset to Default
 - Preview (opens preview in new tab)
+
+### Column-Based Layout Model
+
+The editor manages a hierarchy: **columns → rows → divisions**.
+
+**Columns (horizontal):**
+- 1–6 columns displayed side by side
+- Each column has an independent width percentage (sum to 100%)
+- Column count adjustable via properties panel (screen settings)
+- Adding a column redistributes all widths equally
+- Removing a column (with confirmation if it has content) redistributes remaining widths proportionally
+
+**Rows (vertical, per column):**
+- Each column has 1–6 rows stacked vertically
+- Each row has an independent height percentage within its column (sum to 100%)
+- "+" button at bottom of each column adds a new row, redistributing heights equally
+- Delete button (top-right on hover) removes a row, redistributing remaining heights proportionally
+
+**Divisions (horizontal split within a row):**
+- Any row can be split into exactly 2 divisions (left | right)
+- Split icon appears on hover over unsplit rows
+- Splitting moves existing content to the left division, right starts as `empty`
+- Merge icon collapses divisions back to a single row, keeping left division's content
+- Division widths adjustable independently (sum to 100%)
+
+### Resize Handles
+
+All sizing is adjustable via drag handles and optional dimension inputs:
+
+**Column width handles:**
+- Vertical drag bars between adjacent columns
+- Dragging adjusts the two neighboring columns inversely (left grows → right shrinks)
+- Minimum: 15% per column
+- Snaps to 1% increments
+
+**Row height handles:**
+- Horizontal drag bars between adjacent rows within a column
+- Same inverse adjustment pattern
+- Minimum: 10% per row
+- Snaps to 1% increments
+
+**Division split handles:**
+- Horizontal drag bar between the two divisions
+- Same inverse adjustment pattern
+- Minimum: 20% per division
+- Snaps to 1% increments
+
+### Properties Panel
+
+Context-sensitive right panel:
+
+**Column selected:**
+- Width % input
+- Number of rows (read-only)
+- Delete column button
+
+**Row selected:**
+- Height % input
+- Content controls: category dropdown, display type, image URL, image fit
+- "Split Row" button (if not split)
+- "Merge Divisions" button (if split)
+- Delete row button
+
+**Division selected:**
+- Width % input
+- Content controls: category dropdown, display type, image URL, image fit
+- Parent row height % (read-only)
+
+**Overlay selected:**
+- Image URL, position (x%, y%), size (width, height), delete
+
+**Nothing selected (screen settings):**
+- Number of columns (1–6) — changing adds/removes columns with equal redistribution
+- Theme dropdown (warm / dark / wps)
+- Show header / Show footer checkboxes
+
+### Empty State
+
+New layout starts with 3 equal columns (33.3% each), 1 row each (100%), all with `empty` content.
 
 ### Image Uploads
 
@@ -265,9 +390,10 @@ Editor writes to `tenant_kds_layouts` (layout JSON). Google Sheets writes to `kd
 ```
 
 - Renders at 1920×1080 in a scaled container
-- Uses `KDSDynamicScreen` renderer (same as live KDS)
+- Uses `KDSDynamicScreen` v2 renderer (same as live KDS)
 - Draft mode: reads layout where `is_draft = true`
 - Toolbar overlay: Back to Editor, Switch Screen, resolution badge, Full Screen button
+- **Layout summary** in toolbar: brief structure display (e.g., "3 columns: 40% / 35% / 25%")
 - No auto-refresh
 
 ### Draft/Publish Workflow
@@ -307,6 +433,11 @@ value: ["owner", "admin"]   ← default
 5. **Zero visible items** — import allowed with warning about empty screens
 6. **Layout references deleted category** — renderer skips, editor shows broken reference indicator
 7. **Removed Square items** — flagged as REMOVED in sheet, not auto-deleted
+8. **Column/row minimum sizing** — drag handles enforce minimums (15% column, 10% row, 20% division); dragging past limit stops
+9. **Redistribution on add/remove** — adding a column/row redistributes all siblings to equal widths/heights; removing redistributes proportionally to fill 100%
+10. **Column count decrease** — removing rightmost column; confirmation dialog if it contains content
+11. **Split row with existing content** — content moves to left division; right starts as `empty`
+12. **Merge divisions** — left division content kept; right discarded (with confirmation if right has content)
 
 ---
 
@@ -359,6 +490,16 @@ value: ["owner", "admin"]   ← default
 | 21 | Supabase `kds-assets` bucket | S3; Cloudinary | Already using Supabase |
 | 22 | Optimistic concurrency for editor | Locking; real-time collab | Simple, sufficient |
 | 23 | Sheets-first, editor-second (Approach A) | Editor-first; parallel | Fastest to value, lowest risk |
+| 24 | Hierarchical column model (v2 schema) | Extended CSS Grid with merged cells; Absolute positioning | Directly maps to admin mental model; CSS Grid can't express different row counts per column without LCM hacks; absolute positioning too unstructured |
+| 25 | Percentage-based sizing at all levels | Pixels; proportional ratios | Resolution-agnostic, maps to any display, simple validation (sum to 100) |
+| 26 | Nested flexbox rendering | CSS Grid; CSS subgrid | Flexbox naturally expresses column→row→division hierarchy; CSS Grid fights the asymmetric row model |
+| 27 | Exactly 2 divisions per row split | Unlimited divisions; no splits | Covers text+image use case without overcomplicating; can revisit if needed |
+| 28 | Horizontal-only division split (left\|right) | Vertical split option | KDS rows already short; horizontal split is the natural expectation |
+| 29 | "+" buttons and hover split icons | Context menus; toolbar mode buttons | Most discoverable, no mode switching, matches modern editors (Notion, Figma) |
+| 30 | Clean cutover — drop v1 entirely | Runtime fallback; dual-format support | No production tenants using v1; migration complexity not justified |
+| 31 | Max 6 columns, max 6 rows per column | Higher limits; no limits | KDS screens viewed from distance; too many sections become unreadable |
+| 32 | Drag handles with 1% snap + dimension inputs | Drag only; input only; 5% snap | Drag for speed, inputs for precision; 1% gives fine control |
+| 33 | Collapsible properties panel | Always visible; floating panel | Gives admin more canvas space for complex layouts |
 
 ---
 
@@ -379,21 +520,32 @@ value: ["owner", "admin"]   ← default
 - [ ] Empty Square catalog → headers-only sheet with guidance
 
 ### In-App Grid Editor
-- [ ] Add/remove/resize sections on grid
-- [ ] Drag image overlay to arbitrary position
-- [ ] Change category assignment on section
-- [ ] Toggle item visibility and reorder within section
+- [ ] Add/remove columns (1–6), widths redistribute equally on add, proportionally on remove
+- [ ] Add/remove rows per column (1–6), heights redistribute within column
+- [ ] Drag column width handles — neighboring columns adjust inversely, minimum 15% enforced
+- [ ] Drag row height handles — neighboring rows adjust inversely, minimum 10% enforced
+- [ ] Split row into two divisions — existing content moves to left, right starts empty
+- [ ] Merge divisions — left content kept, right discarded with confirmation
+- [ ] Drag division split handle — divisions adjust inversely, minimum 20% enforced
+- [ ] Dimension inputs in properties panel match drag state and vice versa
+- [ ] Assign category/image content to rows and divisions
+- [ ] Change display type on category content
+- [ ] Drag image overlay to arbitrary position (free-positioned)
+- [ ] Collapse/expand properties panel — canvas fills available width
 - [ ] Save draft → preview shows draft
 - [ ] Publish → live KDS updates
-- [ ] Reset to default → custom layout deleted
+- [ ] Reset to default → custom layout deleted, fallback to hardcoded components
 - [ ] Upload image to kds-assets bucket
 - [ ] Concurrent edit warning (optimistic concurrency)
 - [ ] Layout references deleted category → broken indicator
+- [ ] New layout default: 3 equal columns, 1 row each, all empty
+- [ ] 60fps drag interactions with 6 columns × 6 rows
 
 ### Preview
-- [ ] Matches live KDS at 1920×1080
+- [ ] Matches live KDS at 1920×1080 using nested flexbox renderer
 - [ ] Draft changes visible before publish
 - [ ] Full-screen mode works
+- [ ] Layout summary shown in toolbar (e.g., "3 columns: 40% / 35% / 25%")
 
 ### Access Control
 - [ ] Owner can always access KDS config

@@ -10,9 +10,10 @@ const CANVAS_H = 1080
 interface KDSPreviewClientProps {
   screen: 'drinks' | 'food'
   children: React.ReactNode
+  layoutSummary?: string
 }
 
-export default function KDSPreviewClient({ screen, children }: KDSPreviewClientProps) {
+export default function KDSPreviewClient({ screen, children, layoutSummary }: KDSPreviewClientProps) {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [scale, setScale] = useState(1)
 
@@ -50,6 +51,9 @@ export default function KDSPreviewClient({ screen, children }: KDSPreviewClientP
             <Monitor className="w-4 h-4 text-gray-400" />
             <span className="text-xs text-gray-400">Previewing at {CANVAS_W}×{CANVAS_H}</span>
             <span className="text-xs text-gray-600">({Math.round(scale * 100)}% scale)</span>
+            {layoutSummary && (
+              <span className="text-xs text-gray-500 border-l border-gray-700 pl-2 ml-1">{layoutSummary}</span>
+            )}
           </div>
           <div className="flex-1" />
           <Link href={`/admin/kds-config/preview/${otherScreen}`} className="text-xs text-gray-400 hover:text-white">
