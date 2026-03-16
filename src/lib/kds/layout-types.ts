@@ -74,13 +74,20 @@ export interface KDSLayoutOverlay {
 
 export interface KDSLayoutHeader {
   visible: boolean
-  show_logo?: boolean
+  title?: string                    // e.g. "Little Cafe"
+  subtitle?: string                 // e.g. "Freshly Brewed, Just for You"
+  logo_url?: string                 // image URL for logo
   logo_position?: 'left' | 'center' | 'right'
+  subtitle_icon_url?: string        // small icon next to subtitle
+  show_location?: boolean           // show location from kds_settings
+  show_hours?: boolean              // show hours from kds_settings
 }
 
 export interface KDSLayoutFooter {
   visible: boolean
-  type?: 'image-rotator' | 'text'
+  type?: 'image-rotator' | 'static-image' | 'none'
+  images?: string[]                 // image URLs for rotator or static display
+  rotation_interval?: number        // seconds (default: from kds_settings)
 }
 
 // ---------------------------------------------------------------------------
@@ -109,8 +116,8 @@ export function createDefaultLayout(): KDSLayout {
       { id: 'col-3', width: 33.34, rows: [{ id: 'r3-1', height: 100, content: { type: 'empty' } }] },
     ],
     overlays: [],
-    header: { visible: true },
-    footer: { visible: true, type: 'image-rotator' },
+    header: { visible: true, logo_position: 'left', show_location: true, show_hours: true },
+    footer: { visible: true, type: 'image-rotator', images: [], rotation_interval: 6 },
   }
 }
 

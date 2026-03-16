@@ -15,8 +15,9 @@ import type { KDSCategoryWithItems } from '@/lib/kds/types'
 import {
   Save, Upload, RotateCcw, Eye, ArrowLeft, Plus, Minus,
   AlertCircle, CheckCircle, Loader2, Trash2, SplitSquareHorizontal,
-  Merge, ChevronRight, ChevronLeft, Monitor,
+  Merge, ChevronRight, ChevronLeft, Monitor, LayoutTemplate, Frame,
 } from 'lucide-react'
+import ImagePicker from './ImagePicker'
 
 // ---------------------------------------------------------------------------
 // Canvas dimensions
@@ -163,6 +164,7 @@ export default function KDSEditorClient({
   const [msg, setMsg] = useState<{ type: 'success' | 'error' | 'warn'; text: string } | null>(null)
   const [showReset, setShowReset] = useState(false)
   const [panelOpen, setPanelOpen] = useState(true)
+  const [panelTab, setPanelTab] = useState<'layout' | 'header-footer'>('layout')
 
   const update = useCallback((fn: (l: KDSLayout) => KDSLayout) => {
     setLayout(prev => fn(prev))
@@ -459,10 +461,18 @@ export default function KDSEditorClient({
         {isDirty && <span className="text-xs text-amber-400">Unsaved</span>}
         {hasDraft && !isDirty && <span className="text-xs text-blue-400">Draft saved</span>}
 
-        <Link href={`/admin/kds-config/preview/${screen}`} target="_blank"
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded-lg">
-          <Eye className="w-3.5 h-3.5" />Preview
-        </Link>
+        <button
+          onClick={() => {
+            // Auto-save draft before opening preview so it shows current state
+            startTransition(async () => {
+              await saveDraft(tenantId, screen, layout, updatedAt)
+              window.open(`/admin/kds-config/preview/${screen}`, '_blank')
+            })
+          }}
+          disabled={isPending}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded-lg disabled:opacity-50">
+          {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Eye className="w-3.5 h-3.5" />}Preview
+        </button>
         <button onClick={handleSave} disabled={isPending || !isDirty}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded-lg disabled:opacity-50">
           {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
@@ -669,7 +679,19 @@ export default function KDSEditorClient({
           </button>
 
           {panelOpen && (
-            <div className="p-4 space-y-4">
+            <>
+            {/* Tab bar */}
+            <div className="flex border-b border-gray-700">
+              <button onClick={() => setPanelTab('layout')}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${panelTab === 'layout' ? 'text-white border-b-2 border-blue-500' : 'text-gray-400 hover:text-white'}`}>
+                <LayoutTemplate className="w-3.5 h-3.5" />Layout
+              </button>
+              <button onClick={() => setPanelTab('header-footer')}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${panelTab === 'header-footer' ? 'text-white border-b-2 border-blue-500' : 'text-gray-400 hover:text-white'}`}>
+                <Frame className="w-3.5 h-3.5" />Header/Footer
+              </button>
+            </div>
+            {panelTab === 'layout' && <div className="p-4 space-y-4">
               {selectedContent !== undefined && (selection?.type === 'row' || selection?.type === 'division') ? (
                 /* Content properties */
                 <>
@@ -718,8 +740,12 @@ export default function KDSEditorClient({
                   {selectedContent.type === 'image' && (
                     <>
                       <div>
-                        <label className="text-xs text-gray-400 mb-1 block">Image URL</label>
-                        <input type="text" value={selectedContent.image_url ?? ''} onChange={e => updateContent(selection, c => ({ ...c, image_url: e.target.value }))} className={inputCls} placeholder="/images/kds/..." />
+                        <label className="text-xs text-gray-400 mb-1 block">Image</label>
+                        <ImagePicker
+                          tenantId={tenantId}
+                          value={selectedContent.image_url ?? ''}
+                          onChange={url => updateContent(selection, c => ({ ...c, image_url: url }))}
+                        />
                       </div>
                       <div>
                         <label className="text-xs text-gray-400 mb-1 block">Image fit</label>
@@ -816,8 +842,12 @@ export default function KDSEditorClient({
                     </button>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-400 mb-1 block">Image URL</label>
-                    <input type="text" value={selectedOverlay.image_url} onChange={e => updateOverlay(selectedOverlay.id, o => ({ ...o, image_url: e.target.value }))} className={inputCls} />
+                    <label className="text-xs text-gray-400 mb-1 block">Image</label>
+                    <ImagePicker
+                      tenantId={tenantId}
+                      value={selectedOverlay.image_url}
+                      onChange={url => updateOverlay(selectedOverlay.id, o => ({ ...o, image_url: url }))}
+                    />
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
@@ -871,6 +901,123 @@ export default function KDSEditorClient({
                   <p className="text-xs text-gray-500 pt-2">Click a cell, column header, or overlay to edit properties.</p>
                 </div>
               )}
+            </div>}
+            </>
+          )}
+
+          {/* Header/Footer tab */}
+          {panelOpen && panelTab === 'header-footer' && (
+            <div className="p-4 space-y-5">
+              {/* Header */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 pb-1 border-b border-gray-700">
+                  <h3 className="text-sm font-semibold text-white flex-1">Header</h3>
+                  <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
+                    <input type="checkbox" checked={layout.header?.visible !== false}
+                      onChange={e => update(l => ({ ...l, header: { ...l.header, visible: e.target.checked } }))} className="w-3.5 h-3.5" />
+                    Visible
+                  </label>
+                </div>
+                {layout.header?.visible !== false && (
+                  <>
+                    <div>
+                      <label className="text-xs text-gray-400 mb-1 block">Title</label>
+                      <input type="text" value={layout.header?.title ?? ''} onChange={e => update(l => ({ ...l, header: { ...l.header, title: e.target.value } }))} className={inputCls} placeholder="Little Cafe" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-400 mb-1 block">Subtitle</label>
+                      <input type="text" value={layout.header?.subtitle ?? ''} onChange={e => update(l => ({ ...l, header: { ...l.header, subtitle: e.target.value } }))} className={inputCls} placeholder="Freshly Brewed, Just for You" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-400 mb-1 block">Logo</label>
+                      <ImagePicker tenantId={tenantId} value={layout.header?.logo_url ?? ''} onChange={url => update(l => ({ ...l, header: { ...l.header, logo_url: url } }))} />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-400 mb-1 block">Logo position</label>
+                      <select value={layout.header?.logo_position ?? 'left'} onChange={e => update(l => ({ ...l, header: { ...l.header, logo_position: e.target.value as 'left'|'center'|'right' } }))} className={selectCls}>
+                        <option value="left">Left</option>
+                        <option value="center">Center</option>
+                        <option value="right">Right</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-400 mb-1 block">Subtitle icon</label>
+                      <ImagePicker tenantId={tenantId} value={layout.header?.subtitle_icon_url ?? ''} onChange={url => update(l => ({ ...l, header: { ...l.header, subtitle_icon_url: url } }))} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input type="checkbox" id="show-location" checked={layout.header?.show_location !== false}
+                        onChange={e => update(l => ({ ...l, header: { ...l.header, show_location: e.target.checked } }))} className="w-3.5 h-3.5" />
+                      <label htmlFor="show-location" className="text-xs text-gray-300">Show location</label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input type="checkbox" id="show-hours" checked={layout.header?.show_hours !== false}
+                        onChange={e => update(l => ({ ...l, header: { ...l.header, show_hours: e.target.checked } }))} className="w-3.5 h-3.5" />
+                      <label htmlFor="show-hours" className="text-xs text-gray-300">Show hours</label>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 pb-1 border-b border-gray-700">
+                  <h3 className="text-sm font-semibold text-white flex-1">Footer</h3>
+                  <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
+                    <input type="checkbox" checked={layout.footer?.visible !== false}
+                      onChange={e => update(l => ({ ...l, footer: { ...l.footer, visible: e.target.checked } }))} className="w-3.5 h-3.5" />
+                    Visible
+                  </label>
+                </div>
+                {layout.footer?.visible !== false && (
+                  <>
+                    <div>
+                      <label className="text-xs text-gray-400 mb-1 block">Type</label>
+                      <select value={layout.footer?.type ?? 'image-rotator'} onChange={e => update(l => ({ ...l, footer: { ...l.footer, type: e.target.value as 'image-rotator'|'static-image'|'none' } }))} className={selectCls}>
+                        <option value="image-rotator">Image Rotator</option>
+                        <option value="static-image">Static Image</option>
+                        <option value="none">None</option>
+                      </select>
+                    </div>
+                    {layout.footer?.type !== 'none' && (
+                      <>
+                        <div>
+                          <label className="text-xs text-gray-400 mb-2 block">Images ({(layout.footer?.images ?? []).length})</label>
+                          <div className="space-y-2">
+                            {(layout.footer?.images ?? []).map((url, i) => (
+                              <div key={i} className="flex items-center gap-2">
+                                <input type="text" value={url}
+                                  onChange={e => update(l => {
+                                    const imgs = [...(l.footer?.images ?? [])]
+                                    imgs[i] = e.target.value
+                                    return { ...l, footer: { ...l.footer, images: imgs } }
+                                  })}
+                                  className="flex-1 bg-gray-700 text-white text-xs rounded px-2 py-1 border border-gray-600"
+                                  placeholder="/images/..." />
+                                <button onClick={() => update(l => ({ ...l, footer: { ...l.footer, images: (l.footer?.images ?? []).filter((_, fi) => fi !== i) } }))}
+                                  className="p-1 text-gray-400 hover:text-red-400">
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ))}
+                            <button onClick={() => update(l => ({ ...l, footer: { ...l.footer, images: [...(l.footer?.images ?? []), ''] } }))}
+                              className="w-full flex items-center justify-center gap-1.5 py-1.5 border border-dashed border-gray-600 rounded text-xs text-gray-400 hover:border-blue-500 hover:text-blue-400">
+                              <Plus className="w-3 h-3" />Add image
+                            </button>
+                          </div>
+                        </div>
+                        {layout.footer?.type === 'image-rotator' && (
+                          <div>
+                            <label className="text-xs text-gray-400 mb-1 block">Rotation interval (seconds)</label>
+                            <input type="number" min={1} value={layout.footer?.rotation_interval ?? 6}
+                              onChange={e => update(l => ({ ...l, footer: { ...l.footer, rotation_interval: parseInt(e.target.value) || 6 } }))}
+                              className={inputCls} />
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           )}
         </div>

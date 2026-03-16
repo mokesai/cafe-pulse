@@ -28,7 +28,7 @@ test.describe('KDS Editor', () => {
     await expect(page.getByRole('button', { name: /Save Draft/i })).toBeVisible()
     await expect(page.getByRole('button', { name: /Publish/i })).toBeVisible()
     await expect(page.getByRole('button', { name: /Reset/i })).toBeVisible()
-    await expect(page.getByRole('link', { name: /Preview/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /Preview/i })).toBeVisible()
     // Column controls
     await expect(page.getByRole('button', { name: /Add column/i })).toBeVisible()
     await expect(page.getByRole('button', { name: /Remove last column/i })).toBeVisible()
