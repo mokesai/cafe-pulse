@@ -25,25 +25,30 @@ test.describe('KDS Editor', () => {
 
   test('toolbar buttons are present', async ({ page }) => {
     await page.goto('http://localhost:3000/admin/kds-config/editor/drinks')
-    await expect(page.getByRole('button', { name: /Add Section/i })).toBeVisible()
-    await expect(page.getByRole('button', { name: /Add Image/i })).toBeVisible()
     await expect(page.getByRole('button', { name: /Save Draft/i })).toBeVisible()
     await expect(page.getByRole('button', { name: /Publish/i })).toBeVisible()
     await expect(page.getByRole('button', { name: /Reset/i })).toBeVisible()
+    await expect(page.getByRole('link', { name: /Preview/i })).toBeVisible()
+    // Column controls
+    await expect(page.getByRole('button', { name: /Add column/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /Remove last column/i })).toBeVisible()
   })
 
   test('properties panel shows screen settings when nothing selected', async ({ page }) => {
     await page.goto('http://localhost:3000/admin/kds-config/editor/drinks')
     await expect(page.getByText(/Screen Settings/i)).toBeVisible()
-    await expect(page.getByText(/Grid columns/i)).toBeVisible()
-    await expect(page.getByText(/Theme/i)).toBeVisible()
+    await expect(page.getByText(/^Columns$/i)).toBeVisible()
+    await expect(page.getByText(/^Theme$/i)).toBeVisible()
   })
 
-  test('add section button adds a section to canvas', async ({ page }) => {
+  test('add row button adds a row to canvas', async ({ page }) => {
     await page.goto('http://localhost:3000/admin/kds-config/editor/drinks')
-    await page.getByRole('button', { name: /Add Section/i }).click()
-    // Properties panel should now show section properties
-    await expect(page.getByText(/^Section$/i)).toBeVisible()
+    // Each column has an Add row button
+    const addRowBtns = page.getByRole('button', { name: /Add row/i })
+    await expect(addRowBtns.first()).toBeVisible()
+    await addRowBtns.first().click()
+    // After adding a row, unsaved indicator appears
+    await expect(page.getByText(/Unsaved/i)).toBeVisible()
   })
 
   test('save draft is disabled when no unsaved changes', async ({ page }) => {
@@ -54,7 +59,7 @@ test.describe('KDS Editor', () => {
 
   test('save draft enables after making a change', async ({ page }) => {
     await page.goto('http://localhost:3000/admin/kds-config/editor/drinks')
-    await page.getByRole('button', { name: /Add Section/i }).click()
+    await page.getByRole('button', { name: /Add column/i }).click()
     const saveBtn = page.getByRole('button', { name: /Save Draft/i })
     await expect(saveBtn).not.toBeDisabled()
   })

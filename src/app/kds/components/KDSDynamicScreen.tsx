@@ -1,23 +1,26 @@
 /**
- * KDSDynamicScreen — MOK-14
+ * KDSDynamicScreen v2 — MOK-37
  *
- * Renders a KDS screen from a stored layout JSON.
+ * Renders a KDS screen from v2 layout JSON using nested flexbox.
  * Falls back to KDSDrinksMagazine / KDSFoodMagazine when no custom layout exists.
  *
- * Render logic:
- *   1. Query tenant_kds_layouts for current tenant + screen (is_draft = false)
- *   2. If layout found → render sections/overlays from JSON using CSS Grid
- *   3. If no layout → render existing default component (zero impact on existing tenants)
+ * Render hierarchy:
+ *   Screen (flex row)
+ *     Column (flex col, width%)
+ *       Row (flex row if divided, else block, height%)
+ *         Division (flex item, width%) — only when row.divisions present
+ *           Content (category section or image)
+ *         OR
+ *         Content (directly in row when not divided)
  */
 
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrentTenantId } from '@/lib/tenant/context'
 import { getCategoriesWithItems, getImages, getSettings } from '@/lib/kds/queries'
-import type { KDSLayout, KDSLayoutSection } from '@/lib/kds/layout-types'
-import type { KDSScreen } from '@/lib/kds/types'
+import type { KDSLayout, KDSCellContent, KDSColumn, KDSRow } from '@/lib/kds/layout-types'
+import type { KDSScreen, KDSScreenData, KDSCategoryWithItems } from '@/lib/kds/types'
 import { KDSDrinksMagazine } from './index'
 import { KDSFoodMagazine } from './index'
-import type { KDSScreenData } from '@/lib/kds/types'
 
 // ---------------------------------------------------------------------------
 // Props
@@ -34,11 +37,8 @@ interface HeaderImages {
 
 interface KDSDynamicScreenProps {
   screen: KDSScreen
-  /** If true, reads is_draft = true layout (for preview page) */
   draft?: boolean
-  /** Auto-refresh interval ms (default: from DB settings or 300000) */
   autoRefresh?: boolean
-  /** Pass-through props for default KDSDrinksMagazine/KDSFoodMagazine fallback */
   fallbackProps?: {
     headerImages?: HeaderImages
     sectionBadge?: string
@@ -52,81 +52,120 @@ interface KDSDynamicScreenProps {
 }
 
 // ---------------------------------------------------------------------------
-// Section renderer
+// Cell content renderer
 // ---------------------------------------------------------------------------
 
-async function renderSection(
-  section: KDSLayoutSection,
-  tenantId: string,
-  screen: KDSScreen
-) {
-  if (section.type === 'image') {
-    const fit = section.fit ?? 'cover'
+function renderContent(
+  content: KDSCellContent,
+  categories: KDSCategoryWithItems[],
+  style?: React.CSSProperties
+): React.ReactNode {
+  if (content.type === 'empty') {
+    return <div style={{ width: '100%', height: '100%', ...style }} />
+  }
+
+  if (content.type === 'image' && content.image_url) {
     return (
-      <div
-        key={section.id}
-        style={{
-          gridColumn: `${section.position.col + 1} / span ${section.span.cols}`,
-          gridRow: `${section.position.row + 1} / span ${section.span.rows}`,
-          overflow: 'hidden',
-        }}
-      >
+      <div style={{ width: '100%', height: '100%', overflow: 'hidden', ...style }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={section.image_url}
+          src={content.image_url}
           alt=""
-          style={{ width: '100%', height: '100%', objectFit: fit }}
+          style={{ width: '100%', height: '100%', objectFit: content.image_fit ?? 'cover' }}
         />
       </div>
     )
   }
 
-  // Category section
-  const allCategories = await getCategoriesWithItems(tenantId, screen)
-  const cat = allCategories.find(c => c.slug === section.category_slug)
+  if (content.type === 'category' && content.category_slug) {
+    const cat = categories.find(c => c.slug === content.category_slug)
+    if (!cat) {
+      return (
+        <div style={{
+          width: '100%', height: '100%', display: 'flex', alignItems: 'center',
+          justifyContent: 'center', background: 'rgba(255,0,0,0.1)',
+          color: '#f87171', fontSize: '0.75rem', padding: '0.5rem', ...style,
+        }}>
+          ⚠ {content.category_slug}
+        </div>
+      )
+    }
 
-  if (!cat) {
+    const visibleItems = cat.items.filter(i => i.isVisible)
+
     return (
-      <div
-        key={section.id}
-        style={{
-          gridColumn: `${section.position.col + 1} / span ${section.span.cols}`,
-          gridRow: `${section.position.row + 1} / span ${section.span.rows}`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: 'rgba(255,0,0,0.1)',
-          color: '#f87171',
-          fontSize: '0.875rem',
-          padding: '1rem',
-        }}
-      >
-        ⚠ Category not found: {section.category_slug}
+      <div style={{ width: '100%', height: '100%', overflow: 'hidden', padding: '0.75rem', ...style }}
+        className={`kds-dynamic-category kds-display-${content.display_type ?? 'price-grid'}`}>
+        <div className="kds-dynamic-category-title"
+          style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--kds-text, #fff)' }}>
+          {cat.name}
+        </div>
+        <div className="kds-dynamic-items">
+          {visibleItems.map(item => (
+            <div key={item.id}
+              style={{ display: 'flex', justifyContent: 'space-between', padding: '0.2rem 0', fontSize: '0.8rem', color: 'var(--kds-text-secondary, rgba(255,255,255,0.85))' }}>
+              <span>{item.displayName || item.name}</span>
+              {content.display_type !== 'simple-list' && (
+                <span style={{ marginLeft: '1rem', whiteSpace: 'nowrap' }}>{item.displayPrice}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  return <div style={{ width: '100%', height: '100%', ...style }} />
+}
+
+// ---------------------------------------------------------------------------
+// Row renderer
+// ---------------------------------------------------------------------------
+
+function renderRow(row: KDSRow, categories: KDSCategoryWithItems[], rowIndex: number): React.ReactNode {
+  const rowStyle: React.CSSProperties = {
+    flex: `0 0 ${row.height}%`,
+    overflow: 'hidden',
+    position: 'relative',
+    borderBottom: rowIndex > 0 ? '1px solid rgba(255,255,255,0.06)' : 'none',
+  }
+
+  if (row.divisions) {
+    const [left, right] = row.divisions
+    return (
+      <div key={row.id} style={{ ...rowStyle, display: 'flex', flexDirection: 'row' }}>
+        <div style={{ flex: `0 0 ${left.width}%`, overflow: 'hidden', borderRight: '1px solid rgba(255,255,255,0.06)' }}>
+          {renderContent(left.content, categories)}
+        </div>
+        <div style={{ flex: `0 0 ${right.width}%`, overflow: 'hidden' }}>
+          {renderContent(right.content, categories)}
+        </div>
       </div>
     )
   }
 
   return (
-    <div
-      key={section.id}
-      style={{
-        gridColumn: `${section.position.col + 1} / span ${section.span.cols}`,
-        gridRow: `${section.position.row + 1} / span ${section.span.rows}`,
-        overflow: 'hidden',
-      }}
-    >
-      {/* Simplified category display — editor phase will expand this */}
-      <div style={{ padding: '1rem', height: '100%' }}>
-        <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem' }}>
-          {cat.name}
-        </h3>
-        {cat.items.filter(i => i.isVisible).map(item => (
-          <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0', fontSize: '0.875rem' }}>
-            <span>{item.displayName || item.name}</span>
-            <span>{item.displayPrice}</span>
-          </div>
-        ))}
-      </div>
+    <div key={row.id} style={rowStyle}>
+      {renderContent(row.content ?? { type: 'empty' }, categories)}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Column renderer
+// ---------------------------------------------------------------------------
+
+function renderColumn(col: KDSColumn, categories: KDSCategoryWithItems[], colIndex: number): React.ReactNode {
+  return (
+    <div key={col.id} style={{
+      flex: `0 0 ${col.width}%`,
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+      height: '100%',
+      borderRight: colIndex > 0 ? '1px solid rgba(255,255,255,0.06)' : 'none',
+    }}>
+      {col.rows.map((row, i) => renderRow(row, categories, i))}
     </div>
   )
 }
@@ -144,7 +183,7 @@ export default async function KDSDynamicScreen({
   const tenantId = await getCurrentTenantId()
   const supabase = createServiceClient()
 
-  // 1. Try to load custom layout
+  // Try to load custom v2 layout
   const { data: layoutRow } = await supabase
     .from('tenant_kds_layouts')
     .select('layout, updated_at')
@@ -153,19 +192,14 @@ export default async function KDSDynamicScreen({
     .eq('is_draft', draft)
     .maybeSingle()
 
-  // 2. No custom layout → fall back to default components (zero change for existing tenants)
+  // No custom layout — fall back to default hardcoded components
   if (!layoutRow) {
     const [categoriesWithItems, images, settings] = await Promise.all([
       getCategoriesWithItems(tenantId, screen),
       getImages(tenantId, screen),
       getSettings(tenantId),
     ])
-
-    const screenData: KDSScreenData = {
-      categories: categoriesWithItems,
-      images,
-      settings,
-    }
+    const screenData: KDSScreenData = { categories: categoriesWithItems, images, settings }
 
     if (screen === 'drinks') {
       return (
@@ -192,13 +226,25 @@ export default async function KDSDynamicScreen({
     )
   }
 
-  // 3. Render from layout JSON
+  // Render from v2 layout JSON
   const layout = layoutRow.layout as KDSLayout
-  const { grid, sections = [], overlays = [], header, footer } = layout
 
-  const renderedSections = await Promise.all(
-    sections.map(s => renderSection(s, tenantId, screen))
-  )
+  // Guard: if somehow v1 JSON slipped through, fall back
+  if (!layout.version || layout.version < 2 || !('columns' in layout)) {
+    const [categoriesWithItems, images, settings] = await Promise.all([
+      getCategoriesWithItems(tenantId, screen),
+      getImages(tenantId, screen),
+      getSettings(tenantId),
+    ])
+    const screenData: KDSScreenData = { categories: categoriesWithItems, images, settings }
+    if (screen === 'drinks') return <KDSDrinksMagazine data={screenData} autoRefresh={autoRefresh} />
+    return <KDSFoodMagazine data={screenData} autoRefresh={autoRefresh} />
+  }
+
+  const { columns = [], overlays = [], header, footer } = layout
+
+  // Load categories for content rendering
+  const categories = await getCategoriesWithItems(tenantId, screen)
 
   return (
     <div
@@ -209,58 +255,40 @@ export default async function KDSDynamicScreen({
         position: 'relative',
         overflow: 'hidden',
         background: 'var(--kds-bg, #1a1a1a)',
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
       {/* Header */}
       {header?.visible !== false && (
-        <div className="kds-dynamic-header" style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
-          {/* Header content provided by theme CSS */}
-        </div>
+        <div className="kds-dynamic-header" style={{ flexShrink: 0 }} />
       )}
 
-      {/* Main grid */}
-      <div
-        className="kds-dynamic-grid"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: `repeat(${grid.columns}, 1fr)`,
-          gridTemplateRows: `repeat(${grid.rows}, 1fr)`,
-          width: '100%',
-          height: '100%',
-          position: 'relative',
-        }}
-      >
-        {renderedSections}
+      {/* Column layout */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'row', overflow: 'hidden', minHeight: 0 }}>
+        {columns.map((col, i) => renderColumn(col, categories, i))}
       </div>
-
-      {/* Overlays — free-positioned on top */}
-      {overlays.map(overlay => (
-        <div
-          key={overlay.id}
-          style={{
-            position: 'absolute',
-            left: overlay.position.x,
-            top: overlay.position.y,
-            width: overlay.size.width,
-            height: overlay.size.height,
-            zIndex: 20,
-          }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={overlay.image_url}
-            alt=""
-            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-          />
-        </div>
-      ))}
 
       {/* Footer */}
       {footer?.visible && (
-        <div className="kds-dynamic-footer" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 10 }}>
-          {/* Footer content provided by theme */}
-        </div>
+        <div className="kds-dynamic-footer" style={{ flexShrink: 0 }} />
       )}
+
+      {/* Overlays — free-positioned on top */}
+      {overlays.map(overlay => (
+        <div key={overlay.id} style={{
+          position: 'absolute',
+          left: overlay.position.x,
+          top: overlay.position.y,
+          width: overlay.size.width,
+          height: overlay.size.height,
+          zIndex: 20,
+        }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={overlay.image_url} alt=""
+            style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+        </div>
+      ))}
     </div>
   )
 }

@@ -1,69 +1,75 @@
 /**
- * KDS Layout JSON Schema (v1)
- * Used by tenant_kds_layouts table and KDSDynamicScreen renderer
+ * KDS Layout JSON Schema v2 — Hierarchical Column Model
+ *
+ * Structure: columns → rows → (optional) 2 horizontal divisions
+ * Rendering: nested flexbox (column row flex → column → row → division)
+ *
+ * Replaces v1 CSS Grid schema. No backward compatibility — v1 rows truncated via migration.
  */
 
 import type { KDSDisplayType, KDSTheme } from './types'
 
 // ---------------------------------------------------------------------------
-// Grid
+// Cell content (lives in a row or division)
 // ---------------------------------------------------------------------------
 
-export interface KDSLayoutGrid {
-  columns: number  // 1–6
-  rows: number     // 1–6
-}
+export type KDSCellContentType = 'category' | 'image' | 'empty'
 
-// ---------------------------------------------------------------------------
-// Section
-// ---------------------------------------------------------------------------
-
-export type KDSSectionType = 'category' | 'image'
-
-export interface KDSSectionPosition {
-  col: number  // 0-indexed
-  row: number  // 0-indexed
-}
-
-export interface KDSSectionSpan {
-  cols: number
-  rows: number
-}
-
-export interface KDSCategorySection {
-  id: string
-  type: 'category'
-  category_slug: string
-  position: KDSSectionPosition
-  span: KDSSectionSpan
+export interface KDSCellContent {
+  type: KDSCellContentType
+  // category
+  category_slug?: string
   display_type?: KDSDisplayType
+  // image
+  image_url?: string
+  image_fit?: 'cover' | 'contain' | 'fill'
 }
-
-export interface KDSImageSection {
-  id: string
-  type: 'image'
-  image_url: string
-  position: KDSSectionPosition
-  span: KDSSectionSpan
-  fit?: 'cover' | 'contain' | 'fill'
-}
-
-export type KDSLayoutSection = KDSCategorySection | KDSImageSection
 
 // ---------------------------------------------------------------------------
-// Overlays (free-positioned on top of grid)
+// Division — horizontal split within a row (exactly 2 per split row)
+// ---------------------------------------------------------------------------
+
+export interface KDSDivision {
+  id: string
+  width: number   // percentage of row width; two divisions sum to 100
+  content: KDSCellContent
+}
+
+// ---------------------------------------------------------------------------
+// Row — vertical slice within a column
+// ---------------------------------------------------------------------------
+
+export interface KDSRow {
+  id: string
+  height: number              // percentage of column height; rows in column sum to 100
+  content?: KDSCellContent   // present when NOT split
+  divisions?: [KDSDivision, KDSDivision]  // present when split (exactly 2)
+}
+
+// ---------------------------------------------------------------------------
+// Column — horizontal section of the screen
+// ---------------------------------------------------------------------------
+
+export interface KDSColumn {
+  id: string
+  width: number   // percentage of screen width; columns sum to 100
+  rows: KDSRow[]
+}
+
+// ---------------------------------------------------------------------------
+// Overlays — free-positioned images on top of column layout (unchanged from v1)
 // ---------------------------------------------------------------------------
 
 export interface KDSLayoutOverlay {
   id: string
   type: 'image'
   image_url: string
-  position: { x: string; y: string }  // percentage strings e.g. "85%", "5%"
+  position: { x: string; y: string }   // e.g. "85%", "5%"
   size: { width: string; height: string }
 }
 
 // ---------------------------------------------------------------------------
-// Header / Footer
+// Header / Footer (unchanged from v1)
 // ---------------------------------------------------------------------------
 
 export interface KDSLayoutHeader {
@@ -78,17 +84,79 @@ export interface KDSLayoutFooter {
 }
 
 // ---------------------------------------------------------------------------
-// Root Layout
+// Root Layout v2
 // ---------------------------------------------------------------------------
 
 export interface KDSLayout {
-  version: 1
+  version: 2
   theme?: KDSTheme
-  grid: KDSLayoutGrid
-  sections: KDSLayoutSection[]
+  columns: KDSColumn[]
   overlays?: KDSLayoutOverlay[]
   header?: KDSLayoutHeader
   footer?: KDSLayoutFooter
+}
+
+// ---------------------------------------------------------------------------
+// Default layout — 3 equal columns, 1 empty row each
+// ---------------------------------------------------------------------------
+
+export function createDefaultLayout(): KDSLayout {
+  return {
+    version: 2,
+    columns: [
+      { id: 'col-1', width: 33.33, rows: [{ id: 'r1-1', height: 100, content: { type: 'empty' } }] },
+      { id: 'col-2', width: 33.33, rows: [{ id: 'r2-1', height: 100, content: { type: 'empty' } }] },
+      { id: 'col-3', width: 33.34, rows: [{ id: 'r3-1', height: 100, content: { type: 'empty' } }] },
+    ],
+    overlays: [],
+    header: { visible: true },
+    footer: { visible: true, type: 'image-rotator' },
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Constraints
+// ---------------------------------------------------------------------------
+
+export const LAYOUT_CONSTRAINTS = {
+  MAX_COLUMNS: 6,
+  MIN_COLUMN_WIDTH: 15,
+  MAX_ROWS_PER_COLUMN: 6,
+  MIN_ROW_HEIGHT: 10,
+  MIN_DIVISION_WIDTH: 20,
+} as const
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Generate a stable unique ID for new elements */
+export function layoutId(prefix: string): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+}
+
+/**
+ * Redistribute percentages equally when adding an item
+ * e.g. [40, 30, 30] + 1 → [25, 25, 25, 25]
+ */
+export function redistributeEqual(count: number): number[] {
+  const base = Math.floor(100 / count)
+  const remainder = 100 - base * count
+  return Array.from({ length: count }, (_, i) => base + (i === count - 1 ? remainder : 0))
+}
+
+/**
+ * Redistribute proportionally when removing an item
+ * e.g. [40, 30, 30] remove index 0 → [50, 50] (30/60 * 100, 30/60 * 100)
+ */
+export function redistributeProportional(values: number[], removeIndex: number): number[] {
+  const remaining = values.filter((_, i) => i !== removeIndex)
+  const total = remaining.reduce((s, v) => s + v, 0)
+  if (total === 0) return remaining.map(() => 100 / remaining.length)
+  const scaled = remaining.map(v => (v / total) * 100)
+  // Fix rounding so sum is exactly 100
+  const roundedSum = scaled.slice(0, -1).reduce((s, v) => s + Math.round(v), 0)
+  return [...scaled.slice(0, -1).map(v => Math.round(v)), 100 - roundedSum]
 }
 
 // ---------------------------------------------------------------------------

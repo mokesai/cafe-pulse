@@ -1,6 +1,9 @@
 import { notFound } from 'next/navigation'
 import KDSPreviewClient from './KDSPreviewClient'
 import KDSDynamicScreen from '@/app/kds/components/KDSDynamicScreen'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getCurrentTenantId } from '@/lib/tenant/context'
+import type { KDSLayout } from '@/lib/kds/layout-types'
 
 export const dynamic = 'force-dynamic'
 
@@ -45,6 +48,26 @@ export default async function KDSPreviewPage({ params }: PageProps) {
   const screen = screenParam as 'drinks' | 'food'
   const fallbackProps = screen === 'drinks' ? DRINKS_FALLBACK : FOOD_FALLBACK
 
+  // Load layout for summary display in toolbar
+  const tenantId = await getCurrentTenantId()
+  const supabase = createServiceClient()
+  const { data: layoutRow } = await supabase
+    .from('tenant_kds_layouts')
+    .select('layout')
+    .eq('tenant_id', tenantId)
+    .eq('screen', screen)
+    .eq('is_draft', true)
+    .maybeSingle()
+
+  let layoutSummary: string | undefined
+  if (layoutRow?.layout) {
+    const layout = layoutRow.layout as KDSLayout
+    if (layout.version === 2 && 'columns' in layout) {
+      const cols = layout.columns
+      layoutSummary = `${cols.length} column${cols.length !== 1 ? 's' : ''}: ${cols.map(c => `${Math.round(c.width)}%`).join(' / ')}`
+    }
+  }
+
   // KDSDynamicScreen is a server component — render it here and pass as children
   const kdsScreen = (
     <KDSDynamicScreen
@@ -56,7 +79,7 @@ export default async function KDSPreviewPage({ params }: PageProps) {
   )
 
   return (
-    <KDSPreviewClient screen={screen}>
+    <KDSPreviewClient screen={screen} layoutSummary={layoutSummary}>
       {kdsScreen}
     </KDSPreviewClient>
   )
