@@ -157,6 +157,7 @@ export interface KDSSettingsMap {
   theme: KDSTheme                   // theme selection
   food_header: string              // banner header text for food screen
   drinks_show_starbucks_logo: boolean // show Starbucks logo in drinks subtitle
+  config_access_roles: string      // JSON array e.g. '["owner","admin"]'
 }
 
 /**
