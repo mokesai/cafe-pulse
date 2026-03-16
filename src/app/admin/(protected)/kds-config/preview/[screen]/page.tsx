@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation'
 import KDSPreviewClient from './KDSPreviewClient'
 import KDSDynamicScreen from '@/app/kds/components/KDSDynamicScreen'
-import '@/app/kds/kds-themes.css'
 
 export const dynamic = 'force-dynamic'
 
