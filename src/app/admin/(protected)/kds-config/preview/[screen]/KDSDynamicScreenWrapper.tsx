@@ -1,8 +1,8 @@
-import { notFound } from 'next/navigation'
-import KDSPreviewClient from './KDSPreviewClient'
+/**
+ * Server component wrapper — fetches and renders KDSDynamicScreen in draft mode.
+ * Kept separate from the client preview page so we can use async server components.
+ */
 import KDSDynamicScreen from '@/app/kds/components/KDSDynamicScreen'
-
-export const dynamic = 'force-dynamic'
 
 const DRINKS_FALLBACK = {
   headerImages: {
@@ -31,33 +31,14 @@ const FOOD_FALLBACK = {
   pastriesImage: '/images/kds/photos/pastries-assorted.png',
 }
 
-interface PageProps {
-  params: Promise<{ screen: string }>
-}
-
-export default async function KDSPreviewPage({ params }: PageProps) {
-  const { screen: screenParam } = await params
-
-  if (screenParam !== 'drinks' && screenParam !== 'food') {
-    notFound()
-  }
-
-  const screen = screenParam as 'drinks' | 'food'
+export default function KDSDynamicScreenWrapper({ screen }: { screen: 'drinks' | 'food' }) {
   const fallbackProps = screen === 'drinks' ? DRINKS_FALLBACK : FOOD_FALLBACK
-
-  // KDSDynamicScreen is a server component — render it here and pass as children
-  const kdsScreen = (
+  return (
     <KDSDynamicScreen
       screen={screen}
       draft={true}
       autoRefresh={false}
       fallbackProps={fallbackProps}
     />
-  )
-
-  return (
-    <KDSPreviewClient screen={screen}>
-      {kdsScreen}
-    </KDSPreviewClient>
   )
 }
