@@ -17,7 +17,8 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrentTenantId } from '@/lib/tenant/context'
 import { getCategoriesWithItems, getImages, getSettings } from '@/lib/kds/queries'
-import type { KDSLayout, KDSCellContent, KDSColumn, KDSRow } from '@/lib/kds/layout-types'
+import type { KDSSettingsMap } from '@/lib/kds/types'
+import type { KDSLayout, KDSCellContent, KDSColumn, KDSRow, KDSLayoutFooter } from '@/lib/kds/layout-types'
 import type { KDSScreen, KDSScreenData, KDSCategoryWithItems } from '@/lib/kds/types'
 import { KDSDrinksMagazine } from './index'
 import { KDSFoodMagazine } from './index'
@@ -49,6 +50,28 @@ interface KDSDynamicScreenProps {
     foodImage?: string
     pastriesImage?: string
   }
+}
+
+// ---------------------------------------------------------------------------
+// Footer renderer
+// ---------------------------------------------------------------------------
+
+function DynamicFooter({ footer, settings: _settings }: { footer: KDSLayoutFooter; settings: Partial<KDSSettingsMap> }) {
+  const images = footer.images ?? []
+  if (images.length === 0) return <div style={{ height: 80, flexShrink: 0 }} />
+
+  return (
+    <div style={{
+      flexShrink: 0, height: 80, display: 'flex', alignItems: 'center',
+      overflow: 'hidden', borderTop: '1px solid rgba(255,255,255,0.1)',
+      background: 'var(--kds-footer-bg, rgba(0,0,0,0.3))',
+    }}>
+      {images.map((url, i) => (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img key={i} src={url} alt="" style={{ height: '100%', objectFit: 'cover', flex: `0 0 ${100 / images.length}%` }} />
+      ))}
+    </div>
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -243,8 +266,9 @@ export default async function KDSDynamicScreen({
 
   const { columns = [], overlays = [], header, footer } = layout
 
-  // Load categories for content rendering
+  // Load categories + settings for content and header/footer rendering
   const categories = await getCategoriesWithItems(tenantId, screen)
+  const settings = await getSettings(tenantId)
 
   return (
     <div
@@ -261,7 +285,61 @@ export default async function KDSDynamicScreen({
     >
       {/* Header */}
       {header?.visible !== false && (
-        <div className="kds-dynamic-header" style={{ flexShrink: 0 }} />
+        <div className="kds-dynamic-header" style={{
+          flexShrink: 0, display: 'flex', alignItems: 'center',
+          padding: '0.75rem 1.5rem', gap: '1rem',
+          background: 'var(--kds-header-bg, rgba(0,0,0,0.3))',
+          borderBottom: '1px solid rgba(255,255,255,0.1)',
+          minHeight: 80,
+        }}>
+          {/* Logo */}
+          {header?.logo_url && (header?.logo_position === 'left' || !header?.logo_position) && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={header.logo_url} alt="Logo" style={{ height: 48, objectFit: 'contain', flexShrink: 0 }} />
+          )}
+          {/* Title + subtitle */}
+          <div style={{ flex: 1 }}>
+            {header?.title && (
+              <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--kds-text, #fff)', lineHeight: 1.2 }}>
+                {header.title}
+              </div>
+            )}
+            {header?.subtitle && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
+                {header?.subtitle_icon_url && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={header.subtitle_icon_url} alt="" style={{ height: 20, objectFit: 'contain' }} />
+                )}
+                <span style={{ fontSize: '1rem', color: 'var(--kds-text-secondary, rgba(255,255,255,0.8))' }}>
+                  {header.subtitle}
+                </span>
+              </div>
+            )}
+          </div>
+          {/* Center logo */}
+          {header?.logo_url && header?.logo_position === 'center' && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={header.logo_url} alt="Logo" style={{ height: 48, objectFit: 'contain', position: 'absolute', left: '50%', transform: 'translateX(-50%)' }} />
+          )}
+          {/* Right side: location + hours */}
+          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            {header?.show_location && settings?.header_location && (
+              <div style={{ fontSize: '0.8rem', color: 'var(--kds-text-secondary, rgba(255,255,255,0.7))' }}>
+                {settings.header_location as string}
+              </div>
+            )}
+            {header?.show_hours && settings?.header_hours && (
+              <div style={{ fontSize: '0.8rem', color: 'var(--kds-text-secondary, rgba(255,255,255,0.7))' }}>
+                {settings.header_hours as string}
+              </div>
+            )}
+          </div>
+          {/* Right logo */}
+          {header?.logo_url && header?.logo_position === 'right' && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={header.logo_url} alt="Logo" style={{ height: 48, objectFit: 'contain', flexShrink: 0 }} />
+          )}
+        </div>
       )}
 
       {/* Column layout */}
@@ -270,8 +348,8 @@ export default async function KDSDynamicScreen({
       </div>
 
       {/* Footer */}
-      {footer?.visible && (
-        <div className="kds-dynamic-footer" style={{ flexShrink: 0 }} />
+      {footer?.visible && footer?.type !== 'none' && (
+        <DynamicFooter footer={footer} settings={settings} />
       )}
 
       {/* Overlays — free-positioned on top */}
