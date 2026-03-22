@@ -41,6 +41,7 @@ interface KDSDynamicScreenProps {
   screen: KDSScreen
   draft?: boolean
   autoRefresh?: boolean
+  tenantIdOverride?: string  // For device display route (bypasses admin auth context)
   fallbackProps?: {
     headerImages?: HeaderImages
     sectionBadge?: string
@@ -436,8 +437,9 @@ export default async function KDSDynamicScreen({
   draft = false,
   autoRefresh = true,
   fallbackProps = {},
+  tenantIdOverride,
 }: KDSDynamicScreenProps) {
-  const tenantId = await getCurrentTenantId()
+  const tenantId = tenantIdOverride ?? await getCurrentTenantId()
   const supabase = createServiceClient()
 
   // Try to load custom v2 layout
