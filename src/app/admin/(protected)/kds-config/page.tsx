@@ -3,16 +3,17 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useTenant } from '@/providers/TenantProvider'
-import { 
-  Monitor, 
-  FileSpreadsheet, 
-  RefreshCw, 
-  Upload, 
+import {
+  Monitor,
+  FileSpreadsheet,
+  RefreshCw,
+  Upload,
   Eye,
   Grid,
   CheckCircle,
   AlertCircle,
-  Clock
+  Clock,
+  Tv,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -212,6 +213,20 @@ export default function KdsConfigPage() {
               <p className="text-xs text-gray-400 mt-0.5">Open live KDS food display</p>
             </div>
           </a>
+
+          {/* Deploy to TV */}
+          <Link
+            href="/admin/kds-config/deploy"
+            className="flex items-start gap-4 p-4 bg-gray-800 hover:bg-gray-750 border border-gray-700 hover:border-blue-500 rounded-lg transition-colors group"
+          >
+            <div className="p-2 bg-blue-500/10 rounded-lg group-hover:bg-blue-500/20 transition-colors">
+              <Tv className="w-5 h-5 text-blue-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-white">Deploy to TV</p>
+              <p className="text-xs text-gray-400 mt-0.5">Set up Raspberry Pi displays for your screens</p>
+            </div>
+          </Link>
 
           {/* Settings */}
           <Link
