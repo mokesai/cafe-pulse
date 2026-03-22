@@ -4,29 +4,33 @@ import crypto from 'crypto'
 import { createServiceClient } from '@/lib/supabase/server'
 import KDSDynamicScreen from '@/app/kds/components/KDSDynamicScreen'
 import KDSHeartbeat from './KDSHeartbeat'
+import KDSDisplayWrapper from './KDSDisplayWrapper'
 
 export const dynamic = 'force-dynamic'
 
 interface PageProps {
   params: Promise<{ deviceId: string; screen: string }>
+  searchParams: Promise<{ token?: string }>
 }
 
-export default async function KDSDisplayPage({ params }: PageProps) {
+export default async function KDSDisplayPage({ params, searchParams }: PageProps) {
   const { deviceId, screen: screenParam } = await params
+  const { token: tokenParam } = await searchParams
 
   if (screenParam !== 'drinks' && screenParam !== 'food') {
     notFound()
   }
   const screen = screenParam as 'drinks' | 'food'
 
-  // Authenticate via cookie
+  // Authenticate via cookie or query param (query param for Pi kiosk initial load)
   const cookieStore = await cookies()
   const tokenCookie = cookieStore.get('kds_device_token')
-  if (!tokenCookie?.value) {
+  const tokenValue = tokenCookie?.value || tokenParam
+  if (!tokenValue) {
     notFound()
   }
 
-  const hashedToken = crypto.createHash('sha256').update(tokenCookie.value).digest('hex')
+  const hashedToken = crypto.createHash('sha256').update(tokenValue).digest('hex')
   const supabase = createServiceClient()
 
   // Validate device
@@ -42,7 +46,6 @@ export default async function KDSDisplayPage({ params }: PageProps) {
   }
 
   // Set tenant context for KDSDynamicScreen
-  // The display route needs to render for a specific tenant without admin auth
   const { data: tenant } = await supabase
     .from('tenants')
     .select('slug')
@@ -54,7 +57,7 @@ export default async function KDSDisplayPage({ params }: PageProps) {
   }
 
   return (
-    <div>
+    <KDSDisplayWrapper>
       <KDSDynamicScreen
         screen={screen}
         draft={false}
@@ -63,9 +66,9 @@ export default async function KDSDisplayPage({ params }: PageProps) {
       />
       <KDSHeartbeat
         deviceId={device.id}
-        authToken={tokenCookie.value}
+        authToken={tokenValue}
         screen={screen}
       />
-    </div>
+    </KDSDisplayWrapper>
   )
 }

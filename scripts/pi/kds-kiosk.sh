@@ -42,7 +42,7 @@ if [ ! -f "$CONFIG_FILE" ] || [ "$(jq -r '.auth_token // empty' "$CONFIG_FILE" 2
     xset s noblank 2>/dev/null || true
     unclutter -idle 0.5 -root &>/dev/null &
 
-    chromium-browser \
+    chromium \
       --kiosk \
       --noerrdialogs \
       --disable-infobars \
@@ -101,6 +101,16 @@ unclutter -idle 0.5 -root &>/dev/null &
 
 # ─── Launch Dual Chromium ─────────────────────────────────────────────────────
 
+# Detect chromium binary (newer Pi OS uses 'chromium', older uses 'chromium-browser')
+if command -v chromium &>/dev/null; then
+  CHROMIUM=chromium
+elif command -v chromium-browser &>/dev/null; then
+  CHROMIUM=chromium-browser
+else
+  log "Error: No Chromium browser found. Install with: sudo apt install chromium"
+  exit 1
+fi
+
 CHROMIUM_FLAGS=(
   --kiosk
   --noerrdialogs
@@ -118,13 +128,13 @@ CHROMIUM_FLAGS=(
 )
 
 log "Launching Chromium on HDMI-1..."
-DISPLAY=:0.0 chromium-browser "${CHROMIUM_FLAGS[@]}" "$SCREEN1_URL" &>/dev/null &
+DISPLAY=:0.0 $CHROMIUM "${CHROMIUM_FLAGS[@]}" "$SCREEN1_URL" &>/dev/null &
 PID1=$!
 
 # Check if second display is connected
 if xrandr 2>/dev/null | grep -q "HDMI-2 connected"; then
   log "Launching Chromium on HDMI-2..."
-  DISPLAY=:0.1 chromium-browser "${CHROMIUM_FLAGS[@]}" "$SCREEN2_URL" &>/dev/null &
+  DISPLAY=:0.1 $CHROMIUM "${CHROMIUM_FLAGS[@]}" "$SCREEN2_URL" &>/dev/null &
   PID2=$!
   log "Dual display active. PIDs: $PID1, $PID2"
 else
