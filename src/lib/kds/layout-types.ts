@@ -44,6 +44,7 @@ export interface KDSRow {
   height: number              // percentage of column height; rows in column sum to 100
   content?: KDSCellContent   // present when NOT split
   divisions?: [KDSDivision, KDSDivision]  // present when split (exactly 2)
+  gap?: number               // pixel gap between divisions (default: 0)
 }
 
 // ---------------------------------------------------------------------------
@@ -76,6 +77,11 @@ export interface KDSLayoutHeader {
   visible: boolean
   title?: string                    // e.g. "Little Cafe"
   subtitle?: string                 // e.g. "Freshly Brewed, Just for You"
+  title_font?: string               // Google Fonts family name (e.g. "Playfair Display")
+  subtitle_font?: string            // Google Fonts family name
+  title_font_size?: number          // rem units (default: 2.5)
+  subtitle_font_size?: number       // rem units (default: 1.5)
+  title_icon_url?: string           // image URL for icon left of title
   logo_url?: string                 // image URL for logo
   logo_position?: 'left' | 'center' | 'right'
   subtitle_icon_url?: string        // small icon next to subtitle

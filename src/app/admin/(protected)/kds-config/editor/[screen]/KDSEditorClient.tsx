@@ -30,6 +30,56 @@ const inputCls = 'w-full bg-gray-700 text-white text-sm rounded px-2 py-1.5 bord
 const selectCls = 'w-full bg-gray-700 text-white text-sm rounded px-2 py-1.5 border border-gray-600 focus:border-blue-500 focus:outline-none'
 
 // ---------------------------------------------------------------------------
+// Font picker
+// ---------------------------------------------------------------------------
+
+const KDS_FONT_OPTIONS = [
+  '', 'Nunito', 'Lato', 'Great Vibes', 'Playfair Display', 'Lora',
+  'Merriweather', 'Oswald', 'Raleway', 'Montserrat', 'Poppins',
+  'Roboto Slab', 'Libre Baskerville', 'Cormorant Garamond',
+  'Dancing Script', 'Pacifico',
+] as const
+
+const GOOGLE_FONTS_URL = `https://fonts.googleapis.com/css2?${
+  KDS_FONT_OPTIONS.filter(Boolean).map(f => `family=${encodeURIComponent(f)}:wght@400;700`).join('&')
+}&display=swap`
+
+function FontPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className={`${inputCls} text-left flex items-center justify-between`}
+      >
+        <span style={{ fontFamily: value ? `'${value}', sans-serif` : undefined }}>
+          {value || 'Default (theme)'}
+        </span>
+        <ChevronRight className={`w-3.5 h-3.5 text-gray-400 transition-transform ${open ? 'rotate-90' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute z-50 left-0 right-0 mt-1 bg-gray-800 border border-gray-600 rounded-lg shadow-xl max-h-64 overflow-y-auto">
+          {KDS_FONT_OPTIONS.map(font => (
+            <button
+              key={font || '_default'}
+              onClick={() => { onChange(font); setOpen(false) }}
+              className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-700 transition-colors ${
+                (font || '') === (value || '') ? 'bg-gray-700 text-white' : 'text-gray-300'
+              }`}
+              style={{ fontFamily: font ? `'${font}', sans-serif` : undefined }}
+            >
+              {font || 'Default (theme)'}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
@@ -374,6 +424,7 @@ export default function KDSEditorClient({
         setIsDirty(false); setHasDraft(true); setUpdatedAt(res.updatedAt)
         setMsg({ type: 'success', text: 'Draft saved.' })
       } else if (res.error === 'CONCURRENT_EDIT') {
+        setUpdatedAt(null) // clear so next save skips concurrency check
         setMsg({ type: 'warn', text: 'Layout modified elsewhere. Save again to overwrite.' })
       } else {
         setMsg({ type: 'error', text: res.error })
@@ -439,6 +490,7 @@ export default function KDSEditorClient({
 
   return (
     <div className="flex flex-col h-screen bg-gray-900 overflow-hidden">
+      <link rel="stylesheet" href={GOOGLE_FONTS_URL} />
 
       {/* ── Top Toolbar ── */}
       <div className="flex items-center gap-2 px-4 py-2 bg-gray-800 border-b border-gray-700 flex-shrink-0 flex-wrap">
@@ -465,7 +517,8 @@ export default function KDSEditorClient({
           onClick={() => {
             // Auto-save draft before opening preview so it shows current state
             startTransition(async () => {
-              await saveDraft(tenantId, screen, layout, updatedAt)
+              const res = await saveDraft(tenantId, screen, layout, updatedAt)
+              if (res.success) { setUpdatedAt(res.updatedAt); setIsDirty(false); setHasDraft(true) }
               window.open(`/admin/kds-config/preview/${screen}`, '_blank')
             })
           }}
@@ -564,11 +617,12 @@ export default function KDSEditorClient({
                           <div key={row.id} style={{ height: rowH, position: 'relative', flexShrink: 0, borderBottom: ri < col.rows.length - 1 ? '1px solid rgba(255,255,255,0.08)' : 'none' }}>
                             {row.divisions ? (
                               /* Split row */
-                              <div style={{ display: 'flex', width: '100%', height: '100%' }}>
+                              <div style={{ display: 'flex', width: '100%', height: '100%', gap: row.gap ? `${row.gap * (canvasW / 1920)}px` : undefined }}>
                                 {row.divisions.map((div, di) => {
                                   const isDivSel = selection?.type === 'division' && selection.colIndex === ci && selection.rowIndex === ri && selection.divIndex === di
+                                  const divGap = row.gap ?? 0
                                   return (
-                                    <div key={div.id} style={{ width: `${div.width}%`, height: '100%', position: 'relative', borderRight: di === 0 ? '1px solid rgba(255,255,255,0.1)' : 'none' }}>
+                                    <div key={div.id} style={{ width: divGap > 0 ? `calc(${div.width}% - ${(divGap * (canvasW / 1920)) / 2}px)` : `${div.width}%`, height: '100%', position: 'relative', borderRight: di === 0 && !divGap ? '1px solid rgba(255,255,255,0.1)' : 'none' }}>
                                       <CellBlock
                                         content={div.content}
                                         categories={categories}
@@ -728,6 +782,7 @@ export default function KDSEditorClient({
                         <select value={selectedContent.display_type ?? ''} onChange={e => updateContent(selection, c => ({ ...c, display_type: e.target.value as typeof c.display_type || undefined }))} className={selectCls}>
                           <option value="">Default</option>
                           <option value="price-grid">Price grid</option>
+                          <option value="price-grid-compact">Price grid (compact)</option>
                           <option value="featured">Featured</option>
                           <option value="simple-list">Simple list</option>
                           <option value="single-price">Single price</option>
@@ -780,35 +835,67 @@ export default function KDSEditorClient({
                         </button>
                       )}
                       {selectedRow.divisions && (
-                        <button onClick={() => mergeDivisions((selection as {colIndex:number}).colIndex, selection.rowIndex)}
-                          className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded-lg">
-                          <Merge className="w-3.5 h-3.5" />Merge Divisions
-                        </button>
+                        <>
+                          <button onClick={() => mergeDivisions((selection as {colIndex:number}).colIndex, selection.rowIndex)}
+                            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded-lg">
+                            <Merge className="w-3.5 h-3.5" />Merge Divisions
+                          </button>
+                          <div>
+                            <label className="text-xs text-gray-400 mb-1 block">Division gap (px)</label>
+                            <input type="number" min={0} max={50}
+                              value={selectedRow.gap ?? 0}
+                              onChange={e => {
+                                const g = Math.max(0, Math.min(50, parseInt(e.target.value) || 0))
+                                update(l => ({
+                                  ...l, columns: l.columns.map((col, ci) => ci !== (selection as {colIndex:number}).colIndex ? col : {
+                                    ...col, rows: col.rows.map((row, ri) => ri !== selection.rowIndex ? row : { ...row, gap: g }),
+                                  }),
+                                }))
+                              }}
+                              className={inputCls} />
+                          </div>
+                        </>
                       )}
                     </>
                   )}
 
                   {/* Division-level controls */}
                   {selection?.type === 'division' && selectedRow?.divisions && (
-                    <div>
-                      <label className="text-xs text-gray-400 mb-1 block">Division width %</label>
-                      <input type="number" min={LAYOUT_CONSTRAINTS.MIN_DIVISION_WIDTH} max={100}
-                        value={Math.round(selectedRow.divisions[selection.divIndex].width)}
-                        onChange={e => {
-                          const w = Math.max(LAYOUT_CONSTRAINTS.MIN_DIVISION_WIDTH, parseInt(e.target.value) || LAYOUT_CONSTRAINTS.MIN_DIVISION_WIDTH)
-                          update(l => ({
-                            ...l, columns: l.columns.map((col, ci) => ci !== selection.colIndex ? col : {
-                              ...col, rows: col.rows.map((row, ri) => ri !== selection.rowIndex || !row.divisions ? row : {
-                                ...row, divisions: [
-                                  { ...row.divisions[0], width: selection.divIndex === 0 ? w : 100 - w },
-                                  { ...row.divisions[1], width: selection.divIndex === 1 ? w : 100 - w },
-                                ] as [KDSDivision, KDSDivision],
+                    <>
+                      <div>
+                        <label className="text-xs text-gray-400 mb-1 block">Division width %</label>
+                        <input type="number" min={LAYOUT_CONSTRAINTS.MIN_DIVISION_WIDTH} max={100}
+                          value={Math.round(selectedRow.divisions[selection.divIndex].width)}
+                          onChange={e => {
+                            const w = Math.max(LAYOUT_CONSTRAINTS.MIN_DIVISION_WIDTH, parseInt(e.target.value) || LAYOUT_CONSTRAINTS.MIN_DIVISION_WIDTH)
+                            update(l => ({
+                              ...l, columns: l.columns.map((col, ci) => ci !== selection.colIndex ? col : {
+                                ...col, rows: col.rows.map((row, ri) => ri !== selection.rowIndex || !row.divisions ? row : {
+                                  ...row, divisions: [
+                                    { ...row.divisions[0], width: selection.divIndex === 0 ? w : 100 - w },
+                                    { ...row.divisions[1], width: selection.divIndex === 1 ? w : 100 - w },
+                                  ] as [KDSDivision, KDSDivision],
+                                }),
                               }),
-                            }),
-                          }))
-                        }}
-                        className={inputCls} />
-                    </div>
+                            }))
+                          }}
+                          className={inputCls} />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-400 mb-1 block">Division gap (px)</label>
+                        <input type="number" min={0} max={50}
+                          value={selectedRow.gap ?? 0}
+                          onChange={e => {
+                            const g = Math.max(0, Math.min(50, parseInt(e.target.value) || 0))
+                            update(l => ({
+                              ...l, columns: l.columns.map((col, ci) => ci !== selection.colIndex ? col : {
+                                ...col, rows: col.rows.map((row, ri) => ri !== selection.rowIndex ? row : { ...row, gap: g }),
+                              }),
+                            }))
+                          }}
+                          className={inputCls} />
+                      </div>
+                    </>
                   )}
                 </>
               ) : selection?.type === 'column' ? (
@@ -924,9 +1011,39 @@ export default function KDSEditorClient({
                       <label className="text-xs text-gray-400 mb-1 block">Title</label>
                       <input type="text" value={layout.header?.title ?? ''} onChange={e => update(l => ({ ...l, header: { ...l.header, title: e.target.value } }))} className={inputCls} placeholder="Little Cafe" />
                     </div>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <label className="text-xs text-gray-400 mb-1 block">Title font</label>
+                        <FontPicker value={layout.header?.title_font ?? ''} onChange={font => update(l => ({ ...l, header: { ...l.header, title_font: font || undefined } }))} />
+                      </div>
+                      <div className="w-20">
+                        <label className="text-xs text-gray-400 mb-1 block">Size</label>
+                        <input type="number" min={1} max={6} step={0.25}
+                          value={layout.header?.title_font_size ?? 2.5}
+                          onChange={e => update(l => ({ ...l, header: { ...l.header, title_font_size: parseFloat(e.target.value) || 2.5 } }))}
+                          className={inputCls} />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-400 mb-1 block">Title icon</label>
+                      <ImagePicker tenantId={tenantId} value={layout.header?.title_icon_url ?? ''} onChange={url => update(l => ({ ...l, header: { ...l.header, title_icon_url: url || undefined } }))} />
+                    </div>
                     <div>
                       <label className="text-xs text-gray-400 mb-1 block">Subtitle</label>
                       <input type="text" value={layout.header?.subtitle ?? ''} onChange={e => update(l => ({ ...l, header: { ...l.header, subtitle: e.target.value } }))} className={inputCls} placeholder="Freshly Brewed, Just for You" />
+                    </div>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <label className="text-xs text-gray-400 mb-1 block">Subtitle font</label>
+                        <FontPicker value={layout.header?.subtitle_font ?? ''} onChange={font => update(l => ({ ...l, header: { ...l.header, subtitle_font: font || undefined } }))} />
+                      </div>
+                      <div className="w-20">
+                        <label className="text-xs text-gray-400 mb-1 block">Size</label>
+                        <input type="number" min={0.5} max={4} step={0.25}
+                          value={layout.header?.subtitle_font_size ?? 1.5}
+                          onChange={e => update(l => ({ ...l, header: { ...l.header, subtitle_font_size: parseFloat(e.target.value) || 1.5 } }))}
+                          className={inputCls} />
+                      </div>
                     </div>
                     <div>
                       <label className="text-xs text-gray-400 mb-1 block">Logo</label>

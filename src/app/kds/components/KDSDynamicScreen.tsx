@@ -14,6 +14,7 @@
  *         Content (directly in row when not divided)
  */
 
+import React from 'react'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrentTenantId } from '@/lib/tenant/context'
 import { getCategoriesWithItems, getImages, getSettings } from '@/lib/kds/queries'
@@ -58,11 +59,11 @@ interface KDSDynamicScreenProps {
 
 function DynamicFooter({ footer, settings: _settings }: { footer: KDSLayoutFooter; settings: Partial<KDSSettingsMap> }) {
   const images = footer.images ?? []
-  if (images.length === 0) return <div style={{ height: 80, flexShrink: 0 }} />
+  if (images.length === 0) return <div style={{ height: 120, flexShrink: 0 }} />
 
   return (
     <div style={{
-      flexShrink: 0, height: 80, display: 'flex', alignItems: 'center',
+      flexShrink: 0, height: 120, display: 'flex', alignItems: 'center',
       overflow: 'hidden', borderTop: '1px solid rgba(255,255,255,0.1)',
       background: 'var(--kds-footer-bg, rgba(0,0,0,0.3))',
     }}>
@@ -78,6 +79,34 @@ function DynamicFooter({ footer, settings: _settings }: { footer: KDSLayoutFoote
 // Cell content renderer
 // ---------------------------------------------------------------------------
 
+// Icons that are PNGs (not SVGs)
+const PNG_ICONS = new Set(['heart', 'bolt'])
+
+function iconPath(icon: string): string {
+  return `/images/kds/icons/${icon}.${PNG_ICONS.has(icon) ? 'png' : 'svg'}`
+}
+
+function CategoryTitle({ cat }: { cat: KDSCategoryWithItems }) {
+  return (
+    <div className="kds-dynamic-category-title"
+      style={{
+        fontSize: '1.75rem', fontWeight: 700, marginBottom: '10px',
+        color: cat.color || 'var(--kds-text, #fff)',
+        display: 'flex', alignItems: 'center', gap: '8px',
+      }}>
+      {cat.icon && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={iconPath(cat.icon)}
+          alt=""
+          style={{ height: '1.2em', width: '1.2em', objectFit: 'contain' }}
+        />
+      )}
+      {cat.name}
+    </div>
+  )
+}
+
 function renderContent(
   content: KDSCellContent,
   categories: KDSCategoryWithItems[],
@@ -89,12 +118,12 @@ function renderContent(
 
   if (content.type === 'image' && content.image_url) {
     return (
-      <div style={{ width: '100%', height: '100%', overflow: 'hidden', ...style }}>
+      <div style={{ width: '100%', height: '100%', overflow: 'hidden', borderRadius: 8, ...style }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={content.image_url}
           alt=""
-          style={{ width: '100%', height: '100%', objectFit: content.image_fit ?? 'cover' }}
+          style={{ width: '100%', height: '100%', objectFit: content.image_fit ?? 'cover', borderRadius: 8 }}
         />
       </div>
     )
@@ -107,29 +136,233 @@ function renderContent(
         <div style={{
           width: '100%', height: '100%', display: 'flex', alignItems: 'center',
           justifyContent: 'center', background: 'rgba(255,0,0,0.1)',
-          color: '#f87171', fontSize: '0.75rem', padding: '0.5rem', ...style,
+          color: '#f87171', fontSize: '1.25rem', padding: '16px', ...style,
         }}>
           ⚠ {content.category_slug}
         </div>
       )
     }
 
+    const displayType = content.display_type ?? cat.displayType ?? 'price-grid'
     const visibleItems = cat.items.filter(i => i.isVisible)
+    const sizeLabels = cat.sizeLabels ?? ['Tall', 'Grande', 'Venti']
+
+    // For featured: deduplicate by base name, show name only
+    // For price-grid: group by base name, show size headers + price columns
+    // For simple-list: show name + single price per row
+
+    // Grid styles for price-based displays
+    // price-grid: name fills remaining space, prices right-aligned at cell edge (consistent across categories)
+    // price-grid-compact: name column sizes to longest content, prices hug the names (less whitespace)
+    const isCompact = displayType === 'price-grid-compact'
+    const priceGridCols = isCompact
+      ? `minmax(0, max-content) ${sizeLabels.map(() => 'minmax(55px, 70px)').join(' ')}`
+      : `1fr ${sizeLabels.map(() => '70px').join(' ')}`
+    const gridStyle: React.CSSProperties = {
+      display: 'grid',
+      gridTemplateColumns: priceGridCols,
+      gap: '0 6px',
+      fontSize: '1.25rem',
+      color: 'var(--kds-text-secondary, rgba(255,255,255,0.85))',
+    }
+
+    if (displayType === 'price-grid' || displayType === 'price-grid-compact') {
+      // Group items by base name, ordered by first appearance
+      const grouped = new Map<string, { name: string; prices: Map<string, string> }>()
+      for (const item of visibleItems) {
+        const baseName = item.name
+        const variation = item.variationName?.toLowerCase() ?? ''
+        if (!grouped.has(baseName)) {
+          grouped.set(baseName, { name: baseName, prices: new Map() })
+        }
+        grouped.get(baseName)!.prices.set(variation, item.displayPrice)
+      }
+
+      return (
+        <div style={{ width: '100%', height: '100%', overflow: 'hidden', padding: '16px 20px', ...style }}
+          className="kds-dynamic-category kds-display-price-grid">
+          <CategoryTitle cat={cat} />
+          <div className="kds-dynamic-items" style={gridStyle}>
+            {/* Size headers row */}
+            {cat.showSizeHeader !== false && (<>
+              <span />
+              {sizeLabels.map(label => (
+                <span key={label} style={{
+                  textAlign: 'right', fontSize: '0.85rem', fontWeight: 600,
+                  textTransform: 'uppercase', letterSpacing: '0.05em',
+                  color: 'var(--kds-text-muted, rgba(255,255,255,0.5))',
+                  paddingBottom: 4,
+                }}>{label}</span>
+              ))}
+            </>)}
+            {/* Item rows */}
+            {Array.from(grouped.values()).map(({ name, prices }) => (
+              <React.Fragment key={name}>
+                <span style={{ padding: '3px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</span>
+                {sizeLabels.map(label => {
+                  const price = prices.get(label.toLowerCase())
+                  return (
+                    <span key={label} style={{ textAlign: 'right', whiteSpace: 'nowrap', padding: '3px 0' }}>
+                      {price ?? '—'}
+                    </span>
+                  )
+                })}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    if (displayType === 'flavor-options') {
+      // Group items by sub_group slug (parentItem), then by base name within each group
+      // Look up the sub_group slug in categories to get the display name for the heading
+      const subGroups = new Map<string, { displayName: string; color?: string; items: Map<string, { name: string; prices: Map<string, string> }> }>()
+      for (const item of visibleItems) {
+        const groupSlug = item.parentItem || ''
+        const baseName = item.name
+        const variation = item.variationName?.toLowerCase() ?? ''
+        if (!subGroups.has(groupSlug)) {
+          const subCat = categories.find(c => c.slug === groupSlug)
+          subGroups.set(groupSlug, { displayName: subCat?.name || groupSlug, color: subCat?.color, items: new Map() })
+        }
+        const group = subGroups.get(groupSlug)!
+        if (!group.items.has(baseName)) {
+          group.items.set(baseName, { name: baseName, prices: new Map() })
+        }
+        group.items.get(baseName)!.prices.set(variation, item.displayPrice)
+      }
+
+      return (
+        <div style={{ width: '100%', height: '100%', overflow: 'hidden', padding: '16px 20px', ...style }}
+          className="kds-dynamic-category kds-display-flavor-options">
+          <CategoryTitle cat={cat} />
+          <div className="kds-dynamic-items" style={gridStyle}>
+            {/* Size headers row */}
+            {cat.showSizeHeader !== false && (<>
+              <span />
+              {sizeLabels.map(label => (
+                <span key={label} style={{
+                  textAlign: 'right', fontSize: '0.85rem', fontWeight: 600,
+                  textTransform: 'uppercase', letterSpacing: '0.05em',
+                  color: 'var(--kds-text-muted, rgba(255,255,255,0.5))',
+                  paddingBottom: 4,
+                }}>{label}</span>
+              ))}
+            </>)}
+            {/* Sub-group sections */}
+            {Array.from(subGroups.entries()).map(([groupSlug, { displayName, color: subColor, items }]) => (
+              <React.Fragment key={groupSlug || '_ungrouped'}>
+                {groupSlug && (<>
+                  <span style={{
+                    gridColumn: `1 / -1`,
+                    fontSize: '1.25rem', fontWeight: 600, fontStyle: 'italic',
+                    textTransform: 'uppercase', letterSpacing: '0.05em',
+                    padding: '10px 0 4px',
+                    color: subColor || 'var(--kds-text-muted, rgba(255,255,255,0.5))',
+                    borderBottom: '1px solid rgba(255,255,255,0.08)',
+                  }}>
+                    {displayName}
+                  </span>
+                </>)}
+                {Array.from(items.values()).map(({ name, prices }) => (
+                  <React.Fragment key={name}>
+                    <span style={{ padding: '3px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</span>
+                    {sizeLabels.map(label => {
+                      const price = prices.get(label.toLowerCase())
+                      return (
+                        <span key={label} style={{ textAlign: 'right', whiteSpace: 'nowrap', padding: '3px 0' }}>
+                          {price ?? '—'}
+                        </span>
+                      )
+                    })}
+                  </React.Fragment>
+                ))}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    if (displayType === 'single-price') {
+      // Group items by base name, collect variation names as flavors
+      const grouped = new Map<string, { name: string; price: string; flavors: string[] }>()
+      for (const item of visibleItems) {
+        const baseName = item.name
+        const variation = item.variationName ?? ''
+        if (!grouped.has(baseName)) {
+          grouped.set(baseName, { name: baseName, price: item.displayPrice ?? '', flavors: [] })
+        }
+        // Add variation as flavor if it's not a generic name
+        const skipVariation = !variation || variation.toLowerCase() === 'regular' || variation.toLowerCase() === baseName.toLowerCase()
+        if (!skipVariation) {
+          grouped.get(baseName)!.flavors.push(variation)
+        }
+      }
+
+      return (
+        <div style={{ width: '100%', height: '100%', overflow: 'hidden', padding: '16px 20px', ...style }}
+          className="kds-dynamic-category kds-display-single-price">
+          <CategoryTitle cat={cat} />
+          {cat.headerText && (
+            <div style={{
+              fontSize: '1.1rem', fontWeight: 600, marginBottom: '6px',
+              color: 'var(--kds-text-secondary, rgba(255,255,255,0.85))',
+            }}>
+              {cat.headerText}
+            </div>
+          )}
+          <div className="kds-dynamic-items" style={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(0, max-content) minmax(55px, 70px)',
+            gap: '0 6px',
+            fontSize: '1.25rem',
+            color: 'var(--kds-text-secondary, rgba(255,255,255,0.85))',
+          }}>
+            {Array.from(grouped.values()).map(({ name, price, flavors }) => (
+              <React.Fragment key={name}>
+                <span style={{ fontWeight: 700, padding: '4px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</span>
+                <span style={{ textAlign: 'right', whiteSpace: 'nowrap', padding: '4px 0 0' }}>{price}</span>
+                {flavors.length > 0 && (
+                  <span style={{
+                    gridColumn: '1 / -1',
+                    fontSize: '1rem', fontStyle: 'italic', paddingLeft: '8px', paddingBottom: '4px',
+                    color: 'var(--kds-text-muted, rgba(255,255,255,0.5))',
+                  }}>
+                    {flavors.join(' · ')}
+                  </span>
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    const displayItems = displayType === 'featured'
+      ? visibleItems.filter((item, idx, arr) => arr.findIndex(i => i.name === item.name) === idx)
+      : visibleItems
 
     return (
-      <div style={{ width: '100%', height: '100%', overflow: 'hidden', padding: '0.75rem', ...style }}
-        className={`kds-dynamic-category kds-display-${content.display_type ?? 'price-grid'}`}>
-        <div className="kds-dynamic-category-title"
-          style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--kds-text, #fff)' }}>
-          {cat.name}
-        </div>
+      <div style={{ width: '100%', height: '100%', overflow: 'hidden', padding: '16px 20px', ...style }}
+        className={`kds-dynamic-category kds-display-${displayType}`}>
+        <CategoryTitle cat={cat} />
+        {cat.headerText && (
+          <div style={{
+            fontSize: '1.1rem', fontWeight: 600, marginBottom: '6px',
+            color: 'var(--kds-text-secondary, rgba(255,255,255,0.85))',
+          }}>
+            {cat.headerText}
+          </div>
+        )}
         <div className="kds-dynamic-items">
-          {visibleItems.map(item => (
+          {displayItems.map(item => (
             <div key={item.id}
-              style={{ display: 'flex', justifyContent: 'space-between', padding: '0.2rem 0', fontSize: '0.8rem', color: 'var(--kds-text-secondary, rgba(255,255,255,0.85))' }}>
-              <span>{item.displayName || item.name}</span>
-              {content.display_type !== 'simple-list' && (
-                <span style={{ marginLeft: '1rem', whiteSpace: 'nowrap' }}>{item.displayPrice}</span>
+              style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: '1.25rem', color: 'var(--kds-text-secondary, rgba(255,255,255,0.85))' }}>
+              <span>{displayType === 'featured' ? item.name : (item.displayName || item.name)}</span>
+              {displayType !== 'simple-list' && displayType !== 'featured' && (
+                <span style={{ marginLeft: '16px', whiteSpace: 'nowrap' }}>{item.displayPrice}</span>
               )}
             </div>
           ))}
@@ -155,12 +388,13 @@ function renderRow(row: KDSRow, categories: KDSCategoryWithItems[], rowIndex: nu
 
   if (row.divisions) {
     const [left, right] = row.divisions
+    const gap = row.gap ?? 0
     return (
-      <div key={row.id} style={{ ...rowStyle, display: 'flex', flexDirection: 'row' }}>
-        <div style={{ flex: `0 0 ${left.width}%`, overflow: 'hidden', borderRight: '1px solid rgba(255,255,255,0.06)' }}>
+      <div key={row.id} style={{ ...rowStyle, display: 'flex', flexDirection: 'row', gap: gap > 0 ? `${gap}px` : undefined }}>
+        <div style={{ flex: `0 0 ${gap > 0 ? `calc(${left.width}% - ${gap / 2}px)` : `${left.width}%`}`, overflow: 'hidden', borderRight: gap > 0 ? 'none' : '1px solid rgba(255,255,255,0.06)' }}>
           {renderContent(left.content, categories)}
         </div>
-        <div style={{ flex: `0 0 ${right.width}%`, overflow: 'hidden' }}>
+        <div style={{ flex: `0 0 ${gap > 0 ? `calc(${right.width}% - ${gap / 2}px)` : `${right.width}%`}`, overflow: 'hidden' }}>
           {renderContent(right.content, categories)}
         </div>
       </div>
@@ -283,34 +517,55 @@ export default async function KDSDynamicScreen({
         flexDirection: 'column',
       }}
     >
+      {/* Dynamic Google Fonts for header */}
+      {(header?.title_font || header?.subtitle_font) && (
+        <link
+          rel="stylesheet"
+          href={`https://fonts.googleapis.com/css2?${[header?.title_font, header?.subtitle_font].filter(Boolean).map(f => `family=${encodeURIComponent(f!)}:wght@400;700`).join('&')}&display=swap`}
+        />
+      )}
+
       {/* Header */}
       {header?.visible !== false && (
         <div className="kds-dynamic-header" style={{
           flexShrink: 0, display: 'flex', alignItems: 'center',
-          padding: '0.75rem 1.5rem', gap: '1rem',
+          padding: '12px 32px', gap: '24px',
           background: 'var(--kds-header-bg, rgba(0,0,0,0.3))',
           borderBottom: '1px solid rgba(255,255,255,0.1)',
-          minHeight: 80,
+          minHeight: 100, position: 'relative',
         }}>
-          {/* Logo */}
+          {/* Logo — left */}
           {header?.logo_url && (header?.logo_position === 'left' || !header?.logo_position) && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={header.logo_url} alt="Logo" style={{ height: 48, objectFit: 'contain', flexShrink: 0 }} />
+            <img src={header.logo_url} alt="Logo" style={{ height: 72, objectFit: 'contain', flexShrink: 0 }} />
           )}
-          {/* Title + subtitle */}
-          <div style={{ flex: 1 }}>
+          {/* Title + subtitle — centered */}
+          <div style={{ flex: 1, textAlign: 'center' }}>
             {header?.title && (
-              <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--kds-text, #fff)', lineHeight: 1.2 }}>
+              <div style={{
+                fontSize: `${header?.title_font_size ?? 2.5}rem`,
+                fontFamily: header?.title_font ? `'${header.title_font}', sans-serif` : undefined,
+                fontWeight: 700, color: 'var(--kds-text, #fff)', lineHeight: 1.2,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px',
+              }}>
+                {header?.title_icon_url && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={header.title_icon_url} alt="" style={{ height: '1.2em', objectFit: 'contain' }} />
+                )}
                 {header.title}
               </div>
             )}
             {header?.subtitle && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '4px' }}>
                 {header?.subtitle_icon_url && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={header.subtitle_icon_url} alt="" style={{ height: 20, objectFit: 'contain' }} />
+                  <img src={header.subtitle_icon_url} alt="" style={{ height: 28, objectFit: 'contain' }} />
                 )}
-                <span style={{ fontSize: '1rem', color: 'var(--kds-text-secondary, rgba(255,255,255,0.8))' }}>
+                <span style={{
+                  fontSize: `${header?.subtitle_font_size ?? 1.5}rem`,
+                  fontFamily: header?.subtitle_font ? `'${header.subtitle_font}', sans-serif` : undefined,
+                  color: 'var(--kds-text-secondary, rgba(255,255,255,0.8))',
+                }}>
                   {header.subtitle}
                 </span>
               </div>
@@ -319,17 +574,17 @@ export default async function KDSDynamicScreen({
           {/* Center logo */}
           {header?.logo_url && header?.logo_position === 'center' && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={header.logo_url} alt="Logo" style={{ height: 48, objectFit: 'contain', position: 'absolute', left: '50%', transform: 'translateX(-50%)' }} />
+            <img src={header.logo_url} alt="Logo" style={{ height: 72, objectFit: 'contain', position: 'absolute', left: '50%', transform: 'translateX(-50%)' }} />
           )}
           {/* Right side: location + hours */}
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
             {header?.show_location && settings?.header_location && (
-              <div style={{ fontSize: '0.8rem', color: 'var(--kds-text-secondary, rgba(255,255,255,0.7))' }}>
+              <div style={{ fontSize: '1.1rem', color: 'var(--kds-text-secondary, rgba(255,255,255,0.7))' }}>
                 {settings.header_location as string}
               </div>
             )}
             {header?.show_hours && settings?.header_hours && (
-              <div style={{ fontSize: '0.8rem', color: 'var(--kds-text-secondary, rgba(255,255,255,0.7))' }}>
+              <div style={{ fontSize: '1.1rem', color: 'var(--kds-text-secondary, rgba(255,255,255,0.7))' }}>
                 {settings.header_hours as string}
               </div>
             )}
@@ -337,7 +592,7 @@ export default async function KDSDynamicScreen({
           {/* Right logo */}
           {header?.logo_url && header?.logo_position === 'right' && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={header.logo_url} alt="Logo" style={{ height: 48, objectFit: 'contain', flexShrink: 0 }} />
+            <img src={header.logo_url} alt="Logo" style={{ height: 72, objectFit: 'contain', flexShrink: 0 }} />
           )}
         </div>
       )}

@@ -77,7 +77,7 @@ async function readSheetTabs(spreadsheetId: string) {
 // ---------------------------------------------------------------------------
 
 function parseBool(val: string | undefined): boolean {
-  return val === 'true' || val === 'TRUE' || val === '1'
+  return val === 'true' || val === 'TRUE' || val === '1' || val === 'yes' || val === 'YES'
 }
 
 function transformCategory(row: Record<string, string>, tenantId: string) {
@@ -86,8 +86,6 @@ function transformCategory(row: Record<string, string>, tenantId: string) {
     slug: row.slug,
     name: row.name,
     screen: row.screen,
-    position: row.position || null,
-    sort_order: parseInt(row.sort_order, 10) || 0,
     color: row.color || null,
     icon: row.icon || null,
     display_type: row.display_type || null,
@@ -123,7 +121,7 @@ function transformMenuItem(
     display_type: row.display_type || null,
     featured: parseBool(row.featured),
     bullet_color: row.bullet_color || null,
-    parent_item: row.parent_item || null,
+    parent_item: row.sub_group || row.parent_item || null,
   }
 }
 

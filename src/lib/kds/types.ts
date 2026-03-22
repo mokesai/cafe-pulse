@@ -11,7 +11,7 @@ export type KDSTheme = 'warm' | 'dark' | 'wps'
 export const KDS_THEMES: KDSTheme[] = ['warm', 'dark', 'wps']
 
 // Display type for categories and items
-export type KDSDisplayType = 'featured' | 'price-grid' | 'simple-list' | 'single-price' | 'flavor-options'
+export type KDSDisplayType = 'featured' | 'price-grid' | 'price-grid-compact' | 'simple-list' | 'single-price' | 'flavor-options'
 
 // Bullet color for featured and flavor items
 export type KDSBulletColor = 'green' | 'yellow' | 'orange' | 'brown' | 'pink' | 'blue' | 'red' | 'teal'
@@ -34,6 +34,12 @@ export type KDSCategoryIcon =
   | 'lotus'
   | 'sandwich'
   | 'breakfast'
+  | 'heart'
+  | 'bolt'
+  | 'snowflake'
+  | 'star'
+  | 'utensils'
+  | 'deal'
 
 /**
  * Display category (one quadrant on a screen)
