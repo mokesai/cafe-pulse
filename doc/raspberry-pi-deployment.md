@@ -1,284 +1,192 @@
-# Raspberry Pi Deployment Guide
+# Raspberry Pi KDS Deployment Guide (v2)
 
-Deploy the Little Cafe web app to a Raspberry Pi 4 for KDS (Kitchen Display System) TV displays.
+Deploy Cafe Pulse KDS screens to TV displays using a Raspberry Pi 4.
+
+## Architecture
+
+The Pi runs **only Chromium in kiosk mode** — no local app server, no Node.js, no PM2. The app is hosted on Vercel and the Pi is just a browser pointing at a URL. All menu data, layouts, and settings come from Supabase (cloud).
+
+```
+Raspberry Pi 4                     Vercel (Cloud)
+┌─────────────┐                  ┌─────────────────┐
+│ Chromium    │───── HTTPS ─────▶│ Next.js App      │
+│ (kiosk mode)│                  │ /kds/display/... │
+│             │◀──── HTML ──────│                   │
+│ HDMI-1 → TV1│                  │                   │
+│ HDMI-2 → TV2│                  └────────┬──────────┘
+└─────────────┘                           │
+      │ heartbeat (60s)                   │
+      └──────────────────────────────────▶│ Supabase
+                                          │ (menu data, layouts)
+```
 
 ## Prerequisites
 
-- Raspberry Pi 4 (2GB+ RAM recommended)
-- Debian Linux 12 (Bookworm) or Raspberry Pi OS
-- Network connection
-- HDMI display (TV screen)
+- Raspberry Pi 4 (2GB+ RAM)
+- MicroSD card (16GB+)
+- USB-C power supply (3A)
+- 1-2 TVs with HDMI input
+- HDMI cable(s)
+- WiFi network with internet access (or Ethernet)
+- A computer to flash the SD card
 
-## Deployment Options
+## Setup Options
 
-**Option 1: Direct Node.js Deployment (Recommended for KDS)**
-- Simple setup, runs the Next.js server directly
-- Uses PM2 for process management and auto-restart
+### Option A: Setup Script (Recommended)
 
-**Option 2: Docker**
-- More isolated but higher resource overhead on Pi
+The fastest path if you already have Raspberry Pi OS installed.
 
-This guide covers Option 1.
+1. Flash **Raspberry Pi OS Lite (64-bit)** to your SD card using [Raspberry Pi Imager](https://www.raspberrypi.com/software/)
+2. Boot the Pi and connect via SSH
+3. In the Cafe Pulse admin UI, go to **KDS Config → Deploy to TV → Add Device**
+4. Complete the wizard (name your device, assign screens)
+5. Choose **"Setup Script"** and copy the one-liner command
+6. Run the command on your Pi:
+   ```bash
+   curl -sL https://your-domain.com/api/kds/setup/YOUR-CODE | bash
+   ```
+7. The script installs everything, registers the device, and prompts to reboot
+8. After reboot, your KDS screens appear automatically
 
----
+### Option B: SD Card Image
 
-## Setup Instructions
+The simplest path — everything pre-configured.
 
-### 1. Install Node.js
+1. In the Cafe Pulse admin UI, go to **KDS Config → Deploy to TV → Add Device**
+2. Complete the wizard and choose **"SD Card Image"**
+3. Enter your WiFi network name and password
+4. Download the image file (~2 GB)
+5. Flash to SD card using Raspberry Pi Imager or balenaEtcher
+6. Insert SD card, connect HDMI cable(s), power on
+7. The Pi auto-connects to WiFi, registers itself, and displays your KDS screens
 
-```bash
-# Install Node.js 20 LTS
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash -
-sudo apt-get install -y nodejs
+### Option C: Manual Setup
 
-# Verify installation
-node --version  # Should show v20.x
-npm --version
-```
+Step-by-step instructions for full control.
 
-### 2. Install PM2 (Process Manager)
+1. Flash Raspberry Pi OS Lite (64-bit) and boot
+2. Connect to WiFi and enable SSH
+3. Install packages:
+   ```bash
+   sudo apt update && sudo apt install -y chromium-browser xserver-xorg xinit x11-xserver-utils unclutter jq
+   ```
+4. Register your device (get setup code from admin UI):
+   ```bash
+   curl -s -X POST https://your-domain.com/api/kds/register \
+     -H "Content-Type: application/json" \
+     -d '{"setup_code":"YOUR-CODE"}' > ~/kds-config.json
+   ```
+5. Download kiosk scripts:
+   ```bash
+   curl -sL https://your-domain.com/api/kds/kiosk-script?type=kiosk > ~/kds-kiosk.sh
+   curl -sL https://your-domain.com/api/kds/kiosk-script?type=register > ~/kds-register.sh
+   chmod +x ~/kds-kiosk.sh ~/kds-register.sh
+   ```
+6. Configure autostart:
+   ```bash
+   echo '[[ -z $DISPLAY && $XDG_VTNR -eq 1 ]] && startx ~/kds-kiosk.sh' >> ~/.bash_profile
+   ```
+7. Disable screen blanking:
+   ```bash
+   sudo mkdir -p /etc/X11/xorg.conf.d
+   sudo tee /etc/X11/xorg.conf.d/10-blanking.conf << 'EOF'
+   Section "ServerFlags"
+       Option "BlankTime" "0"
+       Option "StandbyTime" "0"
+       Option "SuspendTime" "0"
+       Option "OffTime" "0"
+   EndSection
+   EOF
+   ```
+8. Reboot: `sudo reboot`
 
-```bash
-sudo npm install -g pm2
-```
+## Display Configuration
 
-### 3. Transfer Your App
+### Dual Screen Setup
 
-**Option A: Git clone (if repo is accessible)**
-```bash
-cd ~
-git clone <your-repo-url> cafe-pulse
-cd cafe-pulse/website
-```
+The Pi 4 has two HDMI ports. By default:
+- **HDMI-1** → Drinks screen
+- **HDMI-2** → Food screen
 
-**Option B: Rsync from your development machine**
-```bash
-# Run this FROM your Mac/development machine
-rsync -avz --exclude 'node_modules' --exclude '.next' --exclude '.git' \
-  /path/to/cafe-pulse/website/ \
-  pi@<raspberry-pi-ip>:~/cafe-pulse/
-```
+Screen assignments are configured in the admin UI during device setup and can be changed anytime from the Device Manager.
 
-### 4. Setup Environment Variables
+### Single Screen
 
-```bash
-# On the Pi
-cd ~/cafe-pulse
-nano .env.local
-```
+If only one TV is connected, the Pi detects this automatically and launches only one Chromium window. A message in the log suggests connecting a second TV.
 
-Add your environment variables (copy from your development `.env.local`):
-```bash
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
-SUPABASE_SECRET_KEY=your_secret_key
-# ... other required env vars
-```
+## Content Updates
 
-### 5. Build and Run
+Menu updates are **automatic** — no Pi reboot needed.
 
-```bash
-cd ~/cafe-pulse
+1. Update prices in Square
+2. Sync to Google Sheet (KDS Config → Manage Sheet → Sync from Square)
+3. Import the sheet (KDS Config → Manage Sheet → Import)
+4. Within 5 minutes, the Pi's browser auto-refreshes and shows new prices
 
-# Install dependencies
-npm install
+Layout changes, new categories, and image updates also propagate automatically.
 
-# Build for production
-npm run build
+## Device Management
 
-# Start with PM2
-pm2 start npm --name "cafe-pulse" -- start
+From the admin UI at **KDS Config → Deploy to TV**:
 
-# Save PM2 config to survive reboots
-pm2 save
-pm2 startup  # Follow the instructions it outputs
-```
+- **Status monitoring** — Green dot = online (heartbeat within 3 min), red = offline
+- **Rename** — Click the edit icon to rename a device
+- **Change screens** — Reassign which screen shows on which HDMI output
+- **Revoke** — Remove a device (it will stop displaying KDS screens)
 
----
+## Offline Behavior
 
-## Chromium Kiosk Mode (TV Display)
-
-### Install Chromium
-
-```bash
-sudo apt-get install -y chromium-browser
-```
-
-### Create Autostart Entry
-
-```bash
-mkdir -p ~/.config/autostart
-nano ~/.config/autostart/kds-kiosk.desktop
-```
-
-Add this content:
-```ini
-[Desktop Entry]
-Type=Application
-Name=KDS Kiosk
-Exec=/home/pi/kds-kiosk.sh
-X-GNOME-Autostart-enabled=true
-```
-
-### Create Kiosk Script
-
-```bash
-nano ~/kds-kiosk.sh
-```
-
-```bash
-#!/bin/bash
-
-# Wait for network and app to be ready
-sleep 10
-
-# Disable screen blanking
-xset s off
-xset -dpms
-xset s noblank
-
-# Start Chromium in kiosk mode
-chromium-browser \
-  --kiosk \
-  --noerrdialogs \
-  --disable-infobars \
-  --disable-session-crashed-bubble \
-  --disable-restore-session-state \
-  --start-fullscreen \
-  http://localhost:3000/admin/kds/drinks
-```
-
-Make it executable:
-```bash
-chmod +x ~/kds-kiosk.sh
-```
-
----
-
-## Two-Screen Setup (Drinks + Food)
-
-For the full KDS setup with two displays:
-
-| Screen | URL | Content |
-|--------|-----|---------|
-| Screen 1 | `http://localhost:3000/admin/kds/drinks` | Hot drinks, espressos, cold drinks, blended |
-| Screen 2 | `http://localhost:3000/admin/kds/food` | Breakfast, pastries, sandwiches, snacks |
-
-### Option A: Two Raspberry Pis
-- Configure each Pi with the appropriate URL in `kds-kiosk.sh`
-
-### Option B: Single Pi with Dual Monitors
-- Modify the kiosk script to open two browser windows on different displays:
-
-```bash
-#!/bin/bash
-sleep 10
-xset s off && xset -dpms && xset s noblank
-
-# Display 1 - Drinks
-DISPLAY=:0.0 chromium-browser --kiosk --app=http://localhost:3000/admin/kds/drinks &
-
-# Display 2 - Food
-DISPLAY=:0.1 chromium-browser --kiosk --app=http://localhost:3000/admin/kds/food &
-```
-
----
-
-## PM2 Commands Reference
-
-```bash
-# View app logs
-pm2 logs cafe-pulse
-
-# View real-time logs
-pm2 logs cafe-pulse --lines 100
-
-# Restart app
-pm2 restart cafe-pulse
-
-# Stop app
-pm2 stop cafe-pulse
-
-# Check status
-pm2 status
-
-# Monitor resources
-pm2 monit
-```
-
----
-
-## Updating the App
-
-```bash
-cd ~/cafe-pulse
-
-# If using git
-git pull
-
-# Or rsync new files from dev machine
-
-# Rebuild and restart
-npm install
-npm run build
-pm2 restart cafe-pulse
-```
-
----
+If the internet connection drops:
+- The current menu content **stays visible** on the TV
+- A small "Offline" indicator appears in the bottom-right corner
+- When the connection returns, the indicator disappears and the page refreshes
 
 ## Troubleshooting
 
-### App won't start
-```bash
-# Check logs for errors
-pm2 logs cafe-pulse --lines 50
+### Screens are blank / not loading
 
-# Verify environment variables
-cat .env.local
+1. Check if the Pi has internet: `ping google.com`
+2. Check if the app is accessible: `curl -s https://your-domain.com/api/kds/heartbeat`
+3. Check kiosk log: `cat ~/kds-kiosk.log`
+4. Verify the device is registered: `cat ~/kds-config.json | jq .device_id`
 
-# Try running manually to see errors
-npm start
-```
+### Device shows "Offline" in admin UI
 
-### Screen goes blank
-```bash
-# Disable screen saver permanently
-sudo nano /etc/lightdm/lightdm.conf
+- Check Pi's internet connection
+- Check if Chromium is running: `ps aux | grep chromium`
+- Reboot the Pi: `sudo reboot`
 
-# Add under [Seat:*]:
-xserver-command=X -s 0 -dpms
-```
+### Second TV not showing
 
-### Browser shows login page
-The KDS routes require admin authentication. Either:
-1. Log in once and the session will persist
-2. Or configure a service account for unattended display
+- Verify HDMI-2 cable is connected before booting
+- Check display detection: `xrandr`
+- Reboot with both cables connected
 
-### Network issues
-```bash
-# Check network connectivity
-ping google.com
+### Setup code expired
 
-# Check if app is running
-curl http://localhost:3000
+- Setup codes expire after 24 hours
+- Generate a new one: revoke the device in admin UI and add a new one
 
-# Check PM2 status
-pm2 status
-```
+### Menu not updating
 
----
+- Auto-refresh runs every 5 minutes
+- Force refresh: reboot the Pi or press F5 if a keyboard is connected
+- Verify the latest data was imported in the admin UI
 
-## Security Notes
+## Security
 
-- The `.env.local` file contains sensitive keys - ensure proper file permissions:
-  ```bash
-  chmod 600 .env.local
-  ```
-- Consider using a firewall to restrict access:
-  ```bash
-  sudo apt-get install ufw
-  sudo ufw allow ssh
-  sudo ufw allow 3000
-  sudo ufw enable
-  ```
-- For production, consider running behind a reverse proxy (nginx) with HTTPS
+- Device auth tokens are stored hashed in the database
+- The display route (`/kds/display/:deviceId/:screen`) requires a valid device token cookie
+- Tokens can be revoked from the admin UI at any time
+- SSH is enabled by default on the Pi for troubleshooting — consider disabling or key-only auth for production (see `doc/raspberry-pi-secure-setup.md`)
+
+## Hardware Recommendations
+
+| Component | Recommendation |
+|-----------|---------------|
+| Raspberry Pi | Pi 4 Model B, 2GB+ RAM |
+| SD Card | 16GB+ Class 10 / UHS-I |
+| Power Supply | Official USB-C 3A (5.1V) |
+| TV | Any TV with HDMI input, 1080p recommended |
+| Case | Official case or passive cooling case |
+| Network | WiFi or Ethernet (Ethernet preferred for reliability) |
