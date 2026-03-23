@@ -1,4 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
+import { config } from 'dotenv';
+
+// Load test credentials
+config({ path: '.env.test.local', override: false })
+config({ path: '.env.test', override: false })
 
 /**
  * Playwright E2E Testing Configuration for Multi-Tenant SaaS
@@ -39,9 +44,19 @@ export default defineConfig({
 
   // Configure projects for major browsers
   projects: [
+    // Auth setup — runs first, saves session state
+    {
+      name: 'setup',
+      testMatch: /auth\.setup\.ts/,
+    },
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        // Reuse authenticated session from setup
+        storageState: 'tests/e2e/.auth/owner.json',
+      },
+      dependencies: ['setup'],
     },
     // Uncomment to test on more browsers
     // {
@@ -54,12 +69,12 @@ export default defineConfig({
     // },
   ],
 
-  // Run local dev server before starting tests (optional)
-  // Uncomment if you want Playwright to start the dev server automatically
-  // webServer: {
-  //   command: 'npm run dev',
-  //   url: 'http://localhost:3000',
-  //   reuseExistingServer: !process.env.CI,
-  //   timeout: 120 * 1000,
-  // },
+  // Dev server must be running before tests: npm run dev
+  // Playwright connects to it rather than managing its lifecycle
+  webServer: {
+    command: 'npm run dev',
+    url: 'http://localhost:3000',
+    reuseExistingServer: true,
+    timeout: 300 * 1000,
+  },
 });

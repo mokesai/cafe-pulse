@@ -61,3 +61,11 @@ next-env.d.ts
 /public/images/kds/photos/refreshers/
 /public/images/kds/photos/sandwiches/
 .mcp.json
+
+# Wanda workspace files (not for repo)
+RENAME.md
+.8x/
+
+# Test credentials (never commit)
+.env.test.local
+tests/e2e/.auth/

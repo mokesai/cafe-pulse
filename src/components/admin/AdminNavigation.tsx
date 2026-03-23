@@ -15,7 +15,8 @@ import {
   LogOut,
   Bell,
   FileText,
-  DollarSign
+  DollarSign,
+  Monitor
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useTenant } from '@/providers/TenantProvider'
@@ -30,6 +31,7 @@ const navigation = [
   { name: 'COGS', href: '/admin/cogs', icon: DollarSign },
   { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
   { name: 'Customers', href: '/admin/customers', icon: Users },
+  { name: 'KDS Setup', href: '/admin/kds-config', icon: Monitor },
   { name: 'Team', href: '/admin/team', icon: Users },
   { name: 'Settings', href: '/admin/settings', icon: Settings },
 ]
@@ -77,7 +79,7 @@ export function AdminNavigation() {
       <nav className="mt-8">
         <div className="px-2 space-y-1">
           {navigation.map((item) => {
-            const isActive = pathname === item.href
+            const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
             return (
               <Link
                 key={item.name}

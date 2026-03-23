@@ -4,6 +4,10 @@
  * class to the root element.
  */
 
+/* Google Fonts — must be first before any other rules (Turbopack strict @import ordering) */
+@import url('https://fonts.googleapis.com/css2?family=Great+Vibes&family=Nunito:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Lato:wght@400;500;600;700;900&display=swap');
+
 /* Base structural styles (layout, grid, magazine, responsive) */
 @import './kds-base.css';
 

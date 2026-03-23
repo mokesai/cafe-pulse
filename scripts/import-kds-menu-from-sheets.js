@@ -246,7 +246,7 @@ function transformCategory(row, tenantId) {
   // Parse boolean for show_size_header (default to true if not specified)
   let showSizeHeader = true
   if (row.show_size_header !== undefined && row.show_size_header !== '') {
-    showSizeHeader = row.show_size_header === 'true' || row.show_size_header === 'TRUE' || row.show_size_header === '1' || row.show_size_header === true
+    showSizeHeader = row.show_size_header === 'true' || row.show_size_header === 'TRUE' || row.show_size_header === '1' || row.show_size_header === true || row.show_size_header === 'yes' || row.show_size_header === 'YES'
   }
 
   return {
@@ -254,8 +254,6 @@ function transformCategory(row, tenantId) {
     slug: row.slug,
     name: row.name,
     screen: row.screen,
-    position: row.position || null,
-    sort_order: parseInt(row.sort_order, 10) || 0,
     color: row.color || null,
     icon: row.icon || null,
     display_type: row.display_type || null,
@@ -283,8 +281,8 @@ function transformMenuItem(row, categoryMap, tenantId) {
   }
 
   // Parse booleans
-  const isVisible = row.is_visible === 'true' || row.is_visible === 'TRUE' || row.is_visible === '1' || row.is_visible === true
-  const featured = row.featured === 'true' || row.featured === 'TRUE' || row.featured === '1' || row.featured === true
+  const isVisible = row.is_visible === 'true' || row.is_visible === 'TRUE' || row.is_visible === '1' || row.is_visible === true || row.is_visible === 'yes' || row.is_visible === 'YES'
+  const featured = row.featured === 'true' || row.featured === 'TRUE' || row.featured === '1' || row.featured === true || row.featured === 'yes' || row.featured === 'YES'
 
   return {
     tenant_id: tenantId,
@@ -301,12 +299,12 @@ function transformMenuItem(row, categoryMap, tenantId) {
     display_type: row.display_type || null,
     featured: featured,
     bullet_color: row.bullet_color || null,
-    parent_item: row.parent_item || null,
+    parent_item: row.sub_group || row.parent_item || null,
   }
 }
 
 function transformImage(row, tenantId) {
-  const isActive = row.is_active === 'true' || row.is_active === 'TRUE' || row.is_active === '1' || row.is_active === true
+  const isActive = row.is_active === 'true' || row.is_active === 'TRUE' || row.is_active === '1' || row.is_active === true || row.is_active === 'yes' || row.is_active === 'YES'
 
   return {
     tenant_id: tenantId,
