@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { 
   X, 
   FileText, 
@@ -17,6 +18,21 @@ import {
   Info
 } from 'lucide-react'
 import { Invoice } from '@/types/invoice'
+import { InvoiceException } from '@/types/invoice-exceptions'
+import { PipelineProgressBar } from './invoices/PipelineProgressBar'
+import { PipelineRunningPanel } from './invoices/PipelineRunningPanel'
+import { PipelineErrorPanel } from './invoices/PipelineErrorPanel'
+import { InvoiceExceptionsPanel } from './invoices/InvoiceExceptionsPanel'
+import { AutoConfirmedPanel } from './invoices/AutoConfirmedPanel'
+
+// Pipeline stages that indicate active/in-progress processing
+const IN_PROGRESS_PIPELINE_STAGES = new Set([
+  'extracting',
+  'resolving_supplier',
+  'matching_po',
+  'matching_items',
+  'confirming',
+])
 
 interface InvoiceItem {
   id: string
@@ -40,6 +56,7 @@ interface InvoiceItem {
 
 interface DetailedInvoice extends Omit<Invoice, 'invoice_items'> {
   invoice_items: InvoiceItem[]
+  open_exceptions?: InvoiceException[]
 }
 
 interface InvoiceDetailsModalProps {
@@ -51,12 +68,15 @@ interface InvoiceDetailsModalProps {
 export function InvoiceDetailsModal({ invoice, isOpen, onClose }: InvoiceDetailsModalProps) {
   const [detailedInvoice, setDetailedInvoice] = useState<DetailedInvoice | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [downloadError, setDownloadError] = useState<string | null>(null)
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const router = useRouter()
 
-  const loadInvoiceDetails = useCallback(async () => {
+  const loadInvoiceDetails = useCallback(async (silent = false) => {
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       const response = await fetch(`/api/admin/invoices/${invoice.id}`)
       const result = await response.json()
       
@@ -68,13 +88,40 @@ export function InvoiceDetailsModal({ invoice, isOpen, onClose }: InvoiceDetails
     } catch (error) {
       console.error('Error loading invoice details:', error)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [invoice.id])
 
+  // Auto-poll every 5s while pipeline is in-progress
+  useEffect(() => {
+    if (!isOpen || !detailedInvoice) return
+
+    const stage = detailedInvoice.pipeline_stage
+    const isInProgress = stage ? IN_PROGRESS_PIPELINE_STAGES.has(stage) : false
+
+    if (isInProgress) {
+      pollIntervalRef.current = setInterval(() => {
+        void loadInvoiceDetails(true)
+      }, 5_000)
+    }
+
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current)
+        pollIntervalRef.current = null
+      }
+    }
+  }, [isOpen, detailedInvoice?.pipeline_stage, loadInvoiceDetails])
+
+  const handleManualRefresh = useCallback(async () => {
+    setRefreshing(true)
+    await loadInvoiceDetails(true)
+    setRefreshing(false)
+  }, [loadInvoiceDetails])
+
   useEffect(() => {
     if (isOpen && invoice.id) {
-      loadInvoiceDetails()
+      void loadInvoiceDetails()
     }
   }, [isOpen, invoice.id, loadInvoiceDetails])
 
@@ -185,6 +232,74 @@ export function InvoiceDetailsModal({ invoice, isOpen, onClose }: InvoiceDetails
           </div>
         ) : detailedInvoice ? (
           <div className="space-y-6">
+            {/* Pipeline Progress Indicator — shown whenever pipeline data is present */}
+            {detailedInvoice.pipeline_stage !== undefined && (
+              <div className="space-y-3">
+                <PipelineProgressBar
+                  pipelineStage={detailedInvoice.pipeline_stage}
+                  status={detailedInvoice.status}
+                  pipelineStartedAt={detailedInvoice.pipeline_started_at}
+                  pipelineCompletedAt={detailedInvoice.pipeline_completed_at}
+                  pipelineError={detailedInvoice.pipeline_error}
+                />
+
+                {/* Contextual panel based on current pipeline state */}
+                {(() => {
+                  const stage = detailedInvoice.pipeline_stage
+                  const status = detailedInvoice.status
+
+                  // Error state
+                  if (stage === 'failed' || status === 'error') {
+                    return (
+                      <PipelineErrorPanel
+                        invoiceId={detailedInvoice.id}
+                        pipelineError={detailedInvoice.pipeline_error}
+                        pipelineStage={stage}
+                        onRetrySuccess={() => void loadInvoiceDetails(true)}
+                        onViewExceptions={() => {
+                          onClose()
+                          router.push(`/admin/invoice-exceptions?invoice_id=${detailedInvoice.id}`)
+                        }}
+                      />
+                    )
+                  }
+
+                  // In-progress state
+                  if (stage && IN_PROGRESS_PIPELINE_STAGES.has(stage)) {
+                    return (
+                      <PipelineRunningPanel
+                        pipelineStage={stage}
+                        onRefresh={() => void handleManualRefresh()}
+                        refreshing={refreshing}
+                      />
+                    )
+                  }
+
+                  // Pending exceptions state
+                  if (status === 'pending_exceptions' && (detailedInvoice.open_exceptions?.length ?? 0) > 0) {
+                    return (
+                      <InvoiceExceptionsPanel
+                        invoiceId={detailedInvoice.id}
+                        exceptions={detailedInvoice.open_exceptions!}
+                        openCount={detailedInvoice.open_exception_count ?? detailedInvoice.open_exceptions!.length}
+                      />
+                    )
+                  }
+
+                  // Confirmed / auto-confirmed state
+                  if (stage === 'completed' || status === 'confirmed') {
+                    return (
+                      <AutoConfirmedPanel
+                        pipelineCompletedAt={detailedInvoice.pipeline_completed_at}
+                      />
+                    )
+                  }
+
+                  return null
+                })()}
+              </div>
+            )}
+
             {/* Invoice Summary */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-gray-50 p-4 rounded-lg">
@@ -233,6 +348,11 @@ export function InvoiceDetailsModal({ invoice, isOpen, onClose }: InvoiceDetails
                     <p className="text-lg font-semibold text-gray-900">
                       {getStatusText(detailedInvoice.status)}
                     </p>
+                    {detailedInvoice.pipeline_stage && (
+                      <p className="text-xs text-gray-400 mt-0.5 capitalize">
+                        Stage: {detailedInvoice.pipeline_stage.replace(/_/g, ' ')}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -350,6 +470,22 @@ export function InvoiceDetailsModal({ invoice, isOpen, onClose }: InvoiceDetails
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Line Items — skeleton when pipeline is still extracting/matching */}
+            {detailedInvoice.pipeline_stage && IN_PROGRESS_PIPELINE_STAGES.has(detailedInvoice.pipeline_stage) &&
+              (detailedInvoice.invoice_items?.length ?? 0) === 0 && (
+              <div className="bg-white border border-gray-200 rounded-lg p-6" aria-label="Loading line items…">
+                <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                  <Package className="w-5 h-5 mr-2" />
+                  Line Items
+                </h3>
+                <div className="space-y-3 animate-pulse">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-10 bg-gray-200 rounded" />
+                  ))}
+                </div>
               </div>
             )}
 

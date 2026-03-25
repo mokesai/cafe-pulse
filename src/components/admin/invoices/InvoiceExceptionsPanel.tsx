@@ -34,9 +34,10 @@ function getExceptionBrief(ex: InvoiceException): string {
     case 'no_item_match':
       return (ctx.invoice_description as string) ?? ex.exception_message
     case 'price_variance': {
-      const pct = typeof ctx.variance_pct === 'number' ? Math.abs(Math.round(ctx.variance_pct)) : null
+      const variancePct = typeof ctx.variance_pct === 'number' ? ctx.variance_pct : null
+      const pct = variancePct !== null ? Math.abs(Math.round(variancePct)) : null
       const name = (ctx.inventory_item_name as string) ?? ''
-      return pct !== null ? `${name} ${ctx.variance_pct > 0 ? '+' : '−'}${pct}%` : ex.exception_message
+      return pct !== null ? `${name} ${variancePct! > 0 ? '+' : '−'}${pct}%` : ex.exception_message
     }
     default:
       return ''

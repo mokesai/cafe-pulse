@@ -2,10 +2,21 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Upload, FileText, Clock, CheckCircle, AlertCircle, Plus, Eye } from 'lucide-react'
+import Link from 'next/link'
 import { Invoice } from '@/types/invoice'
 import { InvoiceReviewInterface } from './InvoiceReviewInterface'
 import { InvoiceUploadModal } from './InvoiceUploadModal'
 import { InvoiceDetailsModal } from './InvoiceDetailsModal'
+import { PipelineStatusBadge } from './invoices/PipelineStatusBadge'
+
+// Pipeline stages that indicate active/in-progress processing
+const IN_PROGRESS_STAGES = new Set([
+  'extracting',
+  'resolving_supplier',
+  'matching_po',
+  'matching_items',
+  'confirming',
+])
 
 interface Supplier {
   id: string
@@ -142,89 +153,119 @@ function InvoicesList({ invoices, loading, parsing, onReviewInvoice, onParseInvo
   return (
     <div className="bg-white shadow rounded-lg overflow-hidden">
       <ul className="divide-y divide-gray-200">
-        {invoices.map((invoice) => (
-          <li key={invoice.id} className="px-6 py-4 hover:bg-gray-50">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  {getStatusIcon(invoice.status)}
+        {invoices.map((invoice) => {
+          const isPipelineInProgress = invoice.pipeline_stage
+            ? IN_PROGRESS_STAGES.has(invoice.pipeline_stage)
+            : false
+          const hasPipelineStatus = !!(invoice.pipeline_stage || invoice.status === 'pipeline_running' || invoice.status === 'pending_exceptions' || invoice.status === 'confirmed' || invoice.status === 'error' || invoice.status === 'duplicate')
+
+          return (
+            <li
+              key={invoice.id}
+              className={`px-6 py-4 hover:bg-gray-50 ${isPipelineInProgress ? 'animate-pulse-subtle' : ''}`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    {getStatusIcon(invoice.status)}
+                  </div>
+                  <div className="ml-4">
+                    <div className="flex items-center flex-wrap gap-2">
+                      <p className="text-sm font-medium text-gray-900">
+                        {invoice.invoice_number}
+                      </p>
+                      {/* Pipeline status badge — shown when pipeline data available */}
+                      {hasPipelineStatus ? (
+                        <PipelineStatusBadge
+                          pipelineStage={invoice.pipeline_stage}
+                          status={invoice.status}
+                          openExceptionCount={invoice.open_exception_count}
+                        />
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                          {getStatusText(invoice.status)}
+                        </span>
+                      )}
+                      {/* Exceptions column — amber link badge when there are open exceptions */}
+                      {(invoice.open_exception_count ?? 0) > 0 && (
+                        <Link
+                          href={`/admin/invoice-exceptions?invoice_id=${invoice.id}`}
+                          className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 hover:bg-amber-200 transition-colors"
+                          onClick={(e) => e.stopPropagation()}
+                          title="View exceptions for this invoice"
+                        >
+                          {invoice.open_exception_count} open
+                        </Link>
+                      )}
+                    </div>
+                    <div className="flex items-center mt-1 text-sm text-gray-500">
+                      <span>{invoice.suppliers?.name || 'Unknown Supplier'}</span>
+                      <span className="mx-1">•</span>
+                      <span>{new Date(invoice.invoice_date).toLocaleDateString()}</span>
+                      <span className="mx-1">•</span>
+                      <span>
+                        {invoice.total_amount > 0
+                          ? `$${invoice.total_amount.toFixed(2)}`
+                          : 'Pending'
+                        }
+                      </span>
+                    </div>
+                    {renderTextAnalysisIndicators(invoice.text_analysis)}
+                  </div>
                 </div>
-                <div className="ml-4">
-                  <div className="flex items-center">
-                    <p className="text-sm font-medium text-gray-900">
-                      {invoice.invoice_number}
-                    </p>
-                    <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                      {getStatusText(invoice.status)}
-                    </span>
-                  </div>
-              <div className="flex items-center mt-1 text-sm text-gray-500">
-                <span>{invoice.suppliers?.name || 'Unknown Supplier'}</span>
-                <span className="mx-1">•</span>
-                <span>{new Date(invoice.invoice_date).toLocaleDateString()}</span>
-                <span className="mx-1">•</span>
-                <span>
-                  {invoice.total_amount > 0 
-                    ? `$${invoice.total_amount.toFixed(2)}` 
-                    : 'Pending'
-                  }
-                </span>
-              </div>
-              {renderTextAnalysisIndicators(invoice.text_analysis)}
-            </div>
-              </div>
-              <div className="flex items-center space-x-2">
-                {invoice.parsing_confidence && (
-                  <div className="text-sm text-gray-500">
-                    {Math.round(invoice.parsing_confidence * 100)}% confidence
-                  </div>
-                )}
-                {['uploaded', 'error'].includes(invoice.status) && (
-                  <button 
-                    onClick={() => onParseInvoice(invoice.id)}
-                    disabled={parsing === invoice.id}
-                    className={`text-sm disabled:opacity-50 ${
-                      invoice.status === 'error' 
-                        ? 'text-orange-600 hover:text-orange-900' 
-                        : 'text-green-600 hover:text-green-900'
-                    }`}
-                  >
-                    {parsing === invoice.id 
-                      ? 'Parsing...' 
-                      : invoice.status === 'error' 
-                        ? 'Retry Parse' 
-                        : 'Parse with AI'
-                    }
-                  </button>
-                )}
-                {!['uploaded', 'error', 'parsing'].includes(invoice.status) && (
+                <div className="flex items-center space-x-2">
+                  {invoice.parsing_confidence && (
+                    <div className="text-sm text-gray-500">
+                      {Math.round(invoice.parsing_confidence * 100)}% confidence
+                    </div>
+                  )}
+                  {['uploaded', 'error'].includes(invoice.status) && (
+                    <button
+                      onClick={() => onParseInvoice(invoice.id)}
+                      disabled={parsing === invoice.id}
+                      className={`text-sm disabled:opacity-50 ${
+                        invoice.status === 'error'
+                          ? 'text-orange-600 hover:text-orange-900'
+                          : 'text-green-600 hover:text-green-900'
+                      }`}
+                    >
+                      {parsing === invoice.id
+                        ? 'Parsing...'
+                        : invoice.status === 'error'
+                          ? 'Retry Parse'
+                          : 'Parse with AI'
+                      }
+                    </button>
+                  )}
+                  {!['uploaded', 'error', 'parsing'].includes(invoice.status) && (
+                    <button
+                      onClick={() => handleReparse(invoice.id)}
+                      disabled={parsing === invoice.id}
+                      className="text-sm text-green-600 hover:text-green-900 disabled:opacity-50"
+                    >
+                      {parsing === invoice.id ? 'Parsing...' : 'Re-parse with AI'}
+                    </button>
+                  )}
+                  {['parsed', 'reviewing', 'matched'].includes(invoice.status) && (
+                    <button
+                      onClick={() => onReviewInvoice(invoice)}
+                      className="text-sm text-blue-600 hover:text-blue-900"
+                    >
+                      <Eye className="w-4 h-4 inline mr-1" />
+                      Review Matches
+                    </button>
+                  )}
                   <button
-                    onClick={() => handleReparse(invoice.id)}
-                    disabled={parsing === invoice.id}
-                    className="text-sm text-green-600 hover:text-green-900 disabled:opacity-50"
+                    onClick={() => onViewDetails(invoice)}
+                    className="text-sm text-indigo-600 hover:text-indigo-900"
                   >
-                    {parsing === invoice.id ? 'Parsing...' : 'Re-parse with AI'}
+                    View Details
                   </button>
-                )}
-                {['parsed', 'reviewing', 'matched'].includes(invoice.status) && (
-                  <button 
-                    onClick={() => onReviewInvoice(invoice)}
-                    className="text-sm text-blue-600 hover:text-blue-900"
-                  >
-                    <Eye className="w-4 h-4 inline mr-1" />
-                    Review Matches
-                  </button>
-                )}
-                <button 
-                  onClick={() => onViewDetails(invoice)}
-                  className="text-sm text-indigo-600 hover:text-indigo-900"
-                >
-                  View Details
-                </button>
+                </div>
               </div>
-            </div>
-          </li>
-        ))}
+            </li>
+          )
+        })}
       </ul>
     </div>
   )
@@ -321,6 +362,21 @@ export function InvoiceManagement() {
   useEffect(() => {
     fetchInvoices()
   }, [fetchInvoices])
+
+  // Auto-refresh every 10s while any invoice is in an active pipeline stage.
+  // Stops automatically when all rows reach a terminal state.
+  useEffect(() => {
+    const hasInProgress = invoices.some(
+      (inv) => inv.pipeline_stage && IN_PROGRESS_STAGES.has(inv.pipeline_stage)
+    )
+    if (!hasInProgress) return
+
+    const interval = setInterval(() => {
+      void fetchInvoices()
+    }, 10_000)
+
+    return () => clearInterval(interval)
+  }, [invoices, fetchInvoices])
 
   const fetchSuppliers = async () => {
     try {
