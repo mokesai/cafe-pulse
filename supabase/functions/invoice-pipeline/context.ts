@@ -5,10 +5,11 @@
  * Runtime: Deno (Supabase Edge Function)
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js'
 
-// Re-export so stages can import from context.ts
-export type { SupabaseClient }
+// Use a concrete (unparameterized) SupabaseClient type to avoid generic inference issues
+// deno-lint-ignore no-explicit-any
+export type SupabaseClient = ReturnType<typeof createClient<any, any, any>>
 
 // ============================================================
 // Tenant Settings

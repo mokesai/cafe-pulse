@@ -201,7 +201,8 @@ async function setPipelineStage(
 }
 
 async function failPipeline(
-  supabase: ReturnType<typeof createClient>,
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
   invoiceId: string,
   tenantId: string,
   errorMessage: string
@@ -230,7 +231,8 @@ async function failPipeline(
 // ============================================================
 
 async function loadTenantSettings(
-  supabase: ReturnType<typeof createClient>,
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
   tenantId: string
 ): Promise<TenantSettings> {
   const { data, error } = await supabase
