@@ -57,6 +57,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
         parsed_data,
         parsing_confidence,
         parsing_error,
+        pipeline_stage,
+        pipeline_started_at,
+        pipeline_completed_at,
+        pipeline_error,
+        vision_confidence,
+        open_exception_count,
         created_at,
         updated_at,
         processed_at,
@@ -106,6 +112,20 @@ export async function GET(request: NextRequest, context: RouteContext) {
             expected_delivery_date,
             total_amount
           )
+        ),
+        invoice_exceptions (
+          id,
+          exception_type,
+          exception_message,
+          exception_context,
+          status,
+          resolution_notes,
+          resolved_by,
+          resolved_at,
+          pipeline_stage_at_creation,
+          invoice_item_id,
+          created_at,
+          updated_at
         )
       `)
       .eq('id', id)
@@ -126,9 +146,21 @@ export async function GET(request: NextRequest, context: RouteContext) {
       )
     }
 
+    // Separate open exceptions for easy access
+    type InvoiceWithExceptions = typeof invoice & {
+      invoice_exceptions?: Array<{ status: string; [key: string]: unknown }>
+      open_exceptions?: Array<{ status: string; [key: string]: unknown }>
+    }
+    const invoiceWithExceptions = invoice as InvoiceWithExceptions
+    const allExceptions = invoiceWithExceptions.invoice_exceptions || []
+    const openExceptions = allExceptions.filter(e => e.status === 'open')
+
     return NextResponse.json({
       success: true,
-      data: invoice
+      data: {
+        ...invoice,
+        open_exceptions: openExceptions
+      }
     })
 
   } catch (error) {
