@@ -20,6 +20,14 @@ export interface Invoice {
 
   // Processing status
   status: InvoiceStatus
+
+  // Pipeline tracking (agentic invoice pipeline)
+  pipeline_stage?: PipelineStage | null
+  pipeline_started_at?: string | null
+  pipeline_completed_at?: string | null
+  pipeline_error?: string | null
+  vision_confidence?: number | null  // 0.0–1.0
+  open_exception_count?: number
   
   // AI parsing results
   parsed_data?: ParsedInvoiceData
@@ -196,12 +204,24 @@ export interface InvoiceTextAnalysis {
 // Enums and Types
 export type InvoiceStatus = 
   | 'uploaded'
-  | 'parsing'
-  | 'parsed'
-  | 'reviewing'
-  | 'matched'
-  | 'confirmed'
-  | 'error'
+  | 'parsing'            // legacy: manual parse in progress
+  | 'parsed'             // legacy: manual parse done
+  | 'reviewing'          // legacy: manual review
+  | 'matched'            // legacy: manual match done
+  | 'pipeline_running'   // NEW: agentic pipeline executing
+  | 'pending_exceptions' // NEW: pipeline paused, open exceptions exist
+  | 'confirmed'          // auto or manual confirmation complete
+  | 'error'              // unrecoverable pipeline or parse failure
+  | 'duplicate'          // NEW: identified as duplicate, blocked
+
+export type PipelineStage =
+  | 'extracting'
+  | 'resolving_supplier'
+  | 'matching_po'
+  | 'matching_items'
+  | 'confirming'
+  | 'completed'
+  | 'failed'
 
 export type MatchMethod = 
   | 'exact'
