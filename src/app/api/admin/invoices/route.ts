@@ -93,6 +93,12 @@ export async function GET(request: NextRequest) {
       parsing_confidence,
       parsing_error,
       text_analysis,
+      pipeline_stage,
+      pipeline_error,
+      vision_confidence,
+      open_exception_count,
+      pipeline_started_at,
+      pipeline_completed_at,
       created_at,
       updated_at,
       suppliers (
