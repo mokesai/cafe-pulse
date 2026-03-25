@@ -16,7 +16,9 @@ import {
   Bell,
   FileText,
   DollarSign,
-  Monitor
+  Monitor,
+  ClipboardList,
+  SlidersHorizontal
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useTenant } from '@/providers/TenantProvider'
@@ -28,12 +30,14 @@ const navigation = [
   { name: 'Menu Management', href: '/admin/menu', icon: MenuIcon },
   { name: 'Inventory', href: '/admin/inventory', icon: Package },
   { name: 'Invoices', href: '/admin/invoices', icon: FileText },
+  { name: 'Invoice Exceptions', href: '/admin/invoice-exceptions', icon: ClipboardList },
   { name: 'COGS', href: '/admin/cogs', icon: DollarSign },
   { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
   { name: 'Customers', href: '/admin/customers', icon: Users },
   { name: 'KDS Setup', href: '/admin/kds-config', icon: Monitor },
   { name: 'Team', href: '/admin/team', icon: Users },
   { name: 'Settings', href: '/admin/settings', icon: Settings },
+  { name: 'Invoice Pipeline', href: '/admin/settings/invoices', icon: SlidersHorizontal },
 ]
 
 export function AdminNavigation() {
