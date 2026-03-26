@@ -20,6 +20,7 @@ import { runSupplierResolution } from './stages/02-resolve-supplier.ts'
 import { runPOMatching } from './stages/03-match-po.ts'
 import { runItemMatching } from './stages/04-match-items.ts'
 import { runConfirmation } from './stages/05-confirm.ts'
+import { runCogsFeed } from './stages/06-cogs-feed.ts'
 
 // ============================================================
 // StageResult type (imported by stages)
@@ -174,6 +175,10 @@ export async function runInvoicePipeline(
   // Stage 5: Confirm (auto-confirm or set pending_exceptions)
   await setPipelineStage(ctx, 'confirming')
   await runConfirmation(ctx)
+
+  // Stage 6 (P2): COGS Feed — update daily summaries with confirmed invoice cost impact
+  // Non-fatal: failure does not block completion
+  await runCogsFeed(ctx)
 
   console.log(JSON.stringify({
     event: 'pipeline_complete',
