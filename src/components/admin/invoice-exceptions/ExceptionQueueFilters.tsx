@@ -23,17 +23,27 @@ const STATUS_TABS: Array<{ key: ExceptionFilters['status']; label: string }> = [
 ]
 
 const EXCEPTION_TYPE_LABELS: Record<InvoiceExceptionType, string> = {
-  low_extraction_confidence: 'Low Confidence Scan',
+  parse_error: 'Processing Error',
   no_supplier_match: 'Unknown Supplier',
+  duplicate_invoice: 'Duplicate Invoice',
+  low_extraction_confidence: 'Low Confidence Scan',
   no_po_match: 'No Purchase Order',
-  no_item_match: 'Unmatched Item',
   price_variance: 'Price Change',
   quantity_variance: 'Quantity Mismatch',
-  parse_error: 'Processing Error',
-  duplicate_invoice: 'Duplicate Invoice',
+  no_item_match: 'Unmatched Item',
 }
 
-const ALL_TYPES = Object.keys(EXCEPTION_TYPE_LABELS) as InvoiceExceptionType[]
+// Display order matches exception priority (parse_error first, no_item_match last)
+const ALL_TYPES: InvoiceExceptionType[] = [
+  'parse_error',
+  'no_supplier_match',
+  'duplicate_invoice',
+  'low_extraction_confidence',
+  'no_po_match',
+  'price_variance',
+  'quantity_variance',
+  'no_item_match',
+]
 
 interface Supplier {
   id: string
