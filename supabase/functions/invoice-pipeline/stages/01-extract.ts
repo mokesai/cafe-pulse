@@ -341,14 +341,24 @@ async function saveExtractedData(
       pipelineStage: STAGE,
     })
 
-    // Low confidence is non-fatal — continue pipeline with human review flag
+    // AC-02: Low confidence stops the pipeline — do not proceed to downstream stages.
+    // Set status to pending_exceptions so the exception queue shows this invoice.
+    await ctx.supabase
+      .from('invoices')
+      .update({ status: 'pending_exceptions', pipeline_stage: STAGE })
+      .eq('id', ctx.invoiceId)
+      .eq('tenant_id', ctx.tenantId)
+
     console.log(JSON.stringify({
-      event: 'low_extraction_confidence',
+      event: 'low_extraction_confidence_halt',
       invoice_id: ctx.invoiceId,
       overall_confidence: overallConfidence,
       threshold: visionThreshold,
       flagged_item_count: flaggedItemCount,
     }))
+
+    // Return ok:false with fatal:false — creates exception but signals orchestrator to stop.
+    return { ok: false, fatal: false, error: 'Low extraction confidence — pipeline halted pending human review' }
   }
 
   // ── Check for duplicate invoice ──────────────────────────────────────────
