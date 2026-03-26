@@ -4,6 +4,8 @@ import { getSiteSettings, getSiteStatusUsingServiceClient } from '@/lib/services
 import { getSettings as getKDSSettings } from '@/lib/kds/queries'
 import type { KDSTheme } from '@/lib/kds/types'
 import { getCurrentTenantId } from '@/lib/tenant/context'
+import Link from 'next/link'
+import { SlidersHorizontal } from 'lucide-react'
 
 export default async function AdminSettingsPage() {
   const tenantId = await getCurrentTenantId()
@@ -21,6 +23,22 @@ export default async function AdminSettingsPage() {
         <p className="text-gray-600 mt-2">
           Configure system settings, integrations, and admin preferences.
         </p>
+      </div>
+
+      {/* Settings navigation tabs */}
+      <div className="border-b border-gray-200 mb-6">
+        <nav className="-mb-px flex space-x-6" aria-label="Settings sections">
+          <span className="border-b-2 border-primary-500 text-primary-600 pb-3 px-1 text-sm font-medium whitespace-nowrap">
+            General
+          </span>
+          <Link
+            href="/admin/settings/invoices"
+            className="border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 pb-3 px-1 text-sm font-medium whitespace-nowrap flex items-center gap-1.5 transition-colors"
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            Invoice Pipeline
+          </Link>
+        </nav>
       </div>
 
       <SiteAvailabilitySettings initialStatus={initialStatus} initialSettings={initialSettings} />

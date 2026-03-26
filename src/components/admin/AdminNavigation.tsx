@@ -16,11 +16,15 @@ import {
   Bell,
   FileText,
   DollarSign,
-  Monitor
+  Monitor,
+<<<<<<< HEAD
+  ClipboardList,
+  SlidersHorizontal
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useTenant } from '@/providers/TenantProvider'
 import type { User } from '@supabase/supabase-js'
+import { ExceptionCountBadge } from '@/components/admin/invoice-exceptions/ExceptionCountBadge'
 
 const navigation = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
@@ -28,12 +32,15 @@ const navigation = [
   { name: 'Menu Management', href: '/admin/menu', icon: MenuIcon },
   { name: 'Inventory', href: '/admin/inventory', icon: Package },
   { name: 'Invoices', href: '/admin/invoices', icon: FileText },
+<<<<<<< HEAD
+  { name: 'Invoice Exceptions', href: '/admin/invoice-exceptions', icon: ClipboardList, showBadge: true },
   { name: 'COGS', href: '/admin/cogs', icon: DollarSign },
   { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
   { name: 'Customers', href: '/admin/customers', icon: Users },
   { name: 'KDS Setup', href: '/admin/kds-config', icon: Monitor },
   { name: 'Team', href: '/admin/team', icon: Users },
   { name: 'Settings', href: '/admin/settings', icon: Settings },
+  { name: 'Invoice Pipeline', href: '/admin/settings/invoices', icon: SlidersHorizontal },
 ]
 
 export function AdminNavigation() {
@@ -94,7 +101,10 @@ export function AdminNavigation() {
                 `}
               >
                 <item.icon className="mr-3 h-5 w-5 flex-shrink-0" />
-                {item.name}
+                <span className="flex-1">{item.name}</span>
+                {'showBadge' in item && item.showBadge && (
+                  <ExceptionCountBadge autoFetch className="ml-2" />
+                )}
               </Link>
             )
           })}
