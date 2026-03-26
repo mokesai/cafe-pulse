@@ -93,6 +93,33 @@ export async function POST(request: NextRequest, context: RouteContext) {
       )
     }
 
+    // Directly call the Edge Function since DB webhooks only fire on INSERT, not UPDATE.
+    // We mimic the webhook payload format so the Edge Function handles it identically.
+    const edgeFunctionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/invoice-pipeline`
+    try {
+      const pipelineResponse = await fetch(edgeFunctionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+        },
+        body: JSON.stringify({
+          type: 'INSERT',
+          table: 'invoices',
+          record: { id, tenant_id: tenantId, status: 'uploaded' }
+        })
+      })
+      if (!pipelineResponse.ok) {
+        console.warn(
+          `Edge Function call returned ${pipelineResponse.status} for invoice ${id}. ` +
+          'Pipeline may not have started. Check Edge Function logs.'
+        )
+      }
+    } catch (edgeError) {
+      console.error('Failed to call Edge Function for pipeline retry:', edgeError)
+      // Non-fatal: the invoice state has been reset, admin can try again.
+    }
+
     console.log(
       `✅ Pipeline retry initiated for invoice ${invoice.invoice_number} (${id}), from_stage=${from_stage}`
     )
