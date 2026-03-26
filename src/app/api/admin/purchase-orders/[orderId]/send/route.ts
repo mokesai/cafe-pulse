@@ -9,7 +9,7 @@ import { generatePurchaseOrderPdf } from '@/lib/purchase-orders/pdf'
 import { fetchSupplierTemplate, buildPurchaseOrderTemplateContext, renderTemplate } from '@/lib/purchase-orders/templates'
 import { canonicalStatus, canTransition, insertStatusHistory } from '../../status-utils'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+function getResend() { return new Resend(process.env.RESEND_API_KEY) }
 
 type SendRequestBody = {
   to?: string | string[]
@@ -194,7 +194,7 @@ export async function POST(
     const pdfBytes = await generatePurchaseOrderPdf(filteredOrder)
     const attachmentFileName = `PO-${order.order_number || order.id}.pdf`
 
-    const emailResponse = await resend.emails.send({
+    const emailResponse = await getResend().emails.send({
       from: process.env.RESEND_PURCHASING_FROM || 'Little Cafe Purchasing <orders@jmcpastrycoffee.com>',
       to: recipients,
       cc: cc.length > 0 ? cc : undefined,
