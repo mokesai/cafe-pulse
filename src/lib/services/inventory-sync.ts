@@ -5,14 +5,20 @@
 
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SECRET_KEY!
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseServiceKey = process.env.SUPABASE_SECRET_KEY
 
-if (!supabaseUrl || !supabaseServiceKey) {
-  throw new Error('Missing Supabase configuration for inventory sync service')
+function getSupabaseClient() {
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error('Missing Supabase configuration for inventory sync service')
+  }
+  return createClient(supabaseUrl, supabaseServiceKey)
 }
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey)
+const supabase = {
+  get from() { return getSupabaseClient().from.bind(getSupabaseClient()) },
+  get rpc() { return getSupabaseClient().rpc.bind(getSupabaseClient()) },
+}
 
 type WebhookEventRecord = {
   event_type: string

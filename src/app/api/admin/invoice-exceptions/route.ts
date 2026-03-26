@@ -4,16 +4,18 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrentTenantId } from '@/lib/tenant/context'
 import type { InvoiceExceptionType } from '@/types/invoice-exceptions'
 
-// Exception type priority for sort ordering (parse_error first, then others)
+// Exception type priority for sort ordering — per Milli's spec:
+// parse_error, no_supplier_match, duplicate_invoice, low_extraction_confidence,
+// no_po_match, price_variance, quantity_variance, no_item_match
 const EXCEPTION_TYPE_PRIORITY: Record<InvoiceExceptionType, number> = {
   parse_error: 0,
-  low_extraction_confidence: 1,
-  no_supplier_match: 2,
-  no_po_match: 3,
-  no_item_match: 4,
+  no_supplier_match: 1,
+  duplicate_invoice: 2,
+  low_extraction_confidence: 3,
+  no_po_match: 4,
   price_variance: 5,
   quantity_variance: 6,
-  duplicate_invoice: 7
+  no_item_match: 7,
 }
 
 export async function GET(request: NextRequest) {
@@ -93,13 +95,30 @@ export async function GET(request: NextRequest) {
       query = query.eq('invoice_id', invoice_id)
     }
 
-    // Supplier ID filter — need to join via invoices
+    // Supplier ID filter — PostgREST does not support .eq('invoices.supplier_id', ...)
+    // Use a two-step query: first fetch invoice IDs for this supplier, then filter.
     if (supplier_id) {
-      // Filter via the joined invoices.supplier_id
-      query = (query as typeof query & { eq: (col: string, val: string) => typeof query }).eq(
-        'invoices.supplier_id',
-        supplier_id
-      )
+      const { data: supplierInvoices } = await supabase
+        .from('invoices')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('supplier_id', supplier_id)
+      const invoiceIds = (supplierInvoices ?? []).map((i: { id: string }) => i.id)
+      if (invoiceIds.length === 0) {
+        // No invoices for this supplier — return empty result fast
+        const { count: openCount } = await supabase
+          .from('invoice_exceptions')
+          .select('*', { count: 'exact', head: true })
+          .eq('tenant_id', tenantId)
+          .eq('status', 'open')
+        return NextResponse.json({
+          success: true,
+          data: [],
+          open_count: openCount || 0,
+          pagination: { page, limit, total: 0, pages: 0 }
+        })
+      }
+      query = query.in('invoice_id', invoiceIds)
     }
 
     // Date range filter

@@ -17,7 +17,6 @@ import {
   FileText,
   DollarSign,
   Monitor,
-<<<<<<< HEAD
   ClipboardList,
   SlidersHorizontal
 } from 'lucide-react'
@@ -32,7 +31,6 @@ const navigation = [
   { name: 'Menu Management', href: '/admin/menu', icon: MenuIcon },
   { name: 'Inventory', href: '/admin/inventory', icon: Package },
   { name: 'Invoices', href: '/admin/invoices', icon: FileText },
-<<<<<<< HEAD
   { name: 'Invoice Exceptions', href: '/admin/invoice-exceptions', icon: ClipboardList, showBadge: true },
   { name: 'COGS', href: '/admin/cogs', icon: DollarSign },
   { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },

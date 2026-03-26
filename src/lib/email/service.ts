@@ -5,7 +5,7 @@ import OrderStatusUpdate from './templates/OrderStatusUpdate'
 import TeamNotification, { getTeamNotificationSubject, type TeamEventType } from './templates/TeamNotification'
 import { getTenantIdentity } from '@/lib/tenant/identity'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+function getResend() { return new Resend(process.env.RESEND_API_KEY) }
 
 export interface OrderEmailData {
   orderId: string
@@ -53,7 +53,7 @@ export class EmailService {
         ? `${tenant.email_sender_name || tenant.name} <${tenant.email_sender_address}>`
         : `${tenant.name} <noreply@jmcpastrycoffee.com>`
 
-      const { data, error } = await resend.emails.send({
+      const { data, error } = await getResend().emails.send({
         from,
         to: [orderData.customerEmail],
         subject: `Order Confirmation #${orderData.orderId.slice(-8)}`,
@@ -116,7 +116,7 @@ export class EmailService {
         ? `${tenant.email_sender_name || tenant.name} <${tenant.email_sender_address}>`
         : `${tenant.name} <noreply@jmcpastrycoffee.com>`
 
-      const { data, error } = await resend.emails.send({
+      const { data, error } = await getResend().emails.send({
         from,
         to: [customerEmail],
         subject: `Order Update #${orderId.slice(-8)} - ${status.charAt(0).toUpperCase() + status.slice(1)}`,
@@ -170,7 +170,7 @@ export class EmailService {
 
       const subject = getTeamNotificationSubject(eventType, tenantName)
 
-      const { data, error } = await resend.emails.send({
+      const { data, error } = await getResend().emails.send({
         from: 'Cafe Pulse <noreply@jmcpastrycoffee.com>',
         to: [recipientEmail],
         subject,

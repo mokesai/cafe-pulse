@@ -180,7 +180,7 @@ async function processInvoiceItem(
   if (cachedAlias) {
     const inventoryItem = inventory.find((i) => i.id === cachedAlias.inventory_item_id)
     if (inventoryItem) {
-      await applyItemMatch(ctx, item, inventoryItem, cachedAlias.confidence, 'manual')
+      await applyItemMatch(ctx, item, inventoryItem, cachedAlias.confidence, 'alias')
       return
     }
   }
@@ -286,7 +286,7 @@ async function applyItemMatch(
   item: InvoiceItem,
   inventoryItem: InventoryItem,
   confidence: number,
-  method: 'exact' | 'fuzzy' | 'manual' | 'sku' | 'ai'
+  method: 'exact' | 'fuzzy' | 'manual' | 'sku' | 'ai' | 'alias'
 ): Promise<void> {
   // Update invoice_item with match result
   const { error: updateError } = await ctx.supabase

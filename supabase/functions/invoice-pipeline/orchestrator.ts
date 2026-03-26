@@ -142,8 +142,18 @@ export async function runInvoicePipeline(
   // Stage 1: Extract
   await setPipelineStage(ctx, 'extracting')
   const extractResult = await runExtraction(ctx)
-  if (!extractResult.ok && extractResult.fatal) {
-    return await failPipeline(supabase, invoiceId, tenantId, extractResult.error)
+  if (!extractResult.ok) {
+    if (extractResult.fatal) {
+      return await failPipeline(supabase, invoiceId, tenantId, extractResult.error)
+    }
+    // Non-fatal stop (e.g. low_extraction_confidence) — pipeline halted, invoice in pending_exceptions
+    console.log(JSON.stringify({
+      event: 'pipeline_halted_non_fatal',
+      stage: 'extracting',
+      invoice_id: invoiceId,
+      reason: extractResult.error,
+    }))
+    return
   }
 
   // Stage 2: Resolve Supplier

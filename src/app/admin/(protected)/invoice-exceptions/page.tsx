@@ -1,10 +1,4 @@
-import dynamic from 'next/dynamic'
-import { Suspense } from 'react'
-
-const ExceptionQueueTable = dynamic(
-  () => import('@/components/admin/invoice-exceptions/ExceptionQueueTable').then(mod => mod.ExceptionQueueTable),
-  { loading: () => <div className="animate-pulse space-y-3">{[1,2,3].map(i => <div key={i} className="h-16 bg-gray-200 rounded-lg" />)}</div>, ssr: false }
-)
+import { ExceptionQueuePageClient } from '@/components/admin/invoice-exceptions/ExceptionQueuePageClient'
 
 export const metadata = {
   title: 'Invoice Exceptions',
@@ -19,9 +13,7 @@ export default function AdminInvoiceExceptionsPage() {
         <p className="text-sm text-gray-500 mt-1">Review and resolve exceptions from the invoice pipeline.</p>
       </div>
 
-      <Suspense fallback={<div className="animate-pulse h-16 bg-gray-200 rounded-lg" />}>
-        <ExceptionQueueTable />
-      </Suspense>
+      <ExceptionQueuePageClient />
     </div>
   )
 }

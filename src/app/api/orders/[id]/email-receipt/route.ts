@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+function getResend() { return new Resend(process.env.RESEND_API_KEY) }
 
 interface OrderItemRow {
   id: string
@@ -82,7 +82,7 @@ export async function POST(
       ? order.customer_email 
       : 'jerry@jmcpastrycoffee.com' // Your verified Resend email
     
-    const { data, error: resendError } = await resend.emails.send({
+    const { data, error: resendError } = await getResend().emails.send({
       from: 'Little Cafe <orders@jmcpastrycoffee.com>', // Same as existing email service
       to: [recipientEmail],
       subject: `Receipt for Order #${order.order_number || order.id.slice(-8)} - Little Cafe${
