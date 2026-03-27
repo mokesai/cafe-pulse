@@ -48,7 +48,7 @@ export async function runInvoicePipeline(
   }))
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  const serviceRoleKey = Deno.env.get('SUPABASE_SECRET_KEY')!
 
   // Service role client — bypasses RLS
   // All queries MUST include explicit .eq('tenant_id', tenantId) filters
