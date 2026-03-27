@@ -131,8 +131,8 @@ serve(async (req: Request) => {
     )
   }
 
-  if (!Deno.env.get('SUPABASE_SECRET_KEY')) {
-    console.error('[index] SUPABASE_SECRET_KEY not set')
+  if (!Deno.env.get('SERVICE_ROLE_KEY')) {
+    console.error('[index] SERVICE_ROLE_KEY not set')
     return new Response(
       JSON.stringify({ error: 'Server configuration error' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }

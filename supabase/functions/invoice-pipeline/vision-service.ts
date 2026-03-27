@@ -331,7 +331,7 @@ export async function fetchExtractedText(
     throw new Error('[vision-service] NEXTJS_BASE_URL not set — cannot call text extraction route')
   }
 
-  const serviceRoleKey = Deno.env.get('SUPABASE_SECRET_KEY')
+  const serviceRoleKey = Deno.env.get('SERVICE_ROLE_KEY')
 
   const url = `${nextjsBaseUrl}/api/admin/invoices/${invoiceId}/extract-text`
 

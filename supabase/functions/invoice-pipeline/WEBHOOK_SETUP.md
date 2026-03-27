@@ -28,7 +28,7 @@ Before configuring the webhook, ensure:
    | Variable | Description |
    |----------|-------------|
    | `SUPABASE_URL` | Your Supabase project URL (usually auto-injected) |
-   | `SUPABASE_SECRET_KEY` | Service role key (bypasses RLS) |
+   | `SERVICE_ROLE_KEY` | Service role key (bypasses RLS) |
    | `OPENROUTER_API_KEY` | OpenRouter API key for GPT-4o Vision calls |
    | `NEXTJS_BASE_URL` | Base URL of your Next.js/Vercel deployment (e.g. `https://app.yourdomain.com`) |
    | `PIPELINE_WEBHOOK_SECRET` | (Optional) Shared secret for webhook authentication |
@@ -148,7 +148,7 @@ and exit immediately without processing.
 - Check Edge Function logs for error details
 - Verify `OPENROUTER_API_KEY` is set correctly
 - Verify `NEXTJS_BASE_URL` points to a deployed Next.js instance
-- Check that `SUPABASE_SECRET_KEY` is the service role key (not anon key)
+- Check that `SERVICE_ROLE_KEY` is the service role key (not anon key)
 
 ### Pipeline Stuck at Stage
 
