@@ -106,6 +106,21 @@ export function extractSubdomain(host: string): string | null {
     return parts[0]
   }
 
+  // Vercel preview/deployment URLs — never treat as subdomained tenant
+  // e.g. cafe-pulse-abc123-jerrys-projects-998e61b3.vercel.app
+  // e.g. cafe-pulse-git-main-jerrys-projects-998e61b3.vercel.app
+  if (hostname.endsWith('.vercel.app')) return null
+
+  // Use NEXT_PUBLIC_SITE_URL to determine the base domain
+  // If the host matches the configured site URL domain exactly, it's a bare domain
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || ''
+  if (siteUrl) {
+    try {
+      const siteHostname = new URL(siteUrl).hostname
+      if (hostname === siteHostname) return null
+    } catch { /* ignore invalid URL */ }
+  }
+
   // slug.domain.com (or deeper, e.g. slug.app.domain.com)
   if (parts.length >= 3) {
     return parts[0]
