@@ -33,7 +33,12 @@ export async function runExtraction(ctx: PipelineContext): Promise<StageResult> 
   }))
 
   const { file_url, file_type } = ctx.invoice
-  const fileTypeLower = file_type.toLowerCase().replace('.', '')
+  // Normalize file type: handle both extensions (.pdf) and MIME types (application/pdf)
+  const fileTypeLower = file_type
+    .toLowerCase()
+    .replace('application/', '')  // Strip MIME type prefix
+    .replace('image/', '')         // Strip image/ prefix
+    .replace('.', '')              // Strip dot prefix
 
   try {
     // ── Idempotency: clear any existing invoice_items for this invoice ────────
