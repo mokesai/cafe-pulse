@@ -48,18 +48,25 @@ export async function GET(
       )
     }
 
-    // Download file from Supabase storage
-    const fileResponse = await fetch(invoice.file_url)
-    if (!fileResponse.ok) {
+    // Download file from Supabase storage using service role
+    // Extract bucket and file path from file_path column
+    const filePath = invoice.file_path // e.g., "supplier-id/filename.pdf"
+    
+    const { data: fileData, error: downloadError } = await supabase.storage
+      .from('invoices')
+      .download(filePath)
+
+    if (downloadError || !fileData) {
+      console.error('[get-file-base64] Download error:', downloadError)
       return addSecurityHeaders(
         NextResponse.json(
-          { error: `Failed to download file: HTTP ${fileResponse.status}` },
+          { error: `Failed to download file: ${downloadError?.message ?? 'unknown error'}` },
           { status: 500 }
         )
       )
     }
 
-    const fileBuffer = await fileResponse.arrayBuffer()
+    const fileBuffer = await fileData.arrayBuffer()
     const fileBase64 = Buffer.from(fileBuffer).toString('base64')
 
     return addSecurityHeaders(
