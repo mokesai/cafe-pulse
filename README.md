@@ -414,3 +414,4 @@ Additional documentation in `doc/`:
 
 **Cafe Pulse** — Multi-tenant cafe management ☕
 
+
