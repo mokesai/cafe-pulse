@@ -140,12 +140,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get public URL for the uploaded file
-    const { data: urlData } = supabase.storage
+    // Generate a signed URL with 24-hour expiry
+    // This allows secure access without making the bucket public
+    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
       .from('invoices')
-      .getPublicUrl(uniqueFileName)
+      .createSignedUrl(uniqueFileName, 86400) // 24 hours in seconds
 
-    const file_url = urlData.publicUrl
+    if (signedUrlError || !signedUrlData) {
+      console.error('Error generating signed URL:', signedUrlError)
+      return NextResponse.json(
+        { error: 'Failed to generate file access URL', details: signedUrlError?.message },
+        { status: 500 }
+      )
+    }
+
+    const file_url = signedUrlData.signedUrl
 
     // When an invoice already exists (non-confirmed), replace it in-place; otherwise insert.
     let newInvoice: UploadedInvoiceRecord | null = null
