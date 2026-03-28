@@ -25,10 +25,6 @@ export interface VisionExtractionInput {
   supplierName?: string
   /** For multi-page PDFs: 0-indexed page (default: process all) */
   pageIndex?: number
-  /** Invoice ID (for base64 fetch via API) */
-  invoiceId?: string
-  /** Tenant ID (for base64 fetch via API) */
-  tenantId?: string
 }
 
 export interface VisionExtractionOutput {
@@ -161,42 +157,40 @@ export async function extractInvoiceWithVision(
 
   // Add the file as a vision input
   const fileType = input.fileType.toLowerCase()
+  const mimeType = getMimeType(fileType)
 
-  // Fetch file as base64 from Next.js API route
-  // This avoids OpenRouter's inability to download from Supabase storage URLs
-  const nextjsBaseUrl = Deno.env.get('NEXTJS_BASE_URL')
-  if (!nextjsBaseUrl) {
-    throw new Error('[vision-service] NEXTJS_BASE_URL not configured')
-  }
-
-  if (!input.invoiceId || !input.tenantId) {
-    throw new Error('[vision-service] invoiceId and tenantId required for base64 fetch')
-  }
-
-  console.log(`[vision-service] Fetching file as base64 from Next.js API for invoice ${input.invoiceId}`)
+  // Download file from URL and convert to base64 for Vision API
+  // Use Deno's fetch which has better binary handling
+  console.log(`[vision-service] Downloading file from ${input.fileUrl}`)
   
   let fileBase64: string
-  let mimeType: string
   try {
-    const response = await fetch(`${nextjsBaseUrl}/api/admin/invoices/${input.invoiceId}/get-file-base64`, {
+    // Fetch with timeout to avoid hanging
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 30000) // 30s timeout
+    
+    const fileResponse = await fetch(input.fileUrl, {
       method: 'GET',
+      signal: controller.signal,
       headers: {
-        'Content-Type': 'application/json',
-        'X-Tenant-Id': input.tenantId,
-        'X-Pipeline-Service-Key': Deno.env.get('SERVICE_ROLE_KEY') ?? '',
+        'User-Agent': 'CafePulse/1.0',
       },
     })
+    clearTimeout(timeoutId)
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`Failed to fetch base64: HTTP ${response.status} - ${errorText.slice(0, 200)}`)
+    if (!fileResponse.ok) {
+      throw new Error(`Failed to download file: HTTP ${fileResponse.status}`)
     }
 
-    const data = await response.json()
-    fileBase64 = data.base64
-    mimeType = data.mimeType
+    const fileBuffer = await fileResponse.arrayBuffer()
+    
+    // Convert to base64 using Deno's built-in encoding
+    const bytes = new Uint8Array(fileBuffer)
+    fileBase64 = btoa(String.fromCharCode.apply(null, Array.from(bytes)))
+    
+    console.log(`[vision-service] Downloaded file: ${fileBuffer.byteLength} bytes`)
   } catch (err) {
-    throw new Error(`[vision-service] Failed to fetch file as base64: ${String(err).slice(0, 200)}`)
+    throw new Error(`[vision-service] Failed to download file: ${String(err).slice(0, 300)}`)
   }
 
   // Pass file as base64 data URL to Vision API

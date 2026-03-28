@@ -133,8 +133,6 @@ async function runVisionExtraction(
           fileUrl,
           fileType,
           supplierName: undefined, // no supplier hint yet at Stage 1
-          invoiceId: ctx.invoiceId,
-          tenantId: ctx.tenantId,
         })
       },
       2,
