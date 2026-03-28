@@ -157,29 +157,34 @@ export async function extractInvoiceWithVision(
 
   // Add the file as a vision input
   const fileType = input.fileType.toLowerCase()
+  const mimeType = getMimeType(fileType)
 
-  if (fileType === 'pdf') {
-    // For PDFs: pass as a file URL with document media type
-    // OpenRouter routes this to GPT-4o which can read PDF content
-    content.push({
-      type: 'image_url',
-      image_url: {
-        url: input.fileUrl,
-        detail: 'high',
-      },
-    })
-  } else {
-    // Image files: pass as image_url
-    const mimeType = getMimeType(fileType)
-    content.push({
-      type: 'image_url',
-      image_url: {
-        url: input.fileUrl,
-        detail: 'high',
-      },
-    })
-    void mimeType // used for logging only
+  // Download the file from Supabase storage and convert to base64
+  // This avoids issues with OpenRouter downloading from external URLs
+  console.log(`[vision-service] Downloading file from ${input.fileUrl}`)
+  
+  let fileBase64: string
+  try {
+    const fileResponse = await fetch(input.fileUrl)
+    if (!fileResponse.ok) {
+      throw new Error(`Failed to download file: HTTP ${fileResponse.status}`)
+    }
+    const fileBuffer = await fileResponse.arrayBuffer()
+    fileBase64 = btoa(String.fromCharCode(...new Uint8Array(fileBuffer)))
+  } catch (err) {
+    throw new Error(`[vision-service] Failed to download file: ${String(err).slice(0, 200)}`)
   }
+
+  // Pass file as base64 data URL to Vision API
+  const dataUrl = `data:${mimeType};base64,${fileBase64}`
+  
+  content.push({
+    type: 'image_url',
+    image_url: {
+      url: dataUrl,
+      detail: 'high',
+    },
+  })
 
   const requestBody = {
     model,
