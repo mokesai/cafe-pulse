@@ -46,3 +46,4 @@ staging → main                 (PR, certified release)
 | `*.cafepulse.org` | `main` | Production (tenant subdomains) |
 | `staging.cafepulse.org` | `staging` | Staging |
 | `*.staging.cafepulse.org` | `staging` | Staging (tenant subdomains) |
+
