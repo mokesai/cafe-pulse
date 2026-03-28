@@ -349,14 +349,26 @@ export async function fetchExtractedText(
   invoiceId: string,
   tenantId: string
 ): Promise<TextExtractionResult> {
+  // IMPORTANT: NEXTJS_BASE_URL must be set in Supabase Edge Function environment.
+  // To set it, go to: Supabase Dashboard → Edge Functions → invoice-pipeline → Settings → Secrets
+  // Add: NEXTJS_BASE_URL = https://staging.cafepulse.org (or your deployed URL)
+  
   const nextjsBaseUrl = Deno.env.get('NEXTJS_BASE_URL')
   if (!nextjsBaseUrl) {
-    throw new Error('[vision-service] NEXTJS_BASE_URL not set — cannot call text extraction route')
+    throw new Error(
+      '[vision-service] NEXTJS_BASE_URL not set in Edge Function secrets. ' +
+      'Configure it in Supabase Dashboard → Edge Functions → invoice-pipeline → Secrets'
+    )
   }
 
   const serviceRoleKey = Deno.env.get('SERVICE_ROLE_KEY')
+  if (!serviceRoleKey) {
+    throw new Error('[vision-service] SERVICE_ROLE_KEY not set in Edge Function secrets')
+  }
 
   const url = `${nextjsBaseUrl}/api/admin/invoices/${invoiceId}/extract-text`
+  
+  console.log(`[vision-service] Calling text extraction: ${url}`)
 
   const response = await fetch(url, {
     method: 'GET',
