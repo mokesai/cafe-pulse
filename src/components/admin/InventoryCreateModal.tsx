@@ -180,7 +180,10 @@ export default function InventoryCreateModal({ suppliers, isOpen, onClose }: Inv
     }
   })
 
-  const requiresSquareId = formData.item_type !== 'ingredient'
+  // Only prepackaged items require a Square item ID.
+  // Ingredients, prepared items, and supplies (cups, straws, lids, sleeves, etc.)
+  // can be created without a Square catalog link.
+  const requiresSquareId = formData.item_type === 'prepackaged'
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -196,7 +199,7 @@ export default function InventoryCreateModal({ suppliers, isOpen, onClose }: Inv
     }
 
     if (requiresSquareId && !formData.square_item_id.trim()) {
-      toast.error('Square Item ID is required for non-ingredient items')
+      toast.error('Square Item ID is required for pre-packaged items')
       return
     }
 
@@ -245,7 +248,7 @@ export default function InventoryCreateModal({ suppliers, isOpen, onClose }: Inv
                 value={formData.square_item_id}
                 onChange={(e) => setFormData((prev) => ({ ...prev, square_item_id: e.target.value }))}
                 className="w-full rounded-lg border px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                placeholder={requiresSquareId ? 'sq0idp-...' : 'Optional for ingredients'}
+                placeholder={requiresSquareId ? 'sq0idp-...' : 'Optional — auto-assigned if blank'}
               />
               <p className="mt-1 text-xs text-gray-500">
                 Use the Lookup button to search your Square catalog by item name.
