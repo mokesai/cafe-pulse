@@ -10,7 +10,7 @@
  * Model: openai/gpt-4o
  */
 
-import type { ParsedInvoiceResult, ParsedLineItem } from './context.ts'
+import type { ParsedInvoiceResult, ParsedLineItem, SupplierFees } from './context.ts'
 
 // ============================================================
 // Types
@@ -49,6 +49,12 @@ interface RawVisionResponse {
   subtotal: number | null
   tax_amount: number | null
   total_amount: number | null
+  supplier_fees: {
+    delivery: number | null
+    shipping: number | null
+    processing: number | null
+    other: number | null
+  } | null
   line_items: Array<{
     line_number: number
     description: string
@@ -98,6 +104,12 @@ REQUIRED JSON SCHEMA (return this exact structure):
   "subtotal": number_or_null,
   "tax_amount": number_or_null,
   "total_amount": number_or_null,
+  "supplier_fees": {
+    "delivery": number_or_null,
+    "shipping": number_or_null,
+    "processing": number_or_null,
+    "other": number_or_null
+  },
   "line_items": [
     {
       "line_number": integer,
@@ -113,6 +125,18 @@ REQUIRED JSON SCHEMA (return this exact structure):
   ],
   "overall_confidence": 0.0_to_1.0
 }
+
+FEE EXTRACTION INSTRUCTIONS:
+- Look for any charges that are NOT product line items: delivery charges, shipping fees,
+  fuel surcharges, handling fees, service charges, processing fees, convenience fees, etc.
+- Map each fee type to the correct key:
+  - "delivery": delivery charges, fuel surcharges, drop fees
+  - "shipping": shipping costs, freight charges, postage
+  - "processing": processing fees, service charges, convenience fees, transaction fees
+  - "other": any other fees not fitting the above categories
+- If no fees of a given type exist, set that key to 0 (not null).
+- Do NOT include taxes in supplier_fees (taxes go in tax_amount).
+- Do NOT include product discounts or rebates (they stay on the product line item).
 
 CONFIDENCE GUIDELINES:
 - 0.9–1.0: Clearly visible, unambiguous data
@@ -431,6 +455,12 @@ Return ONLY valid JSON with this exact schema:
   "subtotal": number_or_null,
   "tax_amount": number_or_null,
   "total_amount": number_or_null,
+  "supplier_fees": {
+    "delivery": number_or_0,
+    "shipping": number_or_0,
+    "processing": number_or_0,
+    "other": number_or_0
+  },
   "line_items": [
     {
       "line_number": integer,
@@ -445,7 +475,10 @@ Return ONLY valid JSON with this exact schema:
     }
   ],
   "overall_confidence": 0.0_to_1.0
-}`
+}
+
+For supplier_fees: capture delivery charges, shipping/freight, processing/service fees, and any
+other non-product fees. Use 0 (not null) when a fee type is absent. Do not include taxes here.`
 
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
@@ -527,6 +560,18 @@ function normalizeVisionResponse(
     Math.max(0, Number(raw.overall_confidence ?? 0.5))
   )
 
+  // Normalize supplier fees — default missing keys to 0, clamp negatives to 0
+  const rawFees = raw.supplier_fees ?? {}
+  const supplierFees: SupplierFees = {
+    delivery:   Math.max(0, Number(rawFees.delivery   ?? 0)),
+    shipping:   Math.max(0, Number(rawFees.shipping   ?? 0)),
+    processing: Math.max(0, Number(rawFees.processing ?? 0)),
+    other:      Math.max(0, Number(rawFees.other      ?? 0)),
+  }
+  const totalFees = Math.round(
+    (supplierFees.delivery + supplierFees.shipping + supplierFees.processing + supplierFees.other) * 100
+  ) / 100
+
   return {
     invoice_number: raw.invoice_number ?? null,
     invoice_date: raw.invoice_date ?? null,
@@ -539,6 +584,8 @@ function normalizeVisionResponse(
     subtotal: raw.subtotal != null ? Number(raw.subtotal) : null,
     tax_amount: raw.tax_amount != null ? Number(raw.tax_amount) : null,
     total_amount: raw.total_amount != null ? Number(raw.total_amount) : null,
+    supplier_fees: supplierFees,
+    total_fees: totalFees,
     line_items: lineItems,
     overall_confidence: overallConfidence,
     extraction_method: 'vision',

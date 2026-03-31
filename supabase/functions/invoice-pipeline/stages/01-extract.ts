@@ -296,6 +296,8 @@ async function saveExtractedData(
   const parsed = ctx.parsedData!
 
   // ── Update invoice header ────────────────────────────────────────────────
+  // Include supplier fees if the AI extracted any; mark fee_source accordingly
+  const hasFees = parsed.total_fees > 0
   const { error: invoiceUpdateError } = await ctx.supabase
     .from('invoices')
     .update({
@@ -304,6 +306,11 @@ async function saveExtractedData(
       total_amount: parsed.total_amount,
       vision_confidence: overallConfidence,
       pipeline_stage: STAGE,
+      ...(hasFees && {
+        supplier_fees: parsed.supplier_fees,
+        total_fees: parsed.total_fees,
+        fee_source: 'ai_extracted',
+      }),
     })
     .eq('id', ctx.invoiceId)
     .eq('tenant_id', ctx.tenantId)

@@ -83,6 +83,8 @@ export async function runConfirmation(ctx: PipelineContext): Promise<StageResult
   // Only update if pipeline had no price_variance exceptions at all
   if (!ctx.hasBlockingExceptions) {
     await updateInventoryCosts(ctx)
+    // Distribute any supplier fees (delivery, shipping, etc.) to cost history
+    await distributeSupplierFees(ctx)
   }
 
   console.log(JSON.stringify({
@@ -138,5 +140,122 @@ async function updateInventoryCosts(ctx: PipelineContext): Promise<void> {
         .eq('id', item.matched_item_id)
         .eq('tenant_id', ctx.tenantId)
     }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Distribute supplier fees to cost history
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Proportionally allocate invoice supplier fees across matched line items.
+ * Records each allocation as an `invoice_fee` entry in inventory_item_cost_history.
+ * This surfaces fee overhead in the cost time-series without permanently inflating unit_cost.
+ */
+export async function distributeSupplierFees(ctx: PipelineContext): Promise<void> {
+  // Fetch invoice total_fees, fee_cogs_distributed flag, and invoice_number
+  const { data: invoice } = await ctx.supabase
+    .from('invoices')
+    .select('id, total_fees, fee_cogs_distributed, invoice_number, suppliers(name)')
+    .eq('id', ctx.invoiceId)
+    .eq('tenant_id', ctx.tenantId)
+    .single()
+
+  if (!invoice) return
+
+  const totalFees = typeof (invoice as { total_fees?: unknown }).total_fees === 'number'
+    ? (invoice as { total_fees: number }).total_fees
+    : 0
+  const alreadyDistributed = Boolean((invoice as { fee_cogs_distributed?: unknown }).fee_cogs_distributed)
+
+  if (totalFees <= 0 || alreadyDistributed) return
+
+  // Get all matched invoice items for fee weighting
+  const { data: matchedItems } = await ctx.supabase
+    .from('invoice_items')
+    .select('id, matched_item_id, quantity, total_price')
+    .eq('invoice_id', ctx.invoiceId)
+    .eq('tenant_id', ctx.tenantId)
+    .not('matched_item_id', 'is', null)
+
+  if (!matchedItems || matchedItems.length === 0) return
+
+  const totalMatchedValue = (matchedItems as Array<{ total_price: unknown }>).reduce(
+    (sum, item) => sum + Math.max(0, Number(item.total_price ?? 0)),
+    0
+  )
+  if (totalMatchedValue <= 0) return
+
+  type MatchedItem = { id: string; matched_item_id: string; quantity: unknown; total_price: unknown }
+
+  const historyRows: Array<Record<string, unknown>> = []
+
+  for (const item of matchedItems as MatchedItem[]) {
+    if (!item.matched_item_id) continue
+
+    const itemValue = Math.max(0, Number(item.total_price ?? 0))
+    const feeShare = (itemValue / totalMatchedValue) * totalFees
+    const roundedFeeShare = Math.round(feeShare * 10000) / 10000
+
+    if (roundedFeeShare <= 0) continue
+
+    // Fetch current unit_cost
+    const { data: invRow } = await ctx.supabase
+      .from('inventory_items')
+      .select('id, unit_cost')
+      .eq('id', item.matched_item_id)
+      .eq('tenant_id', ctx.tenantId)
+      .single()
+
+    if (!invRow) continue
+
+    const currentCost = Number((invRow as { unit_cost?: unknown }).unit_cost ?? 0)
+    const qty = Math.max(1, Number(item.quantity ?? 1))
+    const feePerUnit = Math.round((roundedFeeShare / qty) * 10000) / 10000
+    if (feePerUnit <= 0) continue
+
+    const newCost = Math.round((currentCost + feePerUnit) * 10000) / 10000
+
+    const supplierName = (invoice as { suppliers?: { name?: string } }).suppliers?.name ?? 'Unknown Supplier'
+    const invoiceNumber = (invoice as { invoice_number?: string }).invoice_number ?? ctx.invoiceId
+
+    historyRows.push({
+      tenant_id: ctx.tenantId,
+      inventory_item_id: item.matched_item_id,
+      previous_unit_cost: currentCost,
+      new_unit_cost: newCost,
+      pack_size: 1,
+      source: 'invoice_fee',
+      source_ref: ctx.invoiceId,
+      notes: `Fee allocation from Invoice ${invoiceNumber} (${supplierName}): $${roundedFeeShare.toFixed(4)} of $${totalFees.toFixed(2)} total fees`,
+      changed_by: null,
+      fee_amount: roundedFeeShare,
+    })
+  }
+
+  if (historyRows.length > 0) {
+    const { error: insertError } = await ctx.supabase
+      .from('inventory_item_cost_history')
+      .insert(historyRows)
+
+    if (insertError) {
+      console.warn('[05-confirm] Failed to insert fee cost history:', insertError.message)
+      return
+    }
+
+    // Mark fees as distributed on the invoice
+    await ctx.supabase
+      .from('invoices')
+      .update({ fee_cogs_distributed: true })
+      .eq('id', ctx.invoiceId)
+      .eq('tenant_id', ctx.tenantId)
+
+    console.log(JSON.stringify({
+      event: 'supplier_fees_distributed',
+      invoice_id: ctx.invoiceId,
+      tenant_id: ctx.tenantId,
+      total_fees: totalFees,
+      items_allocated: historyRows.length,
+    }))
   }
 }
