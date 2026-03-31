@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrentTenantId } from '@/lib/tenant/context'
+import { formatApiError, unexpectedError } from '@/lib/api/errors'
 
 export async function PUT(
   request: NextRequest,
@@ -41,11 +42,7 @@ export async function PUT(
       .single()
 
     if (invoiceError) {
-      console.error('Failed to fetch invoice:', invoiceError)
-      return NextResponse.json({
-        success: false,
-        error: `Failed to fetch invoice: ${invoiceError.message}`
-      }, { status: 500 })
+      return formatApiError('fetch invoice for confirmation', invoiceError)
     }
 
     // Fetch linked purchase orders
@@ -242,11 +239,7 @@ export async function PUT(
       .eq('id', id)
 
     if (confirmError) {
-      console.error('Failed to confirm invoice:', confirmError)
-      return NextResponse.json({
-        success: false,
-        error: `Failed to confirm invoice: ${confirmError.message}`
-      }, { status: 500 })
+      return formatApiError('confirm invoice', confirmError)
     }
 
     console.log('✅ Invoice import confirmed successfully')
@@ -273,10 +266,6 @@ export async function PUT(
     })
 
   } catch (error) {
-    console.error('Error confirming invoice:', error)
-    return NextResponse.json({
-      success: false,
-      error: `Server error: ${error instanceof Error ? error.message : 'Unknown error'}`
-    }, { status: 500 })
+    return unexpectedError('confirm invoice', error)
   }
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrentTenantId } from '@/lib/tenant/context'
+import { formatApiError, apiError, unexpectedError } from '@/lib/api/errors'
 
 export async function POST(
   request: NextRequest,
@@ -23,10 +24,9 @@ export async function POST(
     })
 
     if (!new_item_data || !new_item_data.name) {
-      return NextResponse.json({
-        success: false,
-        error: 'New item data is required'
-      }, { status: 400 })
+      return apiError(
+        'A name for the new inventory item is required. Please provide new_item_data.name.'
+      )
     }
 
     const supabase = createServiceClient()
@@ -55,11 +55,7 @@ export async function POST(
       .single()
 
     if (createError) {
-      console.error('Failed to create inventory item:', createError)
-      return NextResponse.json({
-        success: false,
-        error: `Failed to create inventory item: ${createError.message}`
-      }, { status: 500 })
+      return formatApiError('create inventory item from invoice', createError)
     }
 
     console.log('✅ Created new inventory item:', newItem)
@@ -77,17 +73,13 @@ export async function POST(
       .eq('tenant_id', tenantId)
 
     if (matchError) {
-      console.error('Failed to match invoice item:', matchError)
       // Try to clean up the created item
       await supabase
         .from('inventory_items')
         .delete()
         .eq('id', newItem.id)
-      
-      return NextResponse.json({
-        success: false,
-        error: `Failed to match invoice item: ${matchError.message}`
-      }, { status: 500 })
+
+      return formatApiError('link invoice item to newly created inventory item', matchError)
     }
 
     console.log('✅ Matched invoice item to new inventory item')
@@ -101,10 +93,6 @@ export async function POST(
     })
 
   } catch (error) {
-    console.error('Error creating and matching item:', error)
-    return NextResponse.json({
-      success: false,
-      error: `Server error: ${error instanceof Error ? error.message : 'Unknown error'}`
-    }, { status: 500 })
+    return unexpectedError('create and match inventory item from invoice', error)
   }
 }
