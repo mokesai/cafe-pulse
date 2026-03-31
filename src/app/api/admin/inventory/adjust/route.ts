@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrentTenantId } from '@/lib/tenant/context'
+import { formatApiError, apiError, unexpectedError } from '@/lib/api/errors'
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,19 +18,13 @@ export async function POST(request: NextRequest) {
     const { inventory_item_id, new_stock, reason, notes, reference_id } = body ?? {}
 
     if (!inventory_item_id || new_stock === undefined || new_stock === null) {
-      return NextResponse.json(
-        { error: 'Missing required fields: inventory_item_id and new_stock' },
-        { status: 400 }
-      )
+      return apiError('Both inventory_item_id and new_stock are required to adjust stock.')
     }
 
     const parsedStock = Number(new_stock)
     const targetStock = Math.round(parsedStock)
     if (!Number.isFinite(parsedStock) || targetStock < 0) {
-      return NextResponse.json(
-        { error: 'New stock value must be a non-negative number' },
-        { status: 400 }
-      )
+      return apiError('New stock must be a non-negative number (e.g. 0, 10, 25.5).')
     }
 
     const supabase = createServiceClient()
@@ -41,10 +36,10 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (fetchError || !currentItem) {
-      console.error('Adjust stock: inventory item not found', fetchError)
-      return NextResponse.json(
-        { error: 'Inventory item not found', details: fetchError?.message },
-        { status: 404 }
+      return apiError(
+        'Inventory item not found. It may have been deleted — refresh and try again.',
+        404,
+        'NOT_FOUND'
       )
     }
 
@@ -61,17 +56,18 @@ export async function POST(request: NextRequest) {
         .is('deleted_at', null)
         .maybeSingle()
       if (baseItem?.id && baseItem.id !== currentItem.id) {
-        return NextResponse.json(
-          { error: 'Cannot adjust stock for pack variants. Adjust the base (single-unit) item instead.', base_item_id: baseItem.id },
-          { status: 400 }
+        return apiError(
+          'Stock adjustments must be made on the base (single-unit) item, not a pack variant. ' +
+          'Find the base item and adjust stock there.',
+          400,
+          'PACK_VARIANT_ADJUSTMENT_NOT_ALLOWED'
         )
       }
     }
 
     if (previousStock === targetStock) {
-      return NextResponse.json(
-        { error: 'New stock is the same as the current stock. No adjustment needed.' },
-        { status: 400 }
+      return apiError(
+        `The new stock level (${targetStock}) is the same as the current stock. No adjustment is needed.`
       )
     }
 
@@ -93,11 +89,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (updateError) {
-      console.error('Adjust stock: failed to update inventory item', updateError)
-      return NextResponse.json(
-        { error: 'Failed to update inventory item', details: updateError.message },
-        { status: 500 }
-      )
+      return formatApiError('adjust inventory stock', updateError)
     }
 
     const trimmedReason = typeof reason === 'string' && reason.trim().length > 0
@@ -162,13 +154,6 @@ export async function POST(request: NextRequest) {
       message: `Adjusted ${currentItem.item_name} by ${quantityChange > 0 ? '+' : ''}${quantityChange}`
     })
   } catch (error) {
-    console.error('Failed to adjust inventory stock', error)
-    return NextResponse.json(
-      {
-        error: 'Failed to adjust inventory stock',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    )
+    return unexpectedError('adjust inventory stock', error)
   }
 }

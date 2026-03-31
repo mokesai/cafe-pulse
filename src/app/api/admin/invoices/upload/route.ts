@@ -3,6 +3,7 @@ import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrentTenantId } from '@/lib/tenant/context'
 import type { PostgrestError } from '@supabase/supabase-js'
+import { formatApiError, apiError, unexpectedError } from '@/lib/api/errors'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const ALLOWED_FILE_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp']
@@ -41,32 +42,26 @@ export async function POST(request: NextRequest) {
     const invoice_date = formData.get('invoice_date') as string
 
     if (!file) {
-      return NextResponse.json(
-        { error: 'No file provided' },
-        { status: 400 }
-      )
+      return apiError('No file was provided. Please attach a PDF or image of the invoice.')
     }
 
     if (!invoice_number || !invoice_date) {
-      return NextResponse.json(
-        { error: 'Missing required fields: invoice_number, invoice_date' },
-        { status: 400 }
-      )
+      return apiError('Invoice number and invoice date are required to upload an invoice.')
     }
 
     // Validate file size
     if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json(
-        { error: `File size too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB` },
-        { status: 400 }
+      return apiError(
+        `The uploaded file is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). ` +
+        `Maximum allowed size is ${MAX_FILE_SIZE / 1024 / 1024} MB.`
       )
     }
 
     // Validate file type
     if (!ALLOWED_FILE_TYPES.includes(file.type)) {
-      return NextResponse.json(
-        { error: `Invalid file type. Allowed types: ${ALLOWED_FILE_TYPES.join(', ')}` },
-        { status: 400 }
+      return apiError(
+        `Unsupported file type "${file.type}". ` +
+        `Please upload a PDF, PNG, JPEG, or WebP file.`
       )
     }
 
@@ -74,9 +69,9 @@ export async function POST(request: NextRequest) {
     const fileName = file.name.toLowerCase()
     const hasValidExtension = ALLOWED_EXTENSIONS.some(ext => fileName.endsWith(ext))
     if (!hasValidExtension) {
-      return NextResponse.json(
-        { error: `Invalid file extension. Allowed extensions: ${ALLOWED_EXTENSIONS.join(', ')}` },
-        { status: 400 }
+      return apiError(
+        `Unsupported file extension. ` +
+        `Allowed extensions: ${ALLOWED_EXTENSIONS.join(', ')}.`
       )
     }
 
@@ -102,9 +97,11 @@ export async function POST(request: NextRequest) {
       if (data) {
         existingInvoice = data
         if (data.status === 'confirmed') {
-          return NextResponse.json(
-            { error: 'Invoice with this number already exists for this supplier' },
-            { status: 409 }
+          return apiError(
+            `Invoice "${invoice_number}" has already been confirmed for this supplier and cannot be replaced. ` +
+            'Use a different invoice number or contact support if this is an error.',
+            409,
+            'INVOICE_ALREADY_CONFIRMED'
           )
         }
       }
@@ -134,9 +131,11 @@ export async function POST(request: NextRequest) {
 
     if (uploadError) {
       console.error('Error uploading file:', uploadError)
-      return NextResponse.json(
-        { error: 'Failed to upload file', details: uploadError.message },
-        { status: 500 }
+      return apiError(
+        'Failed to upload the invoice file to storage. Please try again. ' +
+        'If the problem persists, check your file and contact support.',
+        500,
+        'STORAGE_UPLOAD_FAILED'
       )
     }
 
@@ -148,9 +147,10 @@ export async function POST(request: NextRequest) {
 
     if (signedUrlError || !signedUrlData) {
       console.error('Error generating signed URL:', signedUrlError)
-      return NextResponse.json(
-        { error: 'Failed to generate file access URL', details: signedUrlError?.message },
-        { status: 500 }
+      return apiError(
+        'The file was uploaded but a secure access URL could not be generated. Please try uploading again.',
+        500,
+        'SIGNED_URL_FAILED'
       )
     }
 
@@ -276,19 +276,10 @@ export async function POST(request: NextRequest) {
           .from('invoices')
           .remove([uniqueFileName])
       } catch (cleanupError) {
-        console.error('Error cleaning up uploaded file:', cleanupError)
+        console.error('Error cleaning up uploaded file after DB failure:', cleanupError)
       }
 
-      console.error('Error creating invoice record:', dbError)
-      return NextResponse.json(
-        {
-          error: 'Failed to create invoice record',
-          details: dbError.message,
-          code: dbError.code,
-          hint: dbError.hint
-        },
-        { status: 500 }
-      )
+      return formatApiError('save invoice record', dbError)
     }
 
     if (!newInvoice) {
@@ -304,11 +295,7 @@ export async function POST(request: NextRequest) {
     }, { status: 201 })
 
   } catch (error) {
-    console.error('Failed to upload invoice:', error)
-    return NextResponse.json(
-      { error: 'Failed to upload invoice', details: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 }
-    )
+    return unexpectedError('upload invoice', error)
   }
 }
 

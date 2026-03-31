@@ -3,6 +3,7 @@ import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrentTenantId } from '@/lib/tenant/context'
 import type { ExceptionResolutionAction } from '@/types/invoice-exceptions'
+import { formatApiError, apiError, unexpectedError } from '@/lib/api/errors'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -84,13 +85,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
     try {
       body = await request.json()
     } catch {
-      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+      return apiError('Request body is invalid JSON. Please check the request format.')
     }
 
     const { resolution_notes, action } = body
 
     if (!action || !action.type) {
-      return NextResponse.json({ error: 'Missing required field: action.type' }, { status: 400 })
+      return apiError('An action type is required to resolve an exception. Please select a resolution action.')
     }
 
     // Fetch the exception
@@ -102,19 +103,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .single()
 
     if (fetchError) {
-      if (fetchError.code === 'PGRST116') {
-        return NextResponse.json({ error: 'Exception not found' }, { status: 404 })
-      }
-      return NextResponse.json(
-        { error: 'Failed to fetch exception', details: fetchError.message },
-        { status: 500 }
-      )
+      return formatApiError('fetch invoice exception', fetchError)
     }
 
     if (exception.status !== 'open') {
-      return NextResponse.json(
-        { error: `Exception is already ${exception.status}` },
-        { status: 422 }
+      return apiError(
+        `This exception is already ${exception.status} and cannot be resolved again.`,
+        422,
+        'EXCEPTION_ALREADY_RESOLVED'
       )
     }
 
@@ -124,9 +120,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
       action.type === 'reject_cost_update' &&
       !resolution_notes?.trim()
     ) {
-      return NextResponse.json(
-        { error: 'resolution_notes is required when rejecting a price variance' },
-        { status: 400 }
+      return apiError(
+        'A resolution note is required when rejecting a price variance. ' +
+        'Please explain why the cost update was rejected.',
+        400,
+        'RESOLUTION_NOTES_REQUIRED'
       )
     }
 
@@ -365,11 +363,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .eq('tenant_id', tenantId)
 
     if (resolveError) {
-      console.error('Error resolving exception:', resolveError)
-      return NextResponse.json(
-        { error: 'Failed to resolve exception', details: resolveError.message },
-        { status: 500 }
-      )
+      return formatApiError('resolve invoice exception', resolveError)
     }
 
     // Attempt auto-confirmation if this was the last open exception
@@ -384,10 +378,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
       pipeline_continued: pipelineContinued
     })
   } catch (error) {
-    console.error('Failed to resolve exception:', error)
-    return NextResponse.json(
-      { error: 'Failed to resolve exception', details: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 }
-    )
+    return unexpectedError('resolve invoice exception', error)
   }
 }

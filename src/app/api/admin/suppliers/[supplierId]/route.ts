@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/admin/middleware'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrentTenantId } from '@/lib/tenant/context'
+import { formatApiError, apiError, unexpectedError } from '@/lib/api/errors'
 
 interface SupplierUpdateBody {
   name: string
@@ -39,10 +40,7 @@ export async function PUT(
     const resolvedParams = await params
     const { supplierId } = resolvedParams
     if (!supplierId) {
-      return NextResponse.json(
-        { error: 'Supplier ID is required' },
-        { status: 400 }
-      )
+      return apiError('Supplier ID is required to update a supplier.')
     }
 
     const body: SupplierUpdateBody = await request.json()
@@ -58,10 +56,7 @@ export async function PUT(
     } = body
 
     if (!name?.trim()) {
-      return NextResponse.json(
-        { error: 'Supplier name is required' },
-        { status: 400 }
-      )
+      return apiError('Supplier name is required.')
     }
 
     console.log('Updating supplier:', supplierId)
@@ -88,17 +83,14 @@ export async function PUT(
       .single()
 
     if (error) {
-      console.error('Database error updating supplier:', error)
-      return NextResponse.json(
-        { error: 'Failed to update supplier', details: error.message },
-        { status: 500 }
-      )
+      return formatApiError('update supplier', error)
     }
 
     if (!updatedSupplier) {
-      return NextResponse.json(
-        { error: 'Supplier not found' },
-        { status: 404 }
+      return apiError(
+        'Supplier not found. It may have been deleted — refresh and try again.',
+        404,
+        'NOT_FOUND'
       )
     }
 
@@ -111,14 +103,7 @@ export async function PUT(
     })
 
   } catch (error) {
-    console.error('Failed to update supplier:', error)
-    return NextResponse.json(
-      {
-        error: 'Failed to update supplier',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    )
+    return unexpectedError('update supplier', error)
   }
 }
 
@@ -136,10 +121,7 @@ export async function PATCH(
     const resolvedParams = await params
     const { supplierId } = resolvedParams
     if (!supplierId) {
-      return NextResponse.json(
-        { error: 'Supplier ID is required' },
-        { status: 400 }
-      )
+      return apiError('Supplier ID is required to update a supplier.')
     }
 
     const body: SupplierPartialUpdatePayload = await request.json()
@@ -170,17 +152,14 @@ export async function PATCH(
       .single()
 
     if (error) {
-      console.error('Database error updating supplier:', error)
-      return NextResponse.json(
-        { error: 'Failed to update supplier', details: error.message },
-        { status: 500 }
-      )
+      return formatApiError('update supplier', error)
     }
 
     if (!updatedSupplier) {
-      return NextResponse.json(
-        { error: 'Supplier not found' },
-        { status: 404 }
+      return apiError(
+        'Supplier not found. It may have been deleted — refresh and try again.',
+        404,
+        'NOT_FOUND'
       )
     }
 
@@ -193,14 +172,7 @@ export async function PATCH(
     })
 
   } catch (error) {
-    console.error('Failed to update supplier:', error)
-    return NextResponse.json(
-      {
-        error: 'Failed to update supplier',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    )
+    return unexpectedError('update supplier', error)
   }
 }
 
@@ -218,10 +190,7 @@ export async function DELETE(
     const resolvedParams = await params
     const { supplierId } = resolvedParams
     if (!supplierId) {
-      return NextResponse.json(
-        { error: 'Supplier ID is required' },
-        { status: 400 }
-      )
+      return apiError('Supplier ID is required to delete a supplier.')
     }
 
     console.log('Deleting supplier:', supplierId)
@@ -238,17 +207,15 @@ export async function DELETE(
       .limit(1)
 
     if (checkError) {
-      console.error('Error checking inventory items:', checkError)
-      return NextResponse.json(
-        { error: 'Failed to verify supplier usage', details: checkError.message },
-        { status: 500 }
-      )
+      return formatApiError('check supplier inventory items before deletion', checkError)
     }
 
     if (inventoryItems && inventoryItems.length > 0) {
-      return NextResponse.json(
-        { error: 'Cannot delete supplier with associated inventory items. Deactivate instead.' },
-        { status: 400 }
+      return apiError(
+        'This supplier has associated inventory items and cannot be deleted. ' +
+        'Deactivate the supplier instead, or reassign its inventory items first.',
+        400,
+        'SUPPLIER_HAS_INVENTORY'
       )
     }
 
@@ -260,11 +227,7 @@ export async function DELETE(
       .eq('tenant_id', tenantId)
 
     if (error) {
-      console.error('Database error deleting supplier:', error)
-      return NextResponse.json(
-        { error: 'Failed to delete supplier', details: error.message },
-        { status: 500 }
-      )
+      return formatApiError('delete supplier', error)
     }
 
     console.log('✅ Successfully deleted supplier:', supplierId)
@@ -275,13 +238,6 @@ export async function DELETE(
     })
 
   } catch (error) {
-    console.error('Failed to delete supplier:', error)
-    return NextResponse.json(
-      {
-        error: 'Failed to delete supplier',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    )
+    return unexpectedError('delete supplier', error)
   }
 }

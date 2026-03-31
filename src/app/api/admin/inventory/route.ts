@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrentTenantId } from '@/lib/tenant/context'
+import { formatApiError, apiError, unexpectedError } from '@/lib/api/errors'
 
 export async function GET(request: NextRequest) {
   try {
@@ -39,11 +40,7 @@ export async function GET(request: NextRequest) {
     const { data: inventoryItems, error } = await query
 
     if (error) {
-      console.error('Database error fetching inventory:', error)
-      return NextResponse.json(
-        { error: 'Failed to fetch inventory items', details: error.message },
-        { status: 500 }
-      )
+      return formatApiError('fetch inventory items', error)
     }
 
     console.log('✅ Fetched', inventoryItems?.length || 0, 'inventory items')
@@ -62,14 +59,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Failed to fetch inventory:', error)
-    return NextResponse.json(
-      { 
-        error: 'Failed to fetch inventory', 
-        details: error instanceof Error ? error.message : 'Unknown error' 
-      },
-      { status: 500 }
-    )
+    return unexpectedError('fetch inventory items', error)
   }
 }
 
@@ -107,16 +97,13 @@ export async function POST(request: NextRequest) {
     const requiresSquareId = finalItemType === 'prepackaged' || finalItemType === 'prepared'
 
     if (!item_name || current_stock === undefined) {
-      return NextResponse.json(
-        { error: 'Missing required fields: item_name, current_stock' },
-        { status: 400 }
-      )
+      return apiError('Item name and current stock are required to create an inventory item.')
     }
 
     if (requiresSquareId && !square_item_id) {
-      return NextResponse.json(
-        { error: 'Missing required field: square_item_id' },
-        { status: 400 }
+      return apiError(
+        'A Square item ID is required for prepackaged and prepared items. ' +
+        'Link this item to a Square catalog entry or change the item type.'
       )
     }
 
@@ -152,21 +139,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) {
-      console.error('Database error creating inventory item:', error)
-      // 23505 = unique_violation: a supplier already has this Square item ID + pack size combo
-      if (error.code === '23505') {
-        return NextResponse.json(
-          {
-            error: 'This supplier already has an inventory item with the same Square item ID and pack size. Each supplier can only link to a given Square item once per pack size.',
-            code: 'DUPLICATE_SUPPLIER_ITEM'
-          },
-          { status: 409 }
-        )
-      }
-      return NextResponse.json(
-        { error: 'Failed to create inventory item', details: error.message },
-        { status: 500 }
-      )
+      return formatApiError('create inventory item', error)
     }
 
     // Create initial stock movement record
@@ -196,14 +169,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Failed to create inventory item:', error)
-    return NextResponse.json(
-      { 
-        error: 'Failed to create inventory item', 
-        details: error instanceof Error ? error.message : 'Unknown error' 
-      },
-      { status: 500 }
-    )
+    return unexpectedError('create inventory item', error)
   }
 }
 
@@ -234,10 +200,7 @@ export async function PUT(request: NextRequest) {
     } = body
 
     if (!id) {
-      return NextResponse.json(
-        { error: 'Missing required field: id' },
-        { status: 400 }
-      )
+      return apiError('Inventory item ID is required to update an item.')
     }
 
     const supabase = createServiceClient()
@@ -250,10 +213,10 @@ export async function PUT(request: NextRequest) {
       .single()
 
     if (existingError || !existing) {
-      console.error('Failed to load inventory item before update:', existingError)
-      return NextResponse.json(
-        { error: 'Inventory item not found' },
-        { status: 404 }
+      return apiError(
+        'Inventory item not found. It may have been deleted — refresh and try again.',
+        404,
+        'NOT_FOUND'
       )
     }
 
@@ -287,21 +250,7 @@ export async function PUT(request: NextRequest) {
       .single()
 
     if (error) {
-      console.error('Database error updating inventory item:', error)
-      // 23505 = unique_violation: another item from this supplier already uses this Square item ID + pack size
-      if (error.code === '23505') {
-        return NextResponse.json(
-          {
-            error: 'This supplier already has an inventory item with the same Square item ID and pack size. Each supplier can only link to a given Square item once per pack size.',
-            code: 'DUPLICATE_SUPPLIER_ITEM'
-          },
-          { status: 409 }
-        )
-      }
-      return NextResponse.json(
-        { error: 'Failed to update inventory item', details: error.message },
-        { status: 500 }
-      )
+      return formatApiError('update inventory item', error)
     }
 
     // Cost history: log when unit_cost changes
@@ -330,14 +279,7 @@ export async function PUT(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Failed to update inventory item:', error)
-    return NextResponse.json(
-      { 
-        error: 'Failed to update inventory item', 
-        details: error instanceof Error ? error.message : 'Unknown error' 
-      },
-      { status: 500 }
-    )
+    return unexpectedError('update inventory item', error)
   }
 }
 
@@ -352,10 +294,7 @@ export async function DELETE(request: NextRequest) {
     const id = searchParams.get('id')
 
     if (!id) {
-      return NextResponse.json(
-        { error: 'Missing required parameter: id' },
-        { status: 400 }
-      )
+      return apiError('Inventory item ID is required to archive an item.')
     }
 
     const supabase = createServiceClient()
@@ -367,11 +306,7 @@ export async function DELETE(request: NextRequest) {
       .single()
 
     if (error) {
-      console.error('Failed to archive inventory item:', error)
-      return NextResponse.json(
-        { error: 'Failed to archive inventory item', details: error.message },
-        { status: 500 }
-      )
+      return formatApiError('archive inventory item', error)
     }
 
     return NextResponse.json({
@@ -380,13 +315,6 @@ export async function DELETE(request: NextRequest) {
       message: 'Inventory item archived'
     })
   } catch (error) {
-    console.error('Failed to archive inventory item:', error)
-    return NextResponse.json(
-      { 
-        error: 'Failed to archive inventory item', 
-        details: error instanceof Error ? error.message : 'Unknown error' 
-      },
-      { status: 500 }
-    )
+    return unexpectedError('archive inventory item', error)
   }
 }

@@ -5,6 +5,7 @@ import { getCurrentTenantId } from '@/lib/tenant/context'
 import { parseInvoiceWithAI } from '@/lib/ai/openai-service'
 import { processInvoiceFile, validateInvoiceText } from '@/lib/document/pdf-processor'
 import { InvoiceTextAnalysis } from '@/types/invoice'
+import { formatApiError, apiError, unexpectedError } from '@/lib/api/errors'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -32,9 +33,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const { id } = await context.params
     if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json(
-        { error: 'OpenAI API key not configured' },
-        { status: 500 }
+      return apiError(
+        'AI parsing is not configured on this server. Contact your administrator.',
+        500,
+        'AI_NOT_CONFIGURED'
       )
     }
 
@@ -64,25 +66,27 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .single()
 
     if (fetchError || !invoice) {
-      console.error('Invoice not found:', fetchError)
-      return NextResponse.json(
-        { error: 'Invoice not found' },
-        { status: 404 }
+      return apiError(
+        'Invoice not found. It may have been deleted — refresh and try again.',
+        404,
+        'NOT_FOUND'
       )
     }
 
     // Check if invoice can be parsed
     if (!invoice.file_url) {
-      return NextResponse.json(
-        { error: 'Invoice has no file attached' },
-        { status: 400 }
+      return apiError(
+        'This invoice has no file attached and cannot be parsed. Please re-upload the invoice file.',
+        400,
+        'NO_FILE_ATTACHED'
       )
     }
 
     if (invoice.status === 'parsing') {
-      return NextResponse.json(
-        { error: 'Invoice is already being parsed' },
-        { status: 409 }
+      return apiError(
+        'This invoice is already being parsed. Please wait for the current parse to complete.',
+        409,
+        'PARSE_IN_PROGRESS'
       )
     }
 
@@ -97,11 +101,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .eq('id', id)
 
     if (updateError) {
-      console.error('Failed to update invoice status:', updateError)
-      return NextResponse.json(
-        { error: 'Failed to update invoice status' },
-        { status: 500 }
-      )
+      return formatApiError('update invoice status before parsing', updateError)
     }
 
     try {
@@ -118,17 +118,20 @@ export async function POST(request: NextRequest, context: RouteContext) {
       )
 
       if (!documentResult.success || !documentResult.text) {
+        const errSummary = documentResult.errors?.join('; ') ?? 'unknown error'
         // Update invoice with error status
         await supabase
           .from('invoices')
           .update({
             status: 'error',
-            parsing_error: `Document processing failed: ${documentResult.errors?.join(', ')}`
+            parsing_error: `Document processing failed: ${errSummary}`
           })
           .eq('id', id)
 
         return NextResponse.json({
-          error: 'Document processing failed',
+          error:
+            'The invoice file could not be read. It may be corrupted, password-protected, or in an unsupported format. ' +
+            'Try re-uploading a clear PDF or image.',
           details: documentResult.errors
         }, { status: 400 })
       }
@@ -168,7 +171,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
           .eq('id', id)
 
         return NextResponse.json({
-          error: 'Invalid invoice text',
+          error:
+            'The extracted text does not appear to be a valid invoice. ' +
+            'Make sure the uploaded file is a supplier invoice, not a receipt or other document.',
           details: validation.warnings
         }, { status: 400 })
       }
@@ -193,16 +198,20 @@ export async function POST(request: NextRequest, context: RouteContext) {
       })
 
       if (!aiResult.success || !aiResult.data) {
+        const aiErrSummary = aiResult.errors?.join('; ') ?? 'unknown error'
         await supabase
           .from('invoices')
           .update({
             status: 'error',
-            parsing_error: `AI parsing failed: ${aiResult.errors?.join(', ')}`
+            parsing_error: `AI parsing failed: ${aiErrSummary}`
           })
           .eq('id', id)
 
         return NextResponse.json({
-          error: 'AI parsing failed',
+          error:
+            'AI parsing could not extract invoice data from this file. ' +
+            'The document may be a scan with poor quality, or it may not be a standard invoice format. ' +
+            'Try re-uploading a higher-quality file.',
           details: aiResult.errors
         }, { status: 400 })
       }
@@ -319,11 +328,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .eq('id', id)
 
       if (saveError) {
-        console.error('Failed to save parsing results:', saveError)
-        return NextResponse.json(
-          { error: 'Failed to save parsing results' },
-          { status: 500 }
-        )
+        return formatApiError('save invoice parsing results', saveError)
       }
 
       // Step 8: Create invoice items from parsed line items
@@ -405,6 +410,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       })
 
     } catch (processingError) {
+      const processingMsg = processingError instanceof Error ? processingError.message : 'Unknown error'
       console.error('Parsing process error:', processingError)
 
       // Update invoice with error status
@@ -412,21 +418,19 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .from('invoices')
         .update({
           status: 'error',
-          parsing_error: `Processing error: ${processingError instanceof Error ? processingError.message : 'Unknown error'}`
+          parsing_error: `Processing error: ${processingMsg}`
         })
         .eq('id', id)
 
       return NextResponse.json({
-        error: 'Invoice parsing failed',
-        details: processingError instanceof Error ? processingError.message : 'Unknown error'
+        error:
+          'Invoice parsing failed due to an unexpected error. ' +
+          'Please try again. If the problem persists, re-upload the invoice file.',
+        ...(process.env.NODE_ENV !== 'production' && { details: processingMsg })
       }, { status: 500 })
     }
 
   } catch (error) {
-    console.error('Failed to parse invoice:', error)
-    return NextResponse.json(
-      { error: 'Failed to parse invoice', details: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 }
-    )
+    return unexpectedError('parse invoice', error)
   }
 }
