@@ -180,10 +180,10 @@ export default function InventoryCreateModal({ suppliers, isOpen, onClose }: Inv
     }
   })
 
-  // Only prepackaged items require a Square item ID.
-  // Ingredients, prepared items, and supplies (cups, straws, lids, sleeves, etc.)
+  // Prepackaged and prepared items require a Square item ID (they're sold through Square).
+  // Ingredients and supplies (cups, straws, lids, sleeves, etc.)
   // can be created without a Square catalog link.
-  const requiresSquareId = formData.item_type === 'prepackaged'
+  const requiresSquareId = formData.item_type === 'prepackaged' || formData.item_type === 'prepared'
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -199,7 +199,7 @@ export default function InventoryCreateModal({ suppliers, isOpen, onClose }: Inv
     }
 
     if (requiresSquareId && !formData.square_item_id.trim()) {
-      toast.error('Square Item ID is required for pre-packaged items')
+      toast.error('Square Item ID is required for pre-packaged and prepared items')
       return
     }
 
