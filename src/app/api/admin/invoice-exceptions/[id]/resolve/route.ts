@@ -18,6 +18,7 @@ interface ResolveRequestBody {
  * Auto-confirm an invoice when all exceptions are resolved/dismissed.
  * Mirrors the logic in /api/admin/invoices/[id]/confirm, but triggered
  * automatically when the last open exception is cleared.
+ * Also distributes any supplier fees to inventory_item_cost_history.
  */
 async function tryAutoConfirmInvoice(
   supabase: ReturnType<typeof createServiceClient>,
@@ -39,7 +40,7 @@ async function tryAutoConfirmInvoice(
   // Check invoice current status — only auto-confirm if it was pending_exceptions
   const { data: invoice } = await supabase
     .from('invoices')
-    .select('status')
+    .select('status, total_fees, fee_cogs_distributed, invoice_number, suppliers(name)')
     .eq('id', invoiceId)
     .eq('tenant_id', tenantId)
     .single()
@@ -49,13 +50,15 @@ async function tryAutoConfirmInvoice(
   }
 
   // Set invoice to confirmed
+  const totalFees = Number((invoice as { total_fees?: unknown }).total_fees ?? 0)
   const { error } = await supabase
     .from('invoices')
     .update({
       status: 'confirmed',
       pipeline_stage: 'completed',
       pipeline_completed_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
+      ...(totalFees > 0 && { fee_cogs_distributed: true }),
     })
     .eq('id', invoiceId)
     .eq('tenant_id', tenantId)
@@ -65,8 +68,93 @@ async function tryAutoConfirmInvoice(
     return false
   }
 
+  // Distribute supplier fees proportionally to cost history (non-fatal)
+  if (totalFees > 0 && !(invoice as { fee_cogs_distributed?: unknown }).fee_cogs_distributed) {
+    try {
+      await distributeFeesToCostHistory(supabase, invoiceId, tenantId, totalFees, invoice)
+    } catch (feeErr) {
+      console.error('[auto-confirm] Fee distribution failed (non-fatal):', feeErr)
+    }
+  }
+
   console.log(`✅ Auto-confirmed invoice ${invoiceId} after last exception resolved`)
   return true
+}
+
+/**
+ * Proportionally allocate invoice supplier fees across matched line items.
+ * Records each allocation as an `invoice_fee` entry in inventory_item_cost_history.
+ */
+async function distributeFeesToCostHistory(
+  supabase: ReturnType<typeof createServiceClient>,
+  invoiceId: string,
+  tenantId: string,
+  totalFees: number,
+  invoiceMeta: { invoice_number?: string; suppliers?: { name?: string } | null }
+): Promise<void> {
+  const { data: matchedItems } = await supabase
+    .from('invoice_items')
+    .select('id, matched_item_id, quantity, total_price')
+    .eq('invoice_id', invoiceId)
+    .eq('tenant_id', tenantId)
+    .not('matched_item_id', 'is', null)
+
+  if (!matchedItems || matchedItems.length === 0) return
+
+  type MatchedItem = { id: string; matched_item_id: string; quantity: unknown; total_price: unknown }
+
+  const totalMatchedValue = (matchedItems as MatchedItem[]).reduce(
+    (sum, item) => sum + Math.max(0, Number(item.total_price ?? 0)),
+    0
+  )
+  if (totalMatchedValue <= 0) return
+
+  const historyRows: Record<string, unknown>[] = []
+  const invoiceNumber = invoiceMeta.invoice_number ?? invoiceId
+  const supplierName = (invoiceMeta.suppliers as { name?: string } | null)?.name ?? 'Unknown Supplier'
+
+  for (const item of matchedItems as MatchedItem[]) {
+    if (!item.matched_item_id) continue
+    const itemValue = Math.max(0, Number(item.total_price ?? 0))
+    const feeShare = Math.round(((itemValue / totalMatchedValue) * totalFees) * 10000) / 10000
+    if (feeShare <= 0) continue
+
+    const { data: invRow } = await supabase
+      .from('inventory_items')
+      .select('unit_cost')
+      .eq('id', item.matched_item_id)
+      .eq('tenant_id', tenantId)
+      .single()
+
+    const currentCost = Number((invRow as { unit_cost?: unknown } | null)?.unit_cost ?? 0)
+    const qty = Math.max(1, Number(item.quantity ?? 1))
+    const feePerUnit = Math.round((feeShare / qty) * 10000) / 10000
+    if (feePerUnit <= 0) continue
+
+    historyRows.push({
+      tenant_id: tenantId,
+      inventory_item_id: item.matched_item_id,
+      previous_unit_cost: currentCost,
+      new_unit_cost: Math.round((currentCost + feePerUnit) * 10000) / 10000,
+      pack_size: 1,
+      source: 'invoice_fee',
+      source_ref: invoiceId,
+      notes: `Fee allocation from Invoice ${invoiceNumber} (${supplierName}): $${feeShare.toFixed(4)} of $${totalFees.toFixed(2)} total fees`,
+      changed_by: null,
+      fee_amount: feeShare,
+    })
+  }
+
+  if (historyRows.length > 0) {
+    const { error } = await supabase
+      .from('inventory_item_cost_history')
+      .insert(historyRows)
+    if (error) {
+      console.error('[auto-confirm] Failed to insert fee history rows:', error)
+    } else {
+      console.log(`✅ [auto-confirm] Distributed fees for invoice ${invoiceId}: ${historyRows.length} items`)
+    }
+  }
 }
 
 export async function POST(request: NextRequest, context: RouteContext) {

@@ -38,10 +38,10 @@ export async function runCogsFeed(ctx: PipelineContext): Promise<StageResult> {
       return { ok: true }
     }
 
-    // Fetch the confirmed invoice to get total_amount and invoice_date
+    // Fetch the confirmed invoice to get total_amount, total_fees, and invoice_date
     const { data: invoice, error: invoiceError } = await ctx.supabase
       .from('invoices')
-      .select('id, total_amount, invoice_date')
+      .select('id, total_amount, total_fees, invoice_date')
       .eq('id', ctx.invoiceId)
       .eq('tenant_id', ctx.tenantId)
       .single()
@@ -57,9 +57,14 @@ export async function runCogsFeed(ctx: PipelineContext): Promise<StageResult> {
       ? (invoice.invoice_date as string).split('T')[0]
       : today
 
+    // purchases_value includes product total + supplier fees (both are COGS)
     const invoiceTotalAmount = typeof invoice.total_amount === 'number'
       ? invoice.total_amount
       : 0
+    const invoiceTotalFees = typeof (invoice as { total_fees?: unknown }).total_fees === 'number'
+      ? (invoice as { total_fees: number }).total_fees
+      : 0
+    const invoicePurchasesValue = Math.round((invoiceTotalAmount + invoiceTotalFees) * 100) / 100
 
     // Fetch current inventory value for ending_inventory_value
     const { data: inventoryItems } = await ctx.supabase
@@ -86,9 +91,9 @@ export async function runCogsFeed(ctx: PipelineContext): Promise<StageResult> {
       .maybeSingle()
 
     if (existing) {
-      // Update existing row: add this invoice's amount to purchases_value
+      // Update existing row: add this invoice's purchases value (product + fees) to purchases_value
       const newPurchases = Math.round(
-        ((existing.purchases_value as number) + invoiceTotalAmount) * 100
+        ((existing.purchases_value as number) + invoicePurchasesValue) * 100
       ) / 100
 
       const existingIds = (existing.contributing_invoice_ids as string[]) ?? []
@@ -124,6 +129,7 @@ export async function runCogsFeed(ctx: PipelineContext): Promise<StageResult> {
         summary_date: summaryDate,
         invoice_id: ctx.invoiceId,
         purchases_value: newPurchases,
+        fees_included: invoiceTotalFees,
         periodic_cogs: newPeriodicCogs,
         tenant_id: ctx.tenantId,
       }))
@@ -131,11 +137,11 @@ export async function runCogsFeed(ctx: PipelineContext): Promise<StageResult> {
       // Insert new summary row for this date
       const beginningInventory = Math.max(
         0,
-        Math.round((roundedInventoryValue - invoiceTotalAmount) * 100) / 100
+        Math.round((roundedInventoryValue - invoicePurchasesValue) * 100) / 100
       )
       const periodicCogs = Math.max(
         0,
-        Math.round((beginningInventory + invoiceTotalAmount - roundedInventoryValue) * 100) / 100
+        Math.round((beginningInventory + invoicePurchasesValue - roundedInventoryValue) * 100) / 100
       )
 
       const { error: insertError } = await ctx.supabase
@@ -144,7 +150,7 @@ export async function runCogsFeed(ctx: PipelineContext): Promise<StageResult> {
           tenant_id: ctx.tenantId,
           summary_date: summaryDate,
           beginning_inventory_value: beginningInventory,
-          purchases_value: Math.round(invoiceTotalAmount * 100) / 100,
+          purchases_value: Math.round(invoicePurchasesValue * 100) / 100,
           ending_inventory_value: roundedInventoryValue,
           periodic_cogs: periodicCogs,
           contributing_invoice_ids: [ctx.invoiceId],
@@ -159,7 +165,7 @@ export async function runCogsFeed(ctx: PipelineContext): Promise<StageResult> {
           await ctx.supabase
             .from('ai_cogs_daily_summaries')
             .update({
-              purchases_value: Math.round(invoiceTotalAmount * 100) / 100,
+              purchases_value: Math.round(invoicePurchasesValue * 100) / 100,
               contributing_invoice_ids: [ctx.invoiceId],
               computed_at: new Date().toISOString(),
             })
@@ -175,7 +181,8 @@ export async function runCogsFeed(ctx: PipelineContext): Promise<StageResult> {
         event: 'cogs_feed_inserted',
         summary_date: summaryDate,
         invoice_id: ctx.invoiceId,
-        purchases_value: invoiceTotalAmount,
+        purchases_value: invoicePurchasesValue,
+        fees_included: invoiceTotalFees,
         periodic_cogs: periodicCogs,
         tenant_id: ctx.tenantId,
       }))
