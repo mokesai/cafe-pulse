@@ -153,6 +153,16 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('Database error creating inventory item:', error)
+      // 23505 = unique_violation: a supplier already has this Square item ID + pack size combo
+      if (error.code === '23505') {
+        return NextResponse.json(
+          {
+            error: 'This supplier already has an inventory item with the same Square item ID and pack size. Each supplier can only link to a given Square item once per pack size.',
+            code: 'DUPLICATE_SUPPLIER_ITEM'
+          },
+          { status: 409 }
+        )
+      }
       return NextResponse.json(
         { error: 'Failed to create inventory item', details: error.message },
         { status: 500 }
@@ -278,6 +288,16 @@ export async function PUT(request: NextRequest) {
 
     if (error) {
       console.error('Database error updating inventory item:', error)
+      // 23505 = unique_violation: another item from this supplier already uses this Square item ID + pack size
+      if (error.code === '23505') {
+        return NextResponse.json(
+          {
+            error: 'This supplier already has an inventory item with the same Square item ID and pack size. Each supplier can only link to a given Square item once per pack size.',
+            code: 'DUPLICATE_SUPPLIER_ITEM'
+          },
+          { status: 409 }
+        )
+      }
       return NextResponse.json(
         { error: 'Failed to update inventory item', details: error.message },
         { status: 500 }
