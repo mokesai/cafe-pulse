@@ -101,7 +101,10 @@ export async function POST(request: NextRequest) {
 
     const finalItemType = item_type || (is_ingredient ? 'ingredient' : 'prepackaged')
     const derivedIsIngredient = finalItemType === 'ingredient' || !!is_ingredient
-    const requiresSquareId = !derivedIsIngredient
+    // Prepackaged and prepared items require a Square item ID (they're sold through Square).
+    // Ingredients and supplies (cups, straws, lids, sleeves, etc.)
+    // are managed internally and don't need a Square catalog entry.
+    const requiresSquareId = finalItemType === 'prepackaged' || finalItemType === 'prepared'
 
     if (!item_name || current_stock === undefined) {
       return NextResponse.json(
