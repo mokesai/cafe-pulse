@@ -44,8 +44,8 @@ jobs:
       TEST_STAFF_EMAIL: ${{ secrets.TEST_STAFF_EMAIL }}
       TEST_STAFF_PASSWORD: ${{ secrets.TEST_STAFF_PASSWORD }}
 
-      # Optional: if set, skip the local dev server and hit this URL instead
-      BASE_URL: ${{ secrets.BASE_URL }}
+      # Point at staging — skip local dev server entirely
+      BASE_URL: ${{ secrets.BASE_URL || 'https://staging.cafepulse.org' }}
 
       # App settings — public vars (from GitHub Variables)
       NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000' }}
