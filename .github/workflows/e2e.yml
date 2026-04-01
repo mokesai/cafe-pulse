@@ -28,7 +28,7 @@ jobs:
     env:
       # Supabase — public vars (from GitHub Variables)
       NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
 
       # Supabase — sensitive (from GitHub Secrets)
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
