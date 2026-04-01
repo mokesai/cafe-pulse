@@ -26,13 +26,15 @@ jobs:
         browser: [chromium, firefox, webkit]
 
     env:
-      # Supabase — required to boot the app
-      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      # Supabase — public vars (from GitHub Variables)
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+
+      # Supabase — sensitive (from GitHub Secrets)
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
 
-      # Test credentials
+      # Test credentials — sensitive (from GitHub Secrets)
       TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
       TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
       TEST_OWNER_EMAIL: ${{ secrets.TEST_OWNER_EMAIL }}
@@ -45,12 +47,12 @@ jobs:
       # Optional: if set, skip the local dev server and hit this URL instead
       BASE_URL: ${{ secrets.BASE_URL }}
 
-      # App settings needed at build/runtime
-      NEXT_PUBLIC_SITE_URL: ${{ secrets.BASE_URL || 'http://localhost:3000' }}
-      NEXT_PUBLIC_APP_URL: ${{ secrets.BASE_URL || 'http://localhost:3000' }}
-      NEXT_PUBLIC_SQUARE_ENVIRONMENT: sandbox
-      NEXT_PUBLIC_SQUARE_APPLICATION_ID: ${{ secrets.NEXT_PUBLIC_SQUARE_APPLICATION_ID }}
-      NEXT_PUBLIC_SQUARE_LOCATION_ID: ${{ secrets.NEXT_PUBLIC_SQUARE_LOCATION_ID }}
+      # App settings — public vars (from GitHub Variables)
+      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000' }}
+      NEXT_PUBLIC_APP_URL: ${{ vars.NEXT_PUBLIC_APP_URL || 'http://localhost:3000' }}
+      NEXT_PUBLIC_SQUARE_ENVIRONMENT: ${{ vars.NEXT_PUBLIC_SQUARE_ENVIRONMENT || 'sandbox' }}
+      NEXT_PUBLIC_SQUARE_APPLICATION_ID: ${{ vars.NEXT_PUBLIC_SQUARE_APPLICATION_ID }}
+      NEXT_PUBLIC_SQUARE_LOCATION_ID: ${{ vars.NEXT_PUBLIC_SQUARE_LOCATION_ID }}
 
       # Skip MFA in CI test environment
       SKIP_MFA_FOR_TESTING: "true"
