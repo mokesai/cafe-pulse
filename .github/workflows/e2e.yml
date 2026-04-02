@@ -26,13 +26,7 @@ jobs:
         browser: [chromium, firefox, webkit]
 
     env:
-      # Supabase — required to boot the app
-      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-
-      # Test credentials
+      # Test credentials — sensitive (from GitHub Secrets)
       TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
       TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
       TEST_OWNER_EMAIL: ${{ secrets.TEST_OWNER_EMAIL }}
@@ -42,20 +36,13 @@ jobs:
       TEST_STAFF_EMAIL: ${{ secrets.TEST_STAFF_EMAIL }}
       TEST_STAFF_PASSWORD: ${{ secrets.TEST_STAFF_PASSWORD }}
 
-      # Optional: if set, skip the local dev server and hit this URL instead
-      BASE_URL: ${{ secrets.BASE_URL }}
-
-      # App settings needed at build/runtime
-      NEXT_PUBLIC_SITE_URL: ${{ secrets.BASE_URL || 'http://localhost:3000' }}
-      NEXT_PUBLIC_APP_URL: ${{ secrets.BASE_URL || 'http://localhost:3000' }}
-      NEXT_PUBLIC_SQUARE_ENVIRONMENT: sandbox
-      NEXT_PUBLIC_SQUARE_APPLICATION_ID: ${{ secrets.NEXT_PUBLIC_SQUARE_APPLICATION_ID }}
-      NEXT_PUBLIC_SQUARE_LOCATION_ID: ${{ secrets.NEXT_PUBLIC_SQUARE_LOCATION_ID }}
+      # Always run against staging — no local dev server
+      BASE_URL: ${{ secrets.BASE_URL || 'https://staging.cafepulse.org' }}
 
       # Skip MFA in CI test environment
       SKIP_MFA_FOR_TESTING: "true"
 
-      # CI flag (used by playwright.config.ts for retries/workers)
+      # CI flag
       CI: "true"
 
     steps:
@@ -69,40 +56,15 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps ${{ matrix.browser }}
 
-      - name: Determine test mode
-        id: mode
-        run: |
-          if [ -n "${{ secrets.BASE_URL }}" ]; then
-            echo "mode=remote" >> $GITHUB_OUTPUT
-            echo "base_url=${{ secrets.BASE_URL }}" >> $GITHUB_OUTPUT
-            echo "▶ Running against remote URL: ${{ secrets.BASE_URL }}"
-          else
-            echo "mode=local" >> $GITHUB_OUTPUT
-            echo "base_url=http://localhost:3000" >> $GITHUB_OUTPUT
-            echo "▶ No BASE_URL secret — will spin up local dev server"
-          fi
-
-      # Local dev server mode: build and start Next.js before tests
-      # Playwright's webServer config handles this automatically when BASE_URL is not set.
-      # We override playwright.config.ts at runtime via env var to enable webServer.
-      - name: Run E2E tests (local dev server)
-        if: steps.mode.outputs.mode == 'local'
+      - name: Run E2E tests
         run: npx playwright test --project=${{ matrix.browser }}
         env:
-          BASE_URL: ""
-          PLAYWRIGHT_WEB_SERVER: "true"
-
-      # Remote mode: tests point directly at BASE_URL (staging or preview)
-      - name: Run E2E tests (remote URL)
-        if: steps.mode.outputs.mode == 'remote'
-        run: npx playwright test --project=${{ matrix.browser }}
-        env:
-          BASE_URL: ${{ secrets.BASE_URL }}
+          BASE_URL: ${{ secrets.BASE_URL || 'https://staging.cafepulse.org' }}
 
       - name: Upload HTML report
         if: always()
