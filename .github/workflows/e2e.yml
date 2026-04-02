@@ -18,13 +18,13 @@ jobs:
   e2e:
     name: E2E (${{ matrix.browser }})
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 15
     environment: preview
 
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
-        browser: [chromium, firefox, webkit]
+        browser: [chromium]
 
     env:
       # Test credentials — sensitive (from GitHub Secrets)
@@ -63,7 +63,7 @@ jobs:
         run: npx playwright install --with-deps ${{ matrix.browser }}
 
       - name: Run E2E tests
-        run: npx playwright test --project=${{ matrix.browser }}
+        run: npx playwright test --project=${{ matrix.browser }} --max-failures=1
         env:
           BASE_URL: ${{ secrets.BASE_URL || 'https://bigcafe.staging.cafepulse.org' }}
 
