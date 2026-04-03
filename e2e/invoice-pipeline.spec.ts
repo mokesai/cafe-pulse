@@ -15,7 +15,7 @@ import { bluepointPO, odekoPO } from '../tests/e2e/fixtures/purchase-orders'
 
 // ─── Config ─────────────────────────────────────────────────────────────────
 
-const BASE_URL = process.env.BASE_URL || 'http://localhost:3000'
+const BASE_URL = process.env.TEST_TENANT_BASE_URL || process.env.BASE_URL || 'https://bigcafe.staging.cafepulse.org'
 const API_BASE = `${BASE_URL}/api/admin`
 const TENANT_SLUG = process.env.TEST_TENANT_SLUG || 'bigcafe'
 
