@@ -179,3 +179,4 @@ If a test fails with a login error and credentials look correct, check that:
 - [ ] `SKIP_MFA_FOR_TESTING=true` confirmed working in staging/test environment
 # CI Trigger\nFirst E2E workflow run - Wed Apr  1 01:55:31 UTC 2026
 chore: trigger CI run Thu Apr  2 02:00:51 UTC 2026
+# Trigger redeploy for SKIP_MFA_FOR_TESTING env var
