@@ -31,11 +31,18 @@ const FIXTURES = path.resolve(__dirname, '../tests/e2e/fixtures/pdfs')
 
 /** Log in as the bigcafe Admin and land on /admin/dashboard */
 async function loginAsAdmin(page: import('@playwright/test').Page) {
-  await page.goto(`${BASE_URL}/admin/login`)
+  const loginUrl = `${BASE_URL}/admin/login`
+  console.log(`[DEBUG] BASE_URL=${BASE_URL}`)
+  console.log(`[DEBUG] Navigating to: ${loginUrl}`)
+  console.log(`[DEBUG] ADMIN_EMAIL=${ADMIN_EMAIL}`)
+  await page.goto(loginUrl)
+  console.log(`[DEBUG] Current URL after goto: ${page.url()}`)
   await page.getByLabel(/email/i).fill(ADMIN_EMAIL)
   await page.getByLabel(/password/i).fill(ADMIN_PASSWORD)
   await page.getByRole('button', { name: /sign in/i }).click()
+  console.log(`[DEBUG] URL after click: ${page.url()}`)
   await page.waitForURL(/\/admin\/dashboard/, { timeout: 15_000 })
+  console.log(`[DEBUG] Final URL: ${page.url()}`)
 }
 
 /** Upload an invoice PDF via the API. Returns the parsed response body. */
