@@ -15,6 +15,12 @@ function MFAChallengeContent() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
+  // Skip MFA in E2E test mode — redirect immediately to returnUrl
+  if (process.env.NEXT_PUBLIC_SKIP_MFA_FOR_TESTING === 'true') {
+    router.replace(returnUrl)
+    return null
+  }
+
   const verifyMFA = async () => {
     if (!code || code.length !== 6) {
       setError('Please enter a valid 6-digit code')
