@@ -34,6 +34,12 @@ export default defineConfig({
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
+    // Pass Vercel deployment protection bypass header for CI
+    ...(process.env.VERCEL_BYPASS_SECRET ? {
+      extraHTTPHeaders: {
+        'x-vercel-protection-bypass': process.env.VERCEL_BYPASS_SECRET,
+      }
+    } : {}),
   },
 
   projects: [

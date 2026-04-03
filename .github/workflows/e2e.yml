@@ -44,6 +44,9 @@ jobs:
       # Skip MFA in CI test environment
       SKIP_MFA_FOR_TESTING: "true"
 
+      # Vercel deployment protection bypass
+      VERCEL_BYPASS_SECRET: ${{ secrets.VERCEL_BYPASS_SECRET }}
+
       # CI flag
       CI: "true"
 
@@ -110,14 +113,19 @@ jobs:
       - name: Smoke test staging URL
         run: |
           echo "Checking BASE_URL and TEST_TENANT_BASE_URL are reachable..."
-          curl -I "${{ secrets.BASE_URL || 'https://staging.cafepulse.org' }}" --max-time 10 || echo "BASE_URL check failed"
-          curl -I "${{ secrets.TEST_TENANT_BASE_URL || 'https://bigcafe.staging.cafepulse.org' }}/admin/login" --max-time 10 || echo "TEST_TENANT_BASE_URL check failed"
+          curl -I "${{ secrets.BASE_URL || 'https://staging.cafepulse.org' }}" \
+            -H "x-vercel-protection-bypass: ${{ secrets.VERCEL_BYPASS_SECRET }}" \
+            --max-time 10 || echo "BASE_URL check failed"
+          curl -I "${{ secrets.TEST_TENANT_BASE_URL || 'https://bigcafe.staging.cafepulse.org' }}/admin/login" \
+            -H "x-vercel-protection-bypass: ${{ secrets.VERCEL_BYPASS_SECRET }}" \
+            --max-time 10 || echo "TEST_TENANT_BASE_URL check failed"
 
       - name: Run E2E tests
         run: npx playwright test --project=${{ matrix.browser }} --max-failures=1
         env:
           BASE_URL: ${{ secrets.BASE_URL || 'https://staging.cafepulse.org' }}
           TEST_TENANT_BASE_URL: ${{ secrets.TEST_TENANT_BASE_URL || 'https://bigcafe.staging.cafepulse.org' }}
+          VERCEL_BYPASS_SECRET: ${{ secrets.VERCEL_BYPASS_SECRET }}
 
       - name: Upload HTML report
         if: always()
