@@ -83,9 +83,10 @@ jobs:
             STATE=$(echo "$DEPLOYMENT" | python3 -c "
           import sys,json
           deployments=json.load(sys.stdin).get('deployments',[])
+          commit_sha = '$COMMIT_SHA'
           for d in deployments:
               meta = d.get('meta',{})
-              if meta.get('githubCommitSha','').startswith('$COMMIT_SHA'[:7]):
+              if meta.get('githubCommitSha','').startswith(commit_sha[:7]):
                   print(d['state'])
                   break
           else:
