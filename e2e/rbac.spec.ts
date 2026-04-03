@@ -48,6 +48,11 @@ const ACCOUNTS = {
 }
 
 // ---------------------------------------------------------------------------
+// Base URLs — platform-level vs tenant-level (subdomain routing)
+const PLATFORM_BASE_URL = process.env.BASE_URL || 'https://staging.cafepulse.org'
+const TENANT_BASE_URL = process.env.TEST_TENANT_BASE_URL || 'https://bigcafe.staging.cafepulse.org'
+
+// ---------------------------------------------------------------------------
 // Helper: login via /admin/login (tenant users)
 // ---------------------------------------------------------------------------
 
@@ -56,7 +61,7 @@ async function loginAsTenantUser(
   email: string,
   password: string
 ): Promise<void> {
-  await page.goto('/admin/login')
+  await page.goto(`${TENANT_BASE_URL}/admin/login`)
   await page.waitForSelector('input[type="email"]', { timeout: 10_000 })
   await page.fill('input[type="email"]', email)
   await page.fill('input[type="password"]', password)
@@ -76,7 +81,7 @@ async function loginAsPlatformAdmin(
   email: string,
   password: string
 ): Promise<void> {
-  await page.goto('/admin/login?return=/platform')
+  await page.goto(`${PLATFORM_BASE_URL}/admin/login?return=/platform`)
   await page.waitForSelector('input[type="email"]', { timeout: 10_000 })
   await page.fill('input[type="email"]', email)
   await page.fill('input[type="password"]', password)
@@ -89,8 +94,14 @@ async function loginAsPlatformAdmin(
 // Helper: assert a route is blocked (redirect to login / 401 / 403 / access-denied)
 // ---------------------------------------------------------------------------
 
+function resolveUrl(path: string): string {
+  // Platform routes use the platform base URL; admin routes use tenant base URL
+  if (path.startsWith('/platform')) return `${PLATFORM_BASE_URL}${path}`
+  return `${TENANT_BASE_URL}${path}`
+}
+
 async function expectBlocked(page: Page, path: string): Promise<void> {
-  const response = await page.goto(path)
+  const response = await page.goto(resolveUrl(path))
   await page.waitForLoadState('domcontentloaded')
 
   const finalUrl = page.url()
@@ -118,7 +129,7 @@ async function expectBlocked(page: Page, path: string): Promise<void> {
 // ---------------------------------------------------------------------------
 
 async function expectAccessible(page: Page, path: string): Promise<void> {
-  const response = await page.goto(path)
+  const response = await page.goto(resolveUrl(path))
   await page.waitForLoadState('domcontentloaded')
 
   const finalUrl = page.url()
@@ -324,7 +335,7 @@ test.describe('Staff — RBAC', () => {
   test('kds-config: is blocked or shown access-denied if role not in config_access_roles', async ({ page }) => {
     // KDS config respects config_access_roles (default: owner + admin only).
     // Staff should be redirected to /admin/kds-config/access-denied.
-    const response = await page.goto('/admin/kds-config')
+    const response = await page.goto(resolveUrl('/admin/kds-config'))
     await page.waitForLoadState('domcontentloaded')
 
     const finalUrl = page.url()

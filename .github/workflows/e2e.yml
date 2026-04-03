@@ -30,15 +30,16 @@ jobs:
       # Test credentials — sensitive (from GitHub Secrets)
       TEST_SUPER_ADMIN_EMAIL: ${{ secrets.TEST_SUPER_ADMIN_EMAIL }}
       TEST_SUPER_ADMIN_PASSWORD: ${{ secrets.TEST_SUPER_ADMIN_PASSWORD }}
-      TEST_BIGCAFE_OWNER_EMAIL: ${{ secrets.TEST_BIGCAFE_OWNER_EMAIL }}
-      TEST_BIGCAFE_OWNER_PASSWORD: ${{ secrets.TEST_BIGCAFE_OWNER_PASSWORD }}
-      TEST_BIGCAFE_ADMIN_EMAIL: ${{ secrets.TEST_BIGCAFE_ADMIN_EMAIL }}
-      TEST_BIGCAFE_ADMIN_PASSWORD: ${{ secrets.TEST_BIGCAFE_ADMIN_PASSWORD }}
+      TEST_TENANT_OWNER_EMAIL: ${{ secrets.TEST_TENANT_OWNER_EMAIL }}
+      TEST_TENANT_OWNER_PASSWORD: ${{ secrets.TEST_TENANT_OWNER_PASSWORD }}
+      TEST_TENANT_ADMIN_EMAIL: ${{ secrets.TEST_TENANT_ADMIN_EMAIL }}
+      TEST_TENANT_ADMIN_PASSWORD: ${{ secrets.TEST_TENANT_ADMIN_PASSWORD }}
       TEST_TENANT_1: ${{ secrets.TEST_TENANT_1 }}
       TEST_TENANT_2: ${{ secrets.TEST_TENANT_2 }}
 
       # Always run against staging — no local dev server
-      BASE_URL: ${{ secrets.BASE_URL || 'https://bigcafe.staging.cafepulse.org' }}
+      BASE_URL: ${{ secrets.BASE_URL || 'https://staging.cafepulse.org' }}
+      TEST_TENANT_BASE_URL: ${{ secrets.TEST_TENANT_BASE_URL || 'https://bigcafe.staging.cafepulse.org' }}
 
       # Skip MFA in CI test environment
       SKIP_MFA_FOR_TESTING: "true"
@@ -108,7 +109,8 @@ jobs:
       - name: Run E2E tests
         run: npx playwright test --project=${{ matrix.browser }} --max-failures=1
         env:
-          BASE_URL: ${{ secrets.BASE_URL || 'https://bigcafe.staging.cafepulse.org' }}
+          BASE_URL: ${{ secrets.BASE_URL || 'https://staging.cafepulse.org' }}
+          TEST_TENANT_BASE_URL: ${{ secrets.TEST_TENANT_BASE_URL || 'https://bigcafe.staging.cafepulse.org' }}
 
       - name: Upload HTML report
         if: always()

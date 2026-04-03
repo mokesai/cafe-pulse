@@ -21,11 +21,11 @@ import path from 'path'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const BASE_URL = process.env.BASE_URL || 'https://staging.cafepulse.org'
+const BASE_URL = process.env.TEST_TENANT_BASE_URL || process.env.BASE_URL || 'https://bigcafe.staging.cafepulse.org'
 const API_BASE = `${BASE_URL}/api/admin`
 
-const ADMIN_EMAIL = process.env.TEST_BIGCAFE_ADMIN_EMAIL ?? 'test-admin@cafe-pulse.test'
-const ADMIN_PASSWORD = process.env.TEST_BIGCAFE_ADMIN_PASSWORD ?? 'TestAdmin123!'
+const ADMIN_EMAIL = process.env.TEST_TENANT_ADMIN_EMAIL ?? 'test-admin@cafe-pulse.test'
+const ADMIN_PASSWORD = process.env.TEST_TENANT_ADMIN_PASSWORD ?? 'TestAdmin123!'
 
 const FIXTURES = path.resolve(__dirname, '../tests/e2e/fixtures/pdfs')
 
