@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Button from '@/components/ui/Button'
@@ -16,8 +16,13 @@ function MFAChallengeContent() {
   const [isLoading, setIsLoading] = useState(false)
 
   // Skip MFA in E2E test mode — redirect immediately to returnUrl
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_SKIP_MFA_FOR_TESTING === 'true') {
+      router.replace(returnUrl)
+    }
+  }, [router, returnUrl])
+
   if (process.env.NEXT_PUBLIC_SKIP_MFA_FOR_TESTING === 'true') {
-    router.replace(returnUrl)
     return null
   }
 
