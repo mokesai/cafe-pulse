@@ -92,7 +92,8 @@ jobs:
             echo "Deployment state: $STATE (elapsed: ${ELAPSED}s)"
 
             if [ "$STATE" = "READY" ]; then
-              echo "Vercel deployment is ready!"
+              echo "Vercel deployment is ready! Waiting 15s for warmup..."
+              sleep 15
               exit 0
             elif [ "$STATE" = "ERROR" ] || [ "$STATE" = "CANCELED" ]; then
               echo "Vercel deployment failed with state: $STATE"
@@ -105,6 +106,12 @@ jobs:
 
           echo "Timed out waiting for Vercel deployment after ${MAX_WAIT}s"
           exit 1
+
+      - name: Smoke test staging URL
+        run: |
+          echo "Checking BASE_URL and TEST_TENANT_BASE_URL are reachable..."
+          curl -I "${{ secrets.BASE_URL || 'https://staging.cafepulse.org' }}" --max-time 10 || echo "BASE_URL check failed"
+          curl -I "${{ secrets.TEST_TENANT_BASE_URL || 'https://bigcafe.staging.cafepulse.org' }}/admin/login" --max-time 10 || echo "TEST_TENANT_BASE_URL check failed"
 
       - name: Run E2E tests
         run: npx playwright test --project=${{ matrix.browser }} --max-failures=1
