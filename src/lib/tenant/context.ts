@@ -5,6 +5,7 @@
 import { cookies, headers } from 'next/headers'
 
 import { createServiceClient } from '@/lib/supabase/server'
+import { createServerClient } from '@supabase/ssr'
 
 import { getCachedTenant, setCachedTenant } from './cache'
 import { DEFAULT_TENANT_ID, DEFAULT_TENANT_SLUG } from './types'
@@ -12,7 +13,9 @@ import type { Tenant } from './types'
 
 /**
  * Resolve a tenant by slug, checking the in-memory cache first.
- * Uses the service role client because this runs in middleware before auth context exists.
+ * Uses the anon/publishable key client so it works in both edge middleware
+ * and server components (service key is not available in edge runtime).
+ * Relies on RLS allowing public read of active tenants.
  * Returns null if the tenant is not found or inactive.
  */
 export async function resolveTenantBySlug(slug: string): Promise<Tenant | null> {
@@ -20,8 +23,12 @@ export async function resolveTenantBySlug(slug: string): Promise<Tenant | null> 
   const cached = getCachedTenant(slug)
   if (cached) return cached
 
-  // Cache miss — query the database
-  const supabase = createServiceClient()
+  // Cache miss — query the database using anon client (edge-safe)
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    { cookies: { getAll: () => [], setAll: () => {} } }
+  )
   const { data, error } = await supabase
     .from('tenants')
     .select('*')
