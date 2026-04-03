@@ -38,7 +38,8 @@ jobs:
       TEST_TENANT_2: ${{ secrets.TEST_TENANT_2 }}
 
       # Always run against staging — no local dev server
-      BASE_URL: ${{ secrets.BASE_URL || 'https://bigcafe.staging.cafepulse.org' }}
+      BASE_URL: ${{ secrets.BASE_URL || 'https://staging.cafepulse.org' }}
+      TEST_TENANT_BASE_URL: ${{ secrets.TEST_TENANT_BASE_URL || 'https://bigcafe.staging.cafepulse.org' }}
 
       # Skip MFA in CI test environment
       SKIP_MFA_FOR_TESTING: "true"
@@ -108,7 +109,8 @@ jobs:
       - name: Run E2E tests
         run: npx playwright test --project=${{ matrix.browser }} --max-failures=1
         env:
-          BASE_URL: ${{ secrets.BASE_URL || 'https://bigcafe.staging.cafepulse.org' }}
+          BASE_URL: ${{ secrets.BASE_URL || 'https://staging.cafepulse.org' }}
+          TEST_TENANT_BASE_URL: ${{ secrets.TEST_TENANT_BASE_URL || 'https://bigcafe.staging.cafepulse.org' }}
 
       - name: Upload HTML report
         if: always()

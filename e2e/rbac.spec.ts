@@ -48,6 +48,13 @@ const ACCOUNTS = {
 }
 
 // ---------------------------------------------------------------------------
+// Base URLs — multi-tenant staging uses subdomains per tenant
+// ---------------------------------------------------------------------------
+
+const PLATFORM_BASE_URL = process.env.BASE_URL || 'https://staging.cafepulse.org'
+const TENANT_BASE_URL = process.env.TEST_TENANT_BASE_URL || 'https://bigcafe.staging.cafepulse.org'
+
+// ---------------------------------------------------------------------------
 // Helper: login via /admin/login (tenant users)
 // ---------------------------------------------------------------------------
 
@@ -56,7 +63,7 @@ async function loginAsTenantUser(
   email: string,
   password: string
 ): Promise<void> {
-  await page.goto('/admin/login')
+  await page.goto(`${TENANT_BASE_URL}/admin/login`)
   await page.waitForSelector('input[type="email"]', { timeout: 10_000 })
   await page.fill('input[type="email"]', email)
   await page.fill('input[type="password"]', password)
@@ -76,7 +83,7 @@ async function loginAsPlatformAdmin(
   email: string,
   password: string
 ): Promise<void> {
-  await page.goto('/admin/login?return=/platform')
+  await page.goto(`${PLATFORM_BASE_URL}/admin/login?return=/platform`)
   await page.waitForSelector('input[type="email"]', { timeout: 10_000 })
   await page.fill('input[type="email"]', email)
   await page.fill('input[type="password"]', password)
@@ -90,7 +97,8 @@ async function loginAsPlatformAdmin(
 // ---------------------------------------------------------------------------
 
 async function expectBlocked(page: Page, path: string): Promise<void> {
-  const response = await page.goto(path)
+  const url = path.startsWith('/platform') ? `${PLATFORM_BASE_URL}${path}` : `${TENANT_BASE_URL}${path}`
+  const response = await page.goto(url)
   await page.waitForLoadState('domcontentloaded')
 
   const finalUrl = page.url()
@@ -118,7 +126,8 @@ async function expectBlocked(page: Page, path: string): Promise<void> {
 // ---------------------------------------------------------------------------
 
 async function expectAccessible(page: Page, path: string): Promise<void> {
-  const response = await page.goto(path)
+  const url = path.startsWith('/platform') ? `${PLATFORM_BASE_URL}${path}` : `${TENANT_BASE_URL}${path}`
+  const response = await page.goto(url)
   await page.waitForLoadState('domcontentloaded')
 
   const finalUrl = page.url()
@@ -324,7 +333,7 @@ test.describe('Staff — RBAC', () => {
   test('kds-config: is blocked or shown access-denied if role not in config_access_roles', async ({ page }) => {
     // KDS config respects config_access_roles (default: owner + admin only).
     // Staff should be redirected to /admin/kds-config/access-denied.
-    const response = await page.goto('/admin/kds-config')
+    const response = await page.goto(`${TENANT_BASE_URL}/admin/kds-config`)
     await page.waitForLoadState('domcontentloaded')
 
     const finalUrl = page.url()
