@@ -22,8 +22,8 @@ const BASE_URL = process.env.TEST_TENANT_BASE_URL || process.env.BASE_URL || 'ht
 const API_BASE = `${BASE_URL}/api/admin`
 const TENANT_SLUG = process.env.TEST_TENANT_SLUG || 'bigcafe'
 
-const ADMIN_EMAIL = process.env.TEST_BIGCAFE_ADMIN_EMAIL ?? 'test-admin@cafe-pulse.test'
-const ADMIN_PASSWORD = process.env.TEST_BIGCAFE_ADMIN_PASSWORD ?? 'TestAdmin123!'
+const ADMIN_EMAIL = process.env.TEST_TENANT_ADMIN_EMAIL ?? 'test-admin@cafe-pulse.test'
+const ADMIN_PASSWORD = process.env.TEST_TENANT_ADMIN_PASSWORD ?? 'TestAdmin123!'
 
 const FIXTURES = path.resolve(__dirname, '../tests/e2e/fixtures/pdfs')
 
