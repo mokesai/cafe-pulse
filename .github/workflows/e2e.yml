@@ -72,26 +72,30 @@ jobs:
           VERCEL_TOKEN="${{ secrets.VERCEL_TOKEN }}"
           PROJECT_ID="prj_R1T2NCrhiMMsFxceJgYIwVVnBuEX"
           COMMIT_SHA="${{ github.sha }}"
+          export COMMIT_SHA
           MAX_WAIT=300
           INTERVAL=10
           ELAPSED=0
 
           while [ $ELAPSED -lt $MAX_WAIT ]; do
-            DEPLOYMENT=$(curl -s "https://api.vercel.com/v6/deployments?projectId=$PROJECT_ID&limit=5" \
+            DEPLOYMENT=$(curl -s "https://api.vercel.com/v6/deployments?projectId=$PROJECT_ID&limit=10" \
               -H "Authorization: Bearer $VERCEL_TOKEN")
 
-            STATE=$(echo "$DEPLOYMENT" | python3 -c "
-          import sys,json
-          deployments=json.load(sys.stdin).get('deployments',[])
-          commit_sha = '$COMMIT_SHA'
-          for d in deployments:
-              meta = d.get('meta',{})
-              if meta.get('githubCommitSha','').startswith(commit_sha[:7]):
-                  print(d['state'])
-                  break
-          else:
-              print('not_found')
-          ")
+            STATE=$(echo "$DEPLOYMENT" | python3 << PYEOF
+import sys, json, os
+data = json.loads(sys.stdin.read())
+deployments = data.get('deployments', [])
+commit_sha = os.environ.get('COMMIT_SHA', '')
+short_sha = commit_sha[:8]
+for d in deployments:
+    meta = d.get('meta', {})
+    deploy_sha = meta.get('githubCommitSha', '')
+    if deploy_sha.startswith(short_sha):
+        print(d['state'])
+        sys.exit(0)
+print('not_found')
+PYEOF
+)
 
             echo "Deployment state: $STATE (elapsed: ${ELAPSED}s)"
 
