@@ -27,13 +27,13 @@ BEGIN
     
     IF v_supplier_id IS NOT NULL THEN
       -- Create inventory items for Bluepoint Bakery
-      INSERT INTO inventory_items (id, supplier_id, tenant_id, item_name, unit_cost, unit_type, is_active, created_at, updated_at)
+      INSERT INTO inventory_items (id, supplier_id, tenant_id, item_name, unit_cost, unit_type, created_at, updated_at)
       VALUES
-        (gen_random_uuid(), v_supplier_id, v_bigcafe_id, 'Sourdough Bread', 12.50, 'loaf', 'BP-SOURDOUGH', true, now(), now()),
-        (gen_random_uuid(), v_supplier_id, v_bigcafe_id, 'Croissants', 18.00, 'dozen', 'BP-CROISSANT-DZ', true, now(), now()),
-        (gen_random_uuid(), v_supplier_id, v_bigcafe_id, 'Bagels', 15.00, 'dozen', 'BP-BAGEL-DZ', true, now(), now()),
-        (gen_random_uuid(), v_supplier_id, v_bigcafe_id, 'Danish Pastries', 16.00, 'dozen', 'BP-DANISH-DZ', true, now(), now()),
-        (gen_random_uuid(), v_supplier_id, v_bigcafe_id, 'Baguettes', 8.50, 'loaf', 'BP-BAGUETTE', true, now(), now());
+        (gen_random_uuid(), v_supplier_id, v_bigcafe_id, 'Sourdough Bread', 12.50, 'each', now(), now()),
+        (gen_random_uuid(), v_supplier_id, v_bigcafe_id, 'Croissants', 18.00, 'each', now(), now()),
+        (gen_random_uuid(), v_supplier_id, v_bigcafe_id, 'Bagels', 15.00, 'each', now(), now()),
+        (gen_random_uuid(), v_supplier_id, v_bigcafe_id, 'Danish Pastries', 16.00, 'each', now(), now()),
+        (gen_random_uuid(), v_supplier_id, v_bigcafe_id, 'Baguettes', 8.50, 'each', now(), now());
     END IF;
 
     RAISE NOTICE 'Seeded test data for bigcafe tenant';
