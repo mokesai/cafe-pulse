@@ -191,6 +191,8 @@ export async function middleware(request: NextRequest) {
   return sessionResponse
 }
 
+export const runtime = 'nodejs'
+
 export const config = {
   matcher: [
     /*
