@@ -37,15 +37,13 @@ jobs:
       TEST_TENANT_1: ${{ secrets.TEST_TENANT_1 }}
       TEST_TENANT_2: ${{ secrets.TEST_TENANT_2 }}
 
-      # Always run against staging — no local dev server
-      BASE_URL: ${{ secrets.BASE_URL || 'https://staging.cafepulse.org' }}
-      TEST_TENANT_BASE_URL: ${{ secrets.TEST_TENANT_BASE_URL || 'https://bigcafe.staging.cafepulse.org' }}
+      # Local dev server mode — no BASE_URL so Playwright spins up next dev
+      # Tenant routes use bigcafe.localhost:3000
+      TEST_TENANT_BASE_URL: 'http://bigcafe.localhost:3000'
 
       # Skip MFA in CI test environment
       SKIP_MFA_FOR_TESTING: "true"
-
-      # Vercel deployment protection bypass
-      VERCEL_BYPASS_SECRET: ${{ secrets.VERCEL_BYPASS_SECRET }}
+      NEXT_PUBLIC_SKIP_MFA_FOR_TESTING: "true"
 
       # CI flag
       CI: "true"
@@ -63,74 +61,23 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
+      - name: Write .env.local for dev server
+        run: |
+          cat > .env.local << EOF
+          NEXT_PUBLIC_SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SECRET_KEY=${{ secrets.SUPABASE_SECRET_KEY }}
+          NEXT_PUBLIC_SITE_URL=http://localhost:3000
+          NEXT_PUBLIC_APP_URL=http://localhost:3000
+          SKIP_MFA_FOR_TESTING=true
+          NEXT_PUBLIC_SKIP_MFA_FOR_TESTING=true
+          EOF
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps ${{ matrix.browser }}
 
-      - name: Wait for Vercel deployment
-        run: |
-          echo "Waiting for Vercel to finish deploying staging..."
-          VERCEL_TOKEN="${{ secrets.VERCEL_TOKEN }}"
-          PROJECT_ID="prj_R1T2NCrhiMMsFxceJgYIwVVnBuEX"
-          COMMIT_SHA="${{ github.sha }}"
-          export COMMIT_SHA
-          MAX_WAIT=300
-          INTERVAL=10
-          ELAPSED=0
-
-          while [ $ELAPSED -lt $MAX_WAIT ]; do
-            DEPLOYMENT=$(curl -s "https://api.vercel.com/v6/deployments?projectId=$PROJECT_ID&limit=10" \
-              -H "Authorization: Bearer $VERCEL_TOKEN")
-
-            STATE=$(echo "$DEPLOYMENT" | python3 << PYEOF
-import sys, json, os
-data = json.loads(sys.stdin.read())
-deployments = data.get('deployments', [])
-commit_sha = os.environ.get('COMMIT_SHA', '')
-short_sha = commit_sha[:8]
-for d in deployments:
-    meta = d.get('meta', {})
-    deploy_sha = meta.get('githubCommitSha', '')
-    if deploy_sha.startswith(short_sha):
-        print(d['state'])
-        sys.exit(0)
-print('not_found')
-PYEOF
-)
-
-            echo "Deployment state: $STATE (elapsed: ${ELAPSED}s)"
-
-            if [ "$STATE" = "READY" ]; then
-              echo "Vercel deployment is ready! Waiting 15s for warmup..."
-              sleep 15
-              exit 0
-            elif [ "$STATE" = "ERROR" ] || [ "$STATE" = "CANCELED" ]; then
-              echo "Vercel deployment failed with state: $STATE"
-              exit 1
-            fi
-
-            sleep $INTERVAL
-            ELAPSED=$((ELAPSED + INTERVAL))
-          done
-
-          echo "Timed out waiting for Vercel deployment after ${MAX_WAIT}s"
-          exit 1
-
-      - name: Smoke test staging URL
-        run: |
-          echo "Checking BASE_URL and TEST_TENANT_BASE_URL are reachable..."
-          curl -I "${{ secrets.BASE_URL || 'https://staging.cafepulse.org' }}" \
-            -H "x-vercel-protection-bypass: ${{ secrets.VERCEL_BYPASS_SECRET }}" \
-            --max-time 10 || echo "BASE_URL check failed"
-          curl -I "${{ secrets.TEST_TENANT_BASE_URL || 'https://bigcafe.staging.cafepulse.org' }}/admin/login" \
-            -H "x-vercel-protection-bypass: ${{ secrets.VERCEL_BYPASS_SECRET }}" \
-            --max-time 10 || echo "TEST_TENANT_BASE_URL check failed"
-
       - name: Run E2E tests
         run: npx playwright test --project=${{ matrix.browser }} --max-failures=1
-        env:
-          BASE_URL: ${{ secrets.BASE_URL || 'https://staging.cafepulse.org' }}
-          TEST_TENANT_BASE_URL: ${{ secrets.TEST_TENANT_BASE_URL || 'https://bigcafe.staging.cafepulse.org' }}
-          VERCEL_BYPASS_SECRET: ${{ secrets.VERCEL_BYPASS_SECRET }}
 
       - name: Upload HTML report
         if: always()
