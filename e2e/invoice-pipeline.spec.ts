@@ -98,7 +98,7 @@ test.describe('Invoice pipeline — happy path (Bluepoint)', () => {
       fileName: 'goldseal-invoice.pdf',
       invoiceNumber: `BP-E2E-${Date.now()}`,
       invoiceDate: '2026-03-15',
-      supplierId: '0424bb81-2352-4ce2-861c-a75dfbe475af',  # Gold Seal - only supplier with POs
+      supplierId: '0424bb81-2352-4ce2-861c-a75dfbe475af', // Gold Seal - only supplier with seeded POs
     })
 
     expect(uploadRes.status()).toBeGreaterThanOrEqual(200)
