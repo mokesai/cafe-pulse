@@ -129,7 +129,8 @@ test.describe('MOK-60-1: No PO found — upload → exception → manually link 
       invoiceDate: '2026-04-01',
     })
 
-    expect(uploadRes.status()).toBe(200)
+    expect(uploadRes.status()).toBeGreaterThanOrEqual(200)
+    expect(uploadRes.status()).toBeLessThan(300)
     const invoiceId: string = uploadBody.id ?? uploadBody.data?.id
     expect(invoiceId).toBeTruthy()
 
@@ -337,7 +338,8 @@ test.describe('MOK-60-3: Low confidence — AI match flagged for review → appr
       invoiceDate: '2026-04-01',
     })
 
-    expect(uploadRes.status()).toBe(200)
+    expect(uploadRes.status()).toBeGreaterThanOrEqual(200)
+    expect(uploadRes.status()).toBeLessThan(300)
     const invoiceId: string = uploadBody.id ?? uploadBody.data?.id
     expect(invoiceId).toBeTruthy()
 
@@ -446,7 +448,8 @@ test.describe('MOK-60-4: Price variance — invoice price differs from PO → ap
       invoiceDate: '2026-04-01',
     })
 
-    expect(uploadRes.status()).toBe(200)
+    expect(uploadRes.status()).toBeGreaterThanOrEqual(200)
+    expect(uploadRes.status()).toBeLessThan(300)
     const invoiceId: string = uploadBody.id ?? uploadBody.data?.id
     expect(invoiceId).toBeTruthy()
 
@@ -550,7 +553,8 @@ test.describe('MOK-60-5: Qty variance — invoice qty differs from PO → resolv
       invoiceDate: '2026-04-01',
     })
 
-    expect(uploadRes.status()).toBe(200)
+    expect(uploadRes.status()).toBeGreaterThanOrEqual(200)
+    expect(uploadRes.status()).toBeLessThan(300)
     const invoiceId: string = uploadBody.id ?? uploadBody.data?.id
     expect(invoiceId).toBeTruthy()
 

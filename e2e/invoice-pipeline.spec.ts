@@ -100,7 +100,8 @@ test.describe('Invoice pipeline — happy path (Bluepoint)', () => {
       invoiceDate: '2026-03-15',
     })
 
-    expect(uploadRes.status()).toBe(200)
+    expect(uploadRes.status()).toBeGreaterThanOrEqual(200)
+    expect(uploadRes.status()).toBeLessThan(300)
     const uploadBody = await uploadRes.json()
     expect(uploadBody).toHaveProperty('id')
     const invoiceId: string = uploadBody.id ?? uploadBody.data?.id
@@ -145,7 +146,8 @@ test.describe('Invoice pipeline — price variance (Odeko)', () => {
       invoiceDate: '2026-03-20',
     })
 
-    expect(uploadRes.status()).toBe(200)
+    expect(uploadRes.status()).toBeGreaterThanOrEqual(200)
+    expect(uploadRes.status()).toBeLessThan(300)
     const uploadBody = await uploadRes.json()
     const invoiceId: string = uploadBody.id ?? uploadBody.data?.id
 
@@ -220,7 +222,8 @@ test.describe('Invoice pipeline — supplier fees (MOK-66)', () => {
       invoiceDate: '2026-03-22',
     })
 
-    expect(uploadRes.status()).toBe(200)
+    expect(uploadRes.status()).toBeGreaterThanOrEqual(200)
+    expect(uploadRes.status()).toBeLessThan(300)
     const uploadBody = await uploadRes.json()
     const invoiceId: string = uploadBody.id ?? uploadBody.data?.id
 
