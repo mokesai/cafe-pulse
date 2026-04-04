@@ -203,7 +203,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
             tax_amount: 0,
             total_amount: 100,
             supplier_info: supplierInfo ? { name: supplierInfo.name ?? '' } : undefined,
-            line_items: [],
+            line_items: [
+              { description: 'CI Mock Item 1', quantity: 1, unit_price: 50, total_price: 50, confidence: 0.9 },
+              { description: 'CI Mock Item 2', quantity: 2, unit_price: 25, total_price: 50, confidence: 0.9 },
+            ],
             confidence_score: 0.5,
             parsing_method: 'ci_mock',
           },

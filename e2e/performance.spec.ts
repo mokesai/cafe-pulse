@@ -87,7 +87,7 @@ async function uploadInvoiceAndTime(
 
     const elapsedMs = Date.now() - start
 
-    if (res.status() === 200) {
+    if (res.status() >= 200 && res.status() < 300) {
       const body = await res.json()
       return {
         status: res.status(),
