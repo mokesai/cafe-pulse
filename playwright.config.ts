@@ -28,6 +28,8 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
   reporter: process.env.CI ? [['html'], ['github']] : 'html',
+  // AI parsing + PO matching can take 20-30s — give each test 90s in CI
+  timeout: process.env.CI ? 90_000 : 30_000,
 
   use: {
     baseURL,
