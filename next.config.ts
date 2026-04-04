@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // Packages that should only run on Node.js server (not edge runtime)
   // googleapis uses CommonJS exports which breaks the edge runtime
-  serverExternalPackages: ['googleapis', 'google-auth-library'],
+  serverExternalPackages: ['googleapis', 'google-auth-library', 'pdf2json', 'pdfjs-dist'],
 
   // Enable experimental features for better performance
   experimental: {

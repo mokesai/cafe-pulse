@@ -94,8 +94,8 @@ test.describe('Invoice pipeline — happy path (Bluepoint)', () => {
   test('uploads Bluepoint PDF, extracts data, matches PO, and confirms', async ({ page }) => {
     // Step 1: Upload the Bluepoint PDF
     const uploadRes = await uploadInvoice(page, {
-      filePath: path.join(FIXTURES, 'bluepoint-invoice.pdf'),
-      fileName: 'bluepoint-invoice.pdf',
+      filePath: path.join(FIXTURES, 'goldseal-invoice.pdf'),
+      fileName: 'goldseal-invoice.pdf',
       invoiceNumber: `BP-E2E-${Date.now()}`,
       invoiceDate: '2026-03-15',
     })
@@ -140,8 +140,8 @@ test.describe('Invoice pipeline — price variance (Odeko)', () => {
   test('uploads Odeko PDF, detects price variance flag, and resolves it', async ({ page }) => {
     // Step 1: Upload Odeko invoice
     const uploadRes = await uploadInvoice(page, {
-      filePath: path.join(FIXTURES, 'odeko-invoice.pdf'),
-      fileName: 'odeko-invoice.pdf',
+      filePath: path.join(FIXTURES, 'walmart-invoice.pdf'),
+      fileName: 'walmart-invoice.pdf',
       invoiceNumber: `OD-E2E-${Date.now()}`,
       invoiceDate: '2026-03-20',
     })
@@ -216,8 +216,8 @@ test.describe('Invoice pipeline — supplier fees (MOK-66)', () => {
   test('uploads PDF and verifies supplier fees are displayed after parse', async ({ page }) => {
     // Step 1: Upload a generic invoice PDF
     const uploadRes = await uploadInvoice(page, {
-      filePath: path.join(FIXTURES, 'supplier-fees-invoice.pdf'),
-      fileName: 'supplier-fees-invoice.pdf',
+      filePath: path.join(FIXTURES, 'samclub-invoice.pdf'),
+      fileName: 'samclub-invoice.pdf',
       invoiceNumber: `FEE-E2E-${Date.now()}`,
       invoiceDate: '2026-03-22',
     })
@@ -303,7 +303,7 @@ test.describe('Invoice pipeline — error path (invalid file)', () => {
   test('uploading with missing required fields returns 400', async ({ page }) => {
     // Upload a valid PDF but omit invoice_number and invoice_date
     const fileBuffer = require('fs').readFileSync(
-      path.join(FIXTURES, 'bluepoint-invoice.pdf')
+      path.join(FIXTURES, 'goldseal-invoice.pdf')
     )
     const res = await page.request.post(`${API_BASE}/invoices/upload`, {
       multipart: {

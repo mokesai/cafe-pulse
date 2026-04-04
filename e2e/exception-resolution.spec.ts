@@ -123,8 +123,8 @@ test.describe('MOK-60-1: No PO found — upload → exception → manually link 
     // Upload an invoice that deliberately has no seeded PO counterpart
     const invoiceNumber = `NO-PO-E2E-${Date.now()}`
     const { res: uploadRes, body: uploadBody } = await uploadInvoice(page, {
-      filePath: path.join(FIXTURES, 'test-invoice-5.pdf'),
-      fileName: 'test-invoice-5.pdf',
+      filePath: path.join(FIXTURES, 'goldseal-invoice.pdf'),
+      fileName: 'goldseal-invoice.pdf',
       invoiceNumber,
       invoiceDate: '2026-04-01',
     })
@@ -335,8 +335,8 @@ test.describe('MOK-60-3: Low confidence — AI match flagged for review → appr
   }) => {
     // Upload an invoice; pipeline may produce a low_extraction_confidence exception
     const { res: uploadRes, body: uploadBody } = await uploadInvoice(page, {
-      filePath: path.join(FIXTURES, 'multi-page-invoice.pdf'),
-      fileName: 'multi-page-invoice.pdf',
+      filePath: path.join(FIXTURES, 'samclub-invoice.pdf'),
+      fileName: 'samclub-invoice.pdf',
       invoiceNumber: `LOW-CONF-E2E-${Date.now()}`,
       invoiceDate: '2026-04-01',
     })
@@ -445,8 +445,8 @@ test.describe('MOK-60-4: Price variance — invoice price differs from PO → ap
     page,
   }) => {
     const { res: uploadRes, body: uploadBody } = await uploadInvoice(page, {
-      filePath: path.join(FIXTURES, 'odeko-invoice.pdf'),
-      fileName: 'odeko-invoice.pdf',
+      filePath: path.join(FIXTURES, 'goldseal-invoice.pdf'),
+      fileName: 'goldseal-invoice.pdf',
       invoiceNumber: `PV-E2E-${Date.now()}`,
       invoiceDate: '2026-04-01',
     })
@@ -550,8 +550,8 @@ test.describe('MOK-60-5: Qty variance — invoice qty differs from PO → resolv
     page,
   }) => {
     const { res: uploadRes, body: uploadBody } = await uploadInvoice(page, {
-      filePath: path.join(FIXTURES, 'bluepoint-invoice.pdf'),
-      fileName: 'bluepoint-invoice.pdf',
+      filePath: path.join(FIXTURES, 'walmart-invoice.pdf'),
+      fileName: 'walmart-invoice.pdf',
       invoiceNumber: `QV-E2E-${Date.now()}`,
       invoiceDate: '2026-04-01',
     })
