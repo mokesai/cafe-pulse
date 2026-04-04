@@ -16,12 +16,12 @@ export const testUsers = {
     password: process.env.TEST_SUPER_ADMIN_PASSWORD ?? '',
   },
   bigcafeOwner: {
-    email: process.env.TEST_BIGCAFE_OWNER_EMAIL ?? '',
-    password: process.env.TEST_BIGCAFE_OWNER_PASSWORD ?? '',
+    email: process.env.TEST_TENANT_OWNER_EMAIL ?? process.env.TEST_BIGCAFE_OWNER_EMAIL ?? '',
+    password: process.env.TEST_TENANT_OWNER_PASSWORD ?? process.env.TEST_BIGCAFE_OWNER_PASSWORD ?? '',
   },
   bigcafeAdmin: {
-    email: process.env.TEST_BIGCAFE_ADMIN_EMAIL ?? '',
-    password: process.env.TEST_BIGCAFE_ADMIN_PASSWORD ?? '',
+    email: process.env.TEST_TENANT_ADMIN_EMAIL ?? process.env.TEST_BIGCAFE_ADMIN_EMAIL ?? '',
+    password: process.env.TEST_TENANT_ADMIN_PASSWORD ?? process.env.TEST_BIGCAFE_ADMIN_PASSWORD ?? '',
   },
 }
 

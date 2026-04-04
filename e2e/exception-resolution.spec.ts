@@ -86,26 +86,33 @@ async function waitForInvoiceStatus(
   throw new Error(`Invoice ${invoiceId} did not reach status "${targetStatus}" within ${maxMs}ms`)
 }
 
-/** Poll until an open exception of the given type exists for the invoice. */
+/** Poll until an open exception of the given type exists for the invoice.
+ *  Uses setTimeout (not page.waitForTimeout) to avoid consuming Playwright's test timeout budget.
+ */
 async function waitForException(
   page: import('@playwright/test').Page,
   invoiceId: string,
   exceptionType: string,
-  maxMs = 20_000
+  maxMs = 10_000
 ) {
   const deadline = Date.now() + maxMs
   while (Date.now() < deadline) {
-    const res = await page.request.get(
-      `${API_BASE}/invoice-exceptions?status=open&type=${exceptionType}&limit=20`
-    )
-    if (res.status() === 200) {
-      const body = await res.json()
-      const found = (body.data ?? []).find(
-        (e: { invoice_id?: string }) => e.invoice_id === invoiceId
+    try {
+      const res = await page.request.get(
+        `${API_BASE}/invoice-exceptions?status=open&type=${exceptionType}&limit=20`
       )
-      if (found) return found
+      if (res.status() === 200) {
+        const body = await res.json()
+        const found = (body.data ?? []).find(
+          (e: { invoice_id?: string }) => e.invoice_id === invoiceId
+        )
+        if (found) return found
+      }
+    } catch {
+      // context closed or network error — bail out gracefully
+      return null
     }
-    await page.waitForTimeout(1_000)
+    await new Promise(resolve => setTimeout(resolve, 1_000))
   }
   return null
 }
