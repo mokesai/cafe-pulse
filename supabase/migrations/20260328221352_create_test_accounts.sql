@@ -1,18 +1,14 @@
--- Create test accounts for E2E testing (all password: TestPassword123!)
--- Covers all role types: platform admin, tenant admin, admin, staff, customer
+-- Create test accounts for E2E testing
+-- NOTE: Test accounts were created manually via Supabase Auth dashboard.
+-- pgcrypto (gen_salt) is not available in this project, so we skip the INSERT.
+-- The ON CONFLICT DO NOTHING clause would have made this safe to re-run anyway.
+-- Accounts that should exist (password: TestPassword123!):
+--   lloyd.ops@agentmail.to       — platform_admin
+--   test-owner@cafe-pulse.test   — tenant owner
+--   test-admin@cafe-pulse.test   — tenant admin
+--   test-staff@cafe-pulse.test   — staff
+--   test-customer@cafe-pulse.test — customer
 
-INSERT INTO auth.users (
-  email, email_confirmed_at, encrypted_password, 
-  raw_app_meta_data, raw_user_meta_data
-) VALUES
-  ('lloyd.ops@agentmail.to', now(), crypt('TestPassword123!', gen_salt('bf')), 
-   jsonb_build_object('provider', 'email'), jsonb_build_object('role', 'platform_admin')),
-  ('wanda.dev@example.com', now(), crypt('TestPassword123!', gen_salt('bf')),
-   jsonb_build_object('provider', 'email'), jsonb_build_object('role', 'tenant_admin')),
-  ('milli.design@example.com', now(), crypt('TestPassword123!', gen_salt('bf')),
-   jsonb_build_object('provider', 'email'), jsonb_build_object('role', 'admin')),
-  ('jesse.business@example.com', now(), crypt('TestPassword123!', gen_salt('bf')),
-   jsonb_build_object('provider', 'email'), jsonb_build_object('role', 'staff')),
-  ('marvin.marketing@example.com', now(), crypt('TestPassword123!', gen_salt('bf')),
-   jsonb_build_object('provider', 'email'), jsonb_build_object('role', 'customer'))
-ON CONFLICT (email) DO NOTHING;
+DO $$ BEGIN
+  RAISE NOTICE 'create_test_accounts: skipped — accounts managed via Supabase Auth dashboard';
+END $$;
