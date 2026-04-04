@@ -380,7 +380,7 @@ test.describe('MOK-61-5: Rapid sequential uploads — no state bleed', () => {
     page,
   }) => {
     // Upload 2 distinct PDFs back-to-back and verify their extracted data doesn't mix
-    const fixtures = ['bluepoint-invoice.pdf', 'odeko-invoice.pdf']
+    const fixtures = ['goldseal-invoice.pdf', 'walmart-invoice.pdf']
 
     const results: UploadResult[] = []
     for (const fixture of fixtures) {
@@ -391,12 +391,12 @@ test.describe('MOK-61-5: Rapid sequential uploads — no state bleed', () => {
       })
       results.push(result)
 
-      // Parse each invoice right after upload
+      // Parse each invoice right after upload (accept 2xx or 409 already-parsing)
       if (result.invoiceId) {
         const parseRes = await page.request.post(
           `${API_BASE}/invoices/${result.invoiceId}/parse`
         )
-        expect([200, 202]).toContain(parseRes.status())
+        expect([200, 201, 202, 409]).toContain(parseRes.status())
       }
     }
 

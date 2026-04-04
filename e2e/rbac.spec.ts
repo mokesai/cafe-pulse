@@ -30,8 +30,8 @@ import { test, expect, type Page } from '@playwright/test'
 
 const ACCOUNTS = {
   platformAdmin: {
-    email: process.env.TEST_PLATFORM_ADMIN_EMAIL ?? 'lloyd.ops@agentmail.to',
-    password: process.env.TEST_PLATFORM_ADMIN_PASSWORD ?? 'TestPassword123!',
+    email: process.env.TEST_PLATFORM_ADMIN_EMAIL ?? process.env.TEST_SUPER_ADMIN_EMAIL ?? '',
+    password: process.env.TEST_PLATFORM_ADMIN_PASSWORD ?? process.env.TEST_SUPER_ADMIN_PASSWORD ?? '',
   },
   tenantAdmin: {
     email: process.env.TEST_TENANT_ADMIN_EMAIL ?? 'test-owner@cafe-pulse.test',
@@ -84,6 +84,8 @@ async function loginAsPlatformAdmin(
   await page.goto(`${PLATFORM_BASE_URL}/admin/login?return=/platform`)
   await page.waitForSelector('input[type="email"]', { timeout: 10_000 })
   await page.fill('input[type="email"]', email)
+  // Wait for password field to appear (some forms reveal it after email entry)
+  await page.waitForSelector('input[type="password"]', { timeout: 10_000 })
   await page.fill('input[type="password"]', password)
   await page.locator('button[type="submit"], button:has-text("Sign in")').first().click()
   // After password: may land on /mfa-challenge (needs TOTP), or /platform directly
