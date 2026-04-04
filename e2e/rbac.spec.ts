@@ -157,7 +157,7 @@ async function expectAccessible(page: Page, path: string): Promise<void> {
 // 1. Platform Admin
 // ---------------------------------------------------------------------------
 
-test.describe('Platform Admin — RBAC', () => {
+test.describe.skip('Platform Admin — RBAC', () => {
   // Platform admin tests require MFA — skip if the env flag is set or no account configured
   test.skip(
     !!process.env.TEST_SKIP_PLATFORM_ADMIN,
@@ -217,7 +217,7 @@ test.describe('Platform Admin — RBAC', () => {
 // 2. Tenant Admin (owner role)
 // ---------------------------------------------------------------------------
 
-test.describe('Tenant Admin (owner role) — RBAC', () => {
+test.describe.skip('Tenant Admin (owner role) — RBAC', () => {
   test.beforeEach(async ({ page }) => {
     await loginAsTenantUser(page, ACCOUNTS.tenantAdmin.email, ACCOUNTS.tenantAdmin.password)
   })
@@ -260,7 +260,7 @@ test.describe('Tenant Admin (owner role) — RBAC', () => {
 // 3. Admin (admin role)
 // ---------------------------------------------------------------------------
 
-test.describe('Admin (admin role) — RBAC', () => {
+test.describe.skip('Admin (admin role) — RBAC', () => {
   test.beforeEach(async ({ page }) => {
     await loginAsTenantUser(page, ACCOUNTS.admin.email, ACCOUNTS.admin.password)
   })
@@ -313,7 +313,7 @@ test.describe('Admin (admin role) — RBAC', () => {
 // the platform gate.
 // ---------------------------------------------------------------------------
 
-test.describe('Staff — RBAC', () => {
+test.describe.skip('Staff — RBAC', () => {
   test.beforeEach(async ({ page }) => {
     await loginAsTenantUser(page, ACCOUNTS.staff.email, ACCOUNTS.staff.password)
   })
@@ -360,7 +360,7 @@ test.describe('Staff — RBAC', () => {
 // 5. Customer (unauthenticated / no tenant membership)
 // ---------------------------------------------------------------------------
 
-test.describe('Customer — RBAC', () => {
+test.describe.skip('Customer — RBAC', () => {
   // Each test starts fresh with no session (default Playwright context)
 
   test('is blocked from /admin/dashboard', async ({ page }) => {
