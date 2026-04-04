@@ -187,15 +187,35 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .single()
       const activeTemplate = template as SupplierTemplateRow | null
 
-      // Step 4: Parse with AI
-      console.log('🤖 Starting AI parsing with OpenAI...')
-      
+      // Step 4: Parse with AI (or mock in CI to avoid OpenAI spend)
       const supplierInfo = (invoice.suppliers as SupplierInfoRow[] | null)?.[0]
-      const aiResult = await parseInvoiceWithAI({
-        text: documentResult.text,
-        supplier_name: supplierInfo?.name ?? undefined,
-        template_rules: activeTemplate?.parsing_rules ?? {}
-      })
+
+      let aiResult: Awaited<ReturnType<typeof parseInvoiceWithAI>>
+      if (process.env.CI_MOCK_AI_PARSING === 'true') {
+        console.log('🧪 CI_MOCK_AI_PARSING=true — returning mock parse result (no OpenAI call)')
+        aiResult = {
+          success: true,
+          data: {
+            invoice_number: invoice.invoice_number,
+            invoice_date: invoice.invoice_date,
+            due_date: null,
+            subtotal: 100,
+            tax_amount: 0,
+            total_amount: 100,
+            supplier_info: supplierInfo ? { name: supplierInfo.name ?? '' } : null,
+            line_items: [],
+          },
+          errors: [],
+          confidence: 0.5,
+        }
+      } else {
+        console.log('🤖 Starting AI parsing with OpenAI...')
+        aiResult = await parseInvoiceWithAI({
+          text: documentResult.text,
+          supplier_name: supplierInfo?.name ?? undefined,
+          template_rules: activeTemplate?.parsing_rules ?? {}
+        })
+      }
 
       if (!aiResult.success || !aiResult.data) {
         const aiErrSummary = aiResult.errors?.join('; ') ?? 'unknown error'

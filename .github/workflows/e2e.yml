@@ -45,6 +45,9 @@ jobs:
       SKIP_MFA_FOR_TESTING: "true"
       NEXT_PUBLIC_SKIP_MFA_FOR_TESTING: "true"
 
+      # Mock AI parsing in CI to avoid OpenRouter/OpenAI spend
+      CI_MOCK_AI_PARSING: "true"
+
       # CI flag
       CI: "true"
 
@@ -82,6 +85,7 @@ jobs:
           NEXT_PUBLIC_SQUARE_ENVIRONMENT=${{ vars.NEXT_PUBLIC_SQUARE_ENVIRONMENT }}
           SKIP_MFA_FOR_TESTING=true
           NEXT_PUBLIC_SKIP_MFA_FOR_TESTING=true
+          CI_MOCK_AI_PARSING=true
           EOF
 
       - name: Install Playwright browsers
