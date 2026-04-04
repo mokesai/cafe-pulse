@@ -120,13 +120,15 @@ test.beforeEach(async ({ page }) => {
 
 test.describe('MOK-60-1: No PO found — upload → exception → manually link PO → resolved', () => {
   test('creates no_po_match exception and resolves via manual PO link', async ({ page }) => {
-    // Upload an invoice that deliberately has no seeded PO counterpart
+    // Upload an invoice that deliberately has no seeded PO counterpart.
+    // Walmart Business (1461623f-bbfd-4faf-820c-3205cf4a0db8) has no POs in seed data.
     const invoiceNumber = `NO-PO-E2E-${Date.now()}`
     const { res: uploadRes, body: uploadBody } = await uploadInvoice(page, {
-      filePath: path.join(FIXTURES, 'goldseal-invoice.pdf'),
-      fileName: 'goldseal-invoice.pdf',
+      filePath: path.join(FIXTURES, 'walmart-invoice.pdf'),
+      fileName: 'walmart-invoice.pdf',
       invoiceNumber,
       invoiceDate: '2026-04-01',
+      supplierId: '1461623f-bbfd-4faf-820c-3205cf4a0db8',
     })
 
     expect(uploadRes.status()).toBeGreaterThanOrEqual(200)
@@ -136,9 +138,6 @@ test.describe('MOK-60-1: No PO found — upload → exception → manually link 
 
     // Parse the invoice
     const parseRes = await page.request.post(`${API_BASE}/invoices/${invoiceId}/parse`)
-    const parseBody = await parseRes.json().catch(() => ({}))
-    console.log('[DEBUG] upload body:', JSON.stringify(uploadBody).slice(0, 300))
-    console.log('[DEBUG] parse status:', parseRes.status(), 'body:', JSON.stringify(parseBody).slice(0, 300))
     expect([200, 202]).toContain(parseRes.status())
     await waitForInvoiceStatus(page, invoiceId, 'parsed')
 
