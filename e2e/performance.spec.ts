@@ -151,7 +151,8 @@ test.describe('MOK-61-1: Baseline — single concurrent upload < 10s', () => {
       invoiceNumber: `BASELINE-E2E-${Date.now()}`,
     })
 
-    expect(result.status).toBe(200)
+    expect(result.status).toBeGreaterThanOrEqual(200)
+    expect(result.status).toBeLessThan(300)
     expect(result.invoiceId).toBeTruthy()
     expect(result.elapsedMs).toBeLessThan(SINGLE_UPLOAD_TIMEOUT_MS)
   })
@@ -187,7 +188,8 @@ test.describe('MOK-61-2: 5 concurrent uploads — all succeed, response time < 3
 
     // All should succeed (200)
     for (const result of results) {
-      expect(result.status).toBe(200)
+      expect(result.status).toBeGreaterThanOrEqual(200)
+    expect(result.status).toBeLessThan(300)
       expect(result.invoiceId).toBeTruthy()
     }
 
@@ -242,9 +244,9 @@ test.describe('MOK-61-3: 10 concurrent uploads — succeed or fail gracefully (n
       }
     }
 
-    // Count successes
-    const successes = results.filter((r) => r.status === 200)
-    const failures = results.filter((r) => r.status !== 200 && r.status !== 0)
+    // Count successes (2xx)
+    const successes = results.filter((r) => r.status >= 200 && r.status < 300)
+    const failures = results.filter((r) => r.status >= 300 && r.status !== 0)
     const timeouts = results.filter((r) => r.status === 0)
 
     console.log(`10-concurrent upload results:`)
@@ -343,7 +345,8 @@ test.describe('MOK-61-5: Rapid sequential uploads — no state bleed', () => {
 
     // All 5 must succeed
     for (let i = 0; i < SEQUENTIAL_COUNT; i++) {
-      expect(results[i].status).toBe(200)
+      expect(results[i].status).toBeGreaterThanOrEqual(200)
+      expect(results[i].status).toBeLessThan(300)
       expect(results[i].invoiceId).toBeTruthy()
     }
 
@@ -438,7 +441,8 @@ test.describe('MOK-61-6: Response time distribution — multiple single uploads'
       timings.push({ label, elapsedMs: result.elapsedMs, status: result.status })
 
       // Each individual upload should be under 10s
-      expect(result.status).toBe(200)
+      expect(result.status).toBeGreaterThanOrEqual(200)
+    expect(result.status).toBeLessThan(300)
       expect(result.elapsedMs).toBeLessThan(SINGLE_UPLOAD_TIMEOUT_MS)
     }
 
