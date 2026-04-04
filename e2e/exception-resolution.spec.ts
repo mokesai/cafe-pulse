@@ -136,6 +136,9 @@ test.describe('MOK-60-1: No PO found — upload → exception → manually link 
 
     // Parse the invoice
     const parseRes = await page.request.post(`${API_BASE}/invoices/${invoiceId}/parse`)
+    const parseBody = await parseRes.json().catch(() => ({}))
+    console.log('[DEBUG] upload body:', JSON.stringify(uploadBody).slice(0, 300))
+    console.log('[DEBUG] parse status:', parseRes.status(), 'body:', JSON.stringify(parseBody).slice(0, 300))
     expect([200, 202]).toContain(parseRes.status())
     await waitForInvoiceStatus(page, invoiceId, 'parsed')
 
