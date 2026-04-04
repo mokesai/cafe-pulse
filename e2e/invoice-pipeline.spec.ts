@@ -118,13 +118,11 @@ test.describe('Invoice pipeline — happy path (Bluepoint)', () => {
 
     // Step 4: Match to a PO
     const matchRes = await page.request.post(`${API_BASE}/invoices/${invoiceId}/match-orders`)
-    const matchBody = await matchRes.json().catch(() => ({}))
-    console.log('[DEBUG] match-orders status:', matchRes.status(), JSON.stringify(matchBody).slice(0, 200))
     // Accept 200/202 (success) or 404 (no matching POs found)
     expect([200, 202, 404]).toContain(matchRes.status())
 
-    // Step 5: Confirm the invoice
-    const confirmRes = await page.request.post(`${API_BASE}/invoices/${invoiceId}/confirm`)
+    // Step 5: Confirm the invoice (confirm route uses PUT)
+    const confirmRes = await page.request.put(`${API_BASE}/invoices/${invoiceId}/confirm`)
     expect(confirmRes.status()).toBe(200)
     const confirmBody = await confirmRes.json()
     expect(confirmBody.success ?? confirmBody.status === 'confirmed').toBeTruthy()
