@@ -325,28 +325,40 @@ async function createAndConfirmInvoice(
   const totalAmount = po.poItems.reduce((s, i) => s + i.quantity * i.unitCost, 0)
   const simulatedAt = isoAt(invoiceDate, 14)
 
-  // Upsert invoice
-  const { data: invoice, error: invErr } = await db
+  // Check if invoice already exists
+  const { data: existingInv } = await db
     .from('invoices')
-    .upsert(
-      {
+    .select('id')
+    .eq('invoice_number', invoiceNumber)
+    .eq('tenant_id', tenantId)
+    .single()
+
+  let invoice: { id: string } | null = null
+
+  if (existingInv) {
+    invoice = existingInv
+  } else {
+    // Create new invoice
+    const { data: newInv, error: invErr } = await db
+      .from('invoices')
+      .insert({
         supplier_id: po.supplierId,
         tenant_id: tenantId,
         invoice_number: invoiceNumber,
         invoice_date: fmtDate(invoiceDate),
         total_amount: Number(totalAmount.toFixed(2)),
         status: 'parsed',
-        pipeline_stage: 'matched',
+        pipeline_stage: 'confirming',
         parsing_confidence: 1.0,
-      },
-      { onConflict: 'supplier_id,invoice_number' },
-    )
-    .select('id')
-    .single()
+      })
+      .select('id')
+      .single()
 
-  if (invErr) {
-    console.error(`  ❌ Invoice insert failed (${invoiceNumber}): ${invErr.message}`)
-    return null
+    if (invErr) {
+      console.error(`  ❌ Invoice insert failed (${invoiceNumber}): ${invErr.message}`)
+      return null
+    }
+    invoice = newInv
   }
   const invoiceId = invoice.id as string
 
