@@ -311,7 +311,7 @@ async function main() {
     if (!opts.dryRun) {
       // Batch insert sales_transactions for the day
       const txRows = daySales.map((sale, i) => ({
-        square_order_id: `SIM-SALE-${dayStr.replace(/-/g, '')}-${String(i + 1).padStart(4, '0')}`,
+        square_order_id: `SIM-SALE-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
         tenant_id: opts.tenantId,
         location_id: opts.locationId,
         order_number: `#SIM-${totalSales + i + 1}`,
