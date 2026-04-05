@@ -284,6 +284,18 @@ async function main() {
   const end = new Date(opts.endDate + 'T23:59:59Z')
   const rand = seededRandom(42)
 
+  // Clean up old simulation sales first (for idempotency)
+  if (!opts.dryRun) {
+    console.log('🧹 Cleaning up old simulation sales...')
+    await db
+      .from('sales_transactions')
+      .delete()
+      .eq('tenant_id', opts.tenantId)
+      .like('order_number', '#SIM-%')
+      .gte('ordered_at', start.toISOString())
+      .lte('ordered_at', end.toISOString())
+  }
+
   // Accumulate fractional ingredient usage; decrement once whole unit consumed
   const fractionalUsage = new Map<string, number>()
 
