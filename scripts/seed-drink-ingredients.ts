@@ -1,13 +1,19 @@
 /**
  * MOK-78: Seed drink ingredient inventory items for Cafe Operations Simulation
- * 
- * This script is ONLY for simulation/testing purposes.
+ *
+ * ⚠️  BIGCAFE TENANT ONLY — tenant ID: 4fa1cbbe-49ff-4cde-a686-8d34252945b4
+ *
+ * This script is ONLY for simulation/testing purposes for the "bigcafe" tenant.
  * It adds drink ingredients (milks, syrups, toppers) needed for the 2-month
- * cafe operations simulation (Feb-Mar 2026).
- * 
+ * cafe operations simulation (Feb–Mar 2026).
+ *
+ * DO NOT run against any other tenant. The TENANT_ID constant below is
+ * hard-coded to bigcafe and must not be changed to DEFAULT_TENANT_ID or
+ * any other tenant UUID.
+ *
  * Usage:
  *   SIMULATION_MODE=true npx tsx scripts/seed-drink-ingredients.ts
- * 
+ *
  * Safety: Exits early if SIMULATION_MODE is not set to 'true'
  */
 
@@ -35,8 +41,8 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false }
 })
 
-// Bigcafe tenant ID
-const TENANT_ID = '4fa1cbbe-49ff-4cde-a686-8d34252945b4'
+// Bigcafe simulation tenant — seeds to this tenant ONLY. Do not swap for DEFAULT_TENANT_ID.
+const TENANT_ID = '4fa1cbbe-49ff-4cde-a686-8d34252945b4' // bigcafe
 
 // Supplier IDs
 const SUPPLIERS = {
@@ -73,8 +79,8 @@ const DRINK_INGREDIENTS = [
 ]
 
 async function seedDrinkIngredients() {
-  console.log('🌱 Seeding drink ingredients for Cafe Operations Simulation...')
-  console.log(`   Tenant: ${TENANT_ID}`)
+  console.log('🌱 Seeding drink ingredients for Cafe Operations Simulation (bigcafe tenant only)...')
+  console.log(`   Tenant: bigcafe (${TENANT_ID})`)
   console.log(`   Items to add: ${DRINK_INGREDIENTS.length}`)
   console.log()
 
