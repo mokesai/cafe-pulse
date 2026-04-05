@@ -101,9 +101,24 @@ async function seedDrinkIngredients() {
   let errors = 0
 
   for (const item of DRINK_INGREDIENTS) {
+    // First check if it already exists
+    const { data: existing, error: checkError } = await supabase
+      .from('inventory_items')
+      .select('id')
+      .eq('square_item_id', item.square_item_id)
+      .eq('tenant_id', TENANT_ID)
+      .single()
+
+    if (existing) {
+      console.log(`   ⏭️  ${item.item_name} (already exists)`)
+      skipped++
+      continue
+    }
+
+    // Insert new item
     const { data, error } = await supabase
       .from('inventory_items')
-      .upsert({
+      .insert({
         tenant_id: TENANT_ID,
         supplier_id: item.supplier_id,
         item_name: item.item_name,
@@ -115,9 +130,6 @@ async function seedDrinkIngredients() {
         minimum_threshold: 5,
         reorder_point: 10,
         location: 'main',
-      }, {
-        onConflict: 'square_item_id',
-        ignoreDuplicates: true
       })
       .select('id, item_name')
 
@@ -127,9 +139,6 @@ async function seedDrinkIngredients() {
     } else if (data && data.length > 0) {
       console.log(`   ✅ ${item.item_name} (${item.unit_type}) - $${item.unit_cost}`)
       inserted++
-    } else {
-      console.log(`   ⏭️  ${item.item_name} (already exists)`)
-      skipped++
     }
   }
 
