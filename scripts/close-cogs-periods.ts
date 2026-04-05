@@ -171,25 +171,41 @@ async function main() {
       continue
     }
 
-    // 5. Create period
-    const { data: periodRow, error: periodErr } = await supabase
+    // 5. Create period (or get existing)
+    const { data: existing } = await supabase
       .from('cogs_periods')
-      .insert({
-        tenant_id: TENANT_ID,
-        period_type: 'monthly',
-        start_at: period.startAt,
-        end_at: period.endAt,
-        status: 'open',
-        notes: `Simulation: ${period.label}`,
-      })
       .select('id')
+      .eq('tenant_id', TENANT_ID)
+      .eq('start_at', period.startAt)
+      .eq('end_at', period.endAt)
       .single()
 
-    if (periodErr) {
-      console.error(`  ❌ Period creation failed: ${periodErr.message}`)
-      continue
+    let periodRow: { id: string } | null = null
+
+    if (existing) {
+      periodRow = existing
+      console.log(`  ✅ Period already exists: ${periodRow.id}`)
+    } else {
+      const { data: newPeriod, error: periodErr } = await supabase
+        .from('cogs_periods')
+        .insert({
+          tenant_id: TENANT_ID,
+          period_type: 'monthly',
+          start_at: period.startAt,
+          end_at: period.endAt,
+          status: 'open',
+          notes: `Simulation: ${period.label}`,
+        })
+        .select('id')
+        .single()
+
+      if (periodErr) {
+        console.error(`  ❌ Period creation failed: ${periodErr.message}`)
+        continue
+      }
+      periodRow = newPeriod
+      console.log(`  ✅ Period created: ${periodRow.id}`)
     }
-    console.log(`  ✅ Period created: ${periodRow.id}`)
 
     // 6. Snapshot inventory valuations
     for (const item of inventoryItems) {
