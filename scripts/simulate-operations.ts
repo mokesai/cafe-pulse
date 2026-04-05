@@ -210,10 +210,23 @@ async function createPO(
   const orderNumber = `SIM-PO-${supplierName.replace(/[^A-Z0-9]/gi, '').slice(0, 10).toUpperCase()}-W${String(weekNum).padStart(2, '0')}`
   const totalAmount = lines.reduce((s, l) => s + l.quantity * l.unitCost, 0)
 
-  const { data: po, error: poErr } = await db
+  // Check if PO already exists
+  const { data: existing } = await db
     .from('purchase_orders')
-    .upsert(
-      {
+    .select('id')
+    .eq('order_number', orderNumber)
+    .eq('tenant_id', tenantId)
+    .single()
+
+  let po: { id: string } | null = null
+
+  if (existing) {
+    po = existing
+  } else {
+    // Create new PO
+    const { data: newPo, error: poErr } = await db
+      .from('purchase_orders')
+      .insert({
         supplier_id: supplierId,
         tenant_id: tenantId,
         order_number: orderNumber,
@@ -223,15 +236,15 @@ async function createPO(
         total_amount: Number(totalAmount.toFixed(2)),
         sent_at: isoAt(monday, 9),
         notes: `Simulation week ${weekNum}`,
-      },
-      { onConflict: 'order_number' },
-    )
-    .select('id')
-    .single()
+      })
+      .select('id')
+      .single()
 
-  if (poErr) {
-    console.error(`  ❌ PO insert failed (${orderNumber}): ${poErr.message}`)
-    return null
+    if (poErr) {
+      console.error(`  ❌ PO insert failed (${orderNumber}): ${poErr.message}`)
+      return null
+    }
+    po = newPo
   }
 
   // Delete existing items for idempotency
@@ -361,21 +374,19 @@ async function createAndConfirmInvoice(
     return null
   }
 
-  // Create PO ↔ invoice match
+  // Create PO ↔ invoice match (simple insert, will fail if duplicate but that's OK for simulation)
   await db
     .from('order_invoice_matches')
-    .upsert(
-      {
-        purchase_order_id: po.poId,
-        invoice_id: invoiceId,
-        tenant_id: tenantId,
-        match_confidence: 1.0,
-        match_method: 'simulation',
-        status: 'confirmed',
-        reviewed_at: simulatedAt,
-      },
-      { onConflict: 'purchase_order_id,invoice_id' },
-    )
+    .insert({
+      purchase_order_id: po.poId,
+      invoice_id: invoiceId,
+      tenant_id: tenantId,
+      match_confidence: 1.0,
+      match_method: 'simulation',
+      status: 'confirmed',
+      reviewed_at: simulatedAt,
+    })
+    .throwOnError()
 
   // ── Inline confirm logic (mirrors /api/admin/invoices/[id]/confirm) ──
   // Write cost history for each matched item
