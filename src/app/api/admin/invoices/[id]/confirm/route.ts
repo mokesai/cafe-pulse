@@ -16,7 +16,20 @@ export async function PUT(
 
     const { id } = await context.params
 
-    console.log('✅ Confirming invoice import:', id)
+    // Parse optional simulatedAt for backdated timestamps (simulation mode only)
+    let body: { simulatedAt?: string } = {}
+    try {
+      body = await request.json()
+    } catch {
+      // Body is optional; ignore parse errors
+    }
+    const simulationMode = process.env.SIMULATION_MODE === 'true'
+    const effectiveTimestamp =
+      simulationMode && body.simulatedAt
+        ? body.simulatedAt
+        : new Date().toISOString()
+
+    console.log('✅ Confirming invoice import:', id, simulationMode && body.simulatedAt ? `(simulated: ${body.simulatedAt})` : '')
 
     const supabase = createServiceClient()
     const tenantId = await getCurrentTenantId()
@@ -185,7 +198,7 @@ export async function PUT(
         // Update inventory item cost on the target (base) item
         const { error: costError } = await supabase
           .from('inventory_items')
-          .update({ unit_cost: effectiveUnitCost, updated_at: new Date().toISOString() })
+          .update({ unit_cost: effectiveUnitCost, updated_at: effectiveTimestamp })
           .eq('id', targetInventoryId)
 
         if (costError) {
@@ -201,7 +214,8 @@ export async function PUT(
               source: 'invoice_confirm',
               source_ref: invoice.id,
               notes: `Invoice ${invoice.invoice_number} (${invoice.suppliers?.name || 'Unknown Supplier'})`,
-              changed_by: null
+              changed_by: null,
+              changed_at: effectiveTimestamp,
             })
           console.log(`✅ Updated unit cost for item ${targetInventoryId}: ${currentUnitCost} -> ${effectiveUnitCost}`)
         }
@@ -236,6 +250,7 @@ export async function PUT(
           source_ref: string
           notes: string
           changed_by: null
+          changed_at: string
           fee_amount: number
         }> = []
 
@@ -299,6 +314,7 @@ export async function PUT(
             source_ref: invoice.id,
             notes: `Fee allocation from Invoice ${invoice.invoice_number} (${invoice.suppliers?.name || 'Unknown Supplier'}): $${roundedFeeShare.toFixed(4)} of $${totalFees.toFixed(2)} total fees`,
             changed_by: null,
+            changed_at: effectiveTimestamp,
             fee_amount: roundedFeeShare,
           })
         }
@@ -320,13 +336,12 @@ export async function PUT(
     if (linkedOrders && linkedOrders.length > 0) {
       for (const link of linkedOrders) {
         if (!link.purchase_order_id) continue
-        const nowIso = new Date().toISOString()
         const { error: poError } = await supabase
           .from('purchase_orders')
           .update({
             status: 'confirmed',
-            confirmed_at: nowIso,
-            received_at: nowIso,
+            confirmed_at: effectiveTimestamp,
+            received_at: effectiveTimestamp,
             notes: `Confirmed via invoice ${invoice.invoice_number}`
           })
           .eq('id', link.purchase_order_id)
@@ -345,8 +360,8 @@ export async function PUT(
       .from('invoices')
       .update({
         status: 'confirmed',
-        confirmed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        confirmed_at: effectiveTimestamp,
+        updated_at: effectiveTimestamp,
         ...(totalFees > 0 && !feeAlreadyDistributed && { fee_cogs_distributed: true }),
       })
       .eq('id', id)
