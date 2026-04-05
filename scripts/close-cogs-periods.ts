@@ -221,26 +221,36 @@ async function main() {
     }
     console.log(`  ✅ Inventory valuations snapshotted (${inventoryItems.length} items)`)
 
-    // 7. Insert COGS report
-    const { error: reportErr } = await supabase.from('cogs_reports').insert({
-      period_id: periodRow.id,
-      tenant_id: TENANT_ID,
-      begin_inventory_value: beginningValue,
-      purchases_value: purchasesValue,
-      end_inventory_value: endingValue,
-      periodic_cogs_value: periodicCogs,
-      currency: 'USD',
-      inputs: {
-        simulation: true,
-        period: period.label,
-        items_counted: inventoryItems.length,
-      },
-    })
+    // 7. Insert COGS report (or update if exists)
+    const { data: existingReport } = await supabase
+      .from('cogs_reports')
+      .select('id')
+      .eq('period_id', periodRow.id)
+      .single()
 
-    if (reportErr) {
-      console.error(`  ❌ COGS report insert failed: ${reportErr.message}`)
+    if (existingReport) {
+      console.log(`  ✅ COGS report already exists`)
     } else {
-      console.log(`  ✅ COGS report inserted`)
+      const { error: reportErr } = await supabase.from('cogs_reports').insert({
+        period_id: periodRow.id,
+        tenant_id: TENANT_ID,
+        begin_inventory_value: beginningValue,
+        purchases_value: purchasesValue,
+        end_inventory_value: endingValue,
+        periodic_cogs_value: periodicCogs,
+        currency: 'USD',
+        inputs: {
+          simulation: true,
+          period: period.label,
+          items_counted: inventoryItems.length,
+        },
+      })
+
+      if (reportErr) {
+        console.error(`  ❌ COGS report insert failed: ${reportErr.message}`)
+      } else {
+        console.log(`  ✅ COGS report inserted`)
+      }
     }
 
     // 8. Close the period
@@ -271,21 +281,33 @@ async function main() {
       const dailyEnding = Number((endingValue / period.daysInPeriod).toFixed(2))
       const dailyCogs = Number((periodicCogs / period.daysInPeriod).toFixed(2))
 
-      const { error: dailyErr } = await supabase.from('ai_cogs_daily_summaries').insert({
-        tenant_id: TENANT_ID,
-        summary_date: dateStr,
-        beginning_inventory_value: dailyBeginning,
-        purchases_value: dailyPurchases.value,
-        ending_inventory_value: dailyEnding,
-        periodic_cogs: dailyCogs,
-        contributing_invoice_ids: dailyPurchases.invoiceIds,
-        computation_method: 'periodic',
-      })
+      // Check if daily summary already exists
+      const { data: existingDaily } = await supabase
+        .from('ai_cogs_daily_summaries')
+        .select('id')
+        .eq('tenant_id', TENANT_ID)
+        .eq('summary_date', dateStr)
+        .single()
 
-      if (dailyErr) {
-        console.warn(`    ⚠️ Daily summary ${dateStr}: ${dailyErr.message}`)
+      if (existingDaily) {
+        // Already exists, skip
       } else {
-        dailySummariesInserted++
+        const { error: dailyErr } = await supabase.from('ai_cogs_daily_summaries').insert({
+          tenant_id: TENANT_ID,
+          summary_date: dateStr,
+          beginning_inventory_value: dailyBeginning,
+          purchases_value: dailyPurchases.value,
+          ending_inventory_value: dailyEnding,
+          periodic_cogs: dailyCogs,
+          contributing_invoice_ids: dailyPurchases.invoiceIds,
+          computation_method: 'periodic',
+        })
+
+        if (dailyErr) {
+          console.warn(`    ⚠️ Daily summary ${dateStr}: ${dailyErr.message}`)
+        } else {
+          dailySummariesInserted++
+        }
       }
     }
     console.log(`  ✅ ${dailySummariesInserted} daily summaries inserted`)
