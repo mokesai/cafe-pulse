@@ -348,7 +348,7 @@ async function createAndConfirmInvoice(
         invoice_date: fmtDate(invoiceDate),
         total_amount: Number(totalAmount.toFixed(2)),
         status: 'parsed',
-        pipeline_stage: 'confirming',
+        pipeline_stage: null,
         parsing_confidence: 1.0,
       })
       .select('id')
