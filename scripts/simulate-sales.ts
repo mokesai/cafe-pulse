@@ -287,13 +287,16 @@ async function main() {
   // Clean up old simulation sales first (for idempotency)
   if (!opts.dryRun) {
     console.log('🧹 Cleaning up old simulation sales...')
-    await db
+    // Delete by square_order_id pattern (SIM-SALE-*)
+    const { error: cleanErr } = await db
       .from('sales_transactions')
       .delete()
-      .eq('tenant_id', opts.tenantId)
-      .like('order_number', '#SIM-%')
-      .gte('ordered_at', start.toISOString())
-      .lte('ordered_at', end.toISOString())
+      .like('square_order_id', 'SIM-SALE-%')
+    if (cleanErr) {
+      console.log(`   ⚠️ Could not clean old sales: ${cleanErr.message} (continuing anyway)`)
+    } else {
+      console.log('   ✅ Old sales cleaned')
+    }
   }
 
   // Accumulate fractional ingredient usage; decrement once whole unit consumed
@@ -323,7 +326,7 @@ async function main() {
     if (!opts.dryRun) {
       // Batch insert sales_transactions for the day
       const txRows = daySales.map((sale, i) => ({
-        square_order_id: `SIM-SALE-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
+        square_order_id: `SIM-SALE-${dayStr.replace(/-/g, '')}-${String(i + 1).padStart(5, '0')}`,
         tenant_id: opts.tenantId,
         location_id: opts.locationId,
         order_number: `#SIM-${totalSales + i + 1}`,
