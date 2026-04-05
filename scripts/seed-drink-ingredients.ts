@@ -111,14 +111,12 @@ async function seedDrinkIngredients() {
         unit_cost: item.unit_cost,
         square_item_id: item.square_item_id,
         is_ingredient: true,
-        item_type: 'ingredient',
         current_stock: 0,
         minimum_threshold: 5,
         reorder_point: 10,
-        pack_size: 1,
         location: 'main',
       }, {
-        onConflict: 'tenant_id,supplier_id,square_item_id,pack_size',
+        onConflict: 'square_item_id',
         ignoreDuplicates: true
       })
       .select('id, item_name')
