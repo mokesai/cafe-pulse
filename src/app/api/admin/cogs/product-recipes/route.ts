@@ -41,7 +41,19 @@ export async function GET(request: NextRequest) {
   const supabase = createServiceClient()
   let query = supabase
     .from('cogs_product_recipes')
-    .select('id, product_id, version, effective_from, effective_to, yield_qty, yield_unit, notes, created_at, cogs_products(name, square_item_id)')
+    .select(`
+      id,
+      product_id,
+      version,
+      effective_from,
+      effective_to,
+      yield_qty,
+      yield_unit,
+      notes,
+      created_at,
+      cogs_products(name, square_item_id),
+      cogs_product_recipe_lines(id, inventory_item_id, qty, unit, loss_pct, inventory_items(item_name, unit_type))
+    `)
     .eq('tenant_id', tenantId)
     .order('effective_from', { ascending: false })
 
