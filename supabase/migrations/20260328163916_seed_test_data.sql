@@ -7,6 +7,12 @@ DECLARE
   v_bigcafe_id uuid := '4fa1cbbe-49ff-4cde-a686-8d34252945b4'::uuid;
   v_supplier_id uuid;
 BEGIN
+  -- Defensive: skip entirely if the bigcafe tenant isn't present (fresh prod environments).
+  IF NOT EXISTS (SELECT 1 FROM tenants WHERE id = v_bigcafe_id) THEN
+    RAISE NOTICE 'seed_test_data: skipped — bigcafe tenant not present';
+    RETURN;
+  END IF;
+
   -- Only seed if not already done (idempotent)
   IF NOT EXISTS (SELECT 1 FROM suppliers WHERE tenant_id = v_bigcafe_id) THEN
     
