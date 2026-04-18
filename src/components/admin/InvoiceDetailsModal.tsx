@@ -111,6 +111,8 @@ export function InvoiceDetailsModal({ invoice, isOpen, onClose }: InvoiceDetails
         pollIntervalRef.current = null
       }
     }
+    // Only re-run when open state or pipeline stage changes; detailedInvoice object identity is unstable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, detailedInvoice?.pipeline_stage, loadInvoiceDetails])
 
   const handleManualRefresh = useCallback(async () => {

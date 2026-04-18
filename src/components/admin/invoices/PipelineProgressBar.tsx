@@ -112,7 +112,7 @@ export function PipelineProgressBar({
   status,
   pipelineStartedAt,
   pipelineCompletedAt,
-  pipelineError,
+  pipelineError: _pipelineError,
 }: PipelineProgressBarProps) {
   const activeIndex = getActiveStageIndex(pipelineStage, status)
 

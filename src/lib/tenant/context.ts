@@ -4,7 +4,6 @@
 
 import { cookies, headers } from 'next/headers'
 
-import { createServiceClient } from '@/lib/supabase/server'
 import { createServerClient } from '@supabase/ssr'
 
 import { getCachedTenant, setCachedTenant } from './cache'

@@ -66,25 +66,60 @@ const PERIODS: PeriodDef[] = [
 ]
 
 // ─── Helpers ────────────────────────────────────────────────────────
-async function getInventorySnapshot(
+
+/**
+ * Reconstruct inventory at a point in time by reversing stock movements.
+ *
+ * @param mode
+ *   - 'before': state just BEFORE `asOf` (reverses movements >= asOf)
+ *   - 'at':     state at END of `asOf` (reverses movements > asOf)
+ */
+async function getInventorySnapshotAtDate(
   db: SupabaseClient,
-  tenantId: string
+  tenantId: string,
+  asOf: string,
+  mode: 'before' | 'at'
 ): Promise<Array<{ id: string; currentStock: number; unitCost: number }>> {
-  const { data, error } = await db
+  const { data: items, error: itemsErr } = await db
     .from('inventory_items')
     .select('id, current_stock, unit_cost')
     .eq('tenant_id', tenantId)
+    .is('deleted_at', null)
 
-  if (error) throw new Error(`Inventory fetch failed: ${error.message}`)
-  return (data ?? []).map(item => ({
+  if (itemsErr) throw new Error(`Inventory fetch failed: ${itemsErr.message}`)
+
+  // Get movements to reverse (everything after the target point in time)
+  let query = db
+    .from('stock_movements')
+    .select('inventory_item_id, quantity_change')
+    .eq('tenant_id', tenantId)
+
+  if (mode === 'before') {
+    query = query.gte('created_at', asOf)
+  } else {
+    query = query.gt('created_at', asOf)
+  }
+
+  const { data: movements, error: movErr } = await query
+  if (movErr) throw new Error(`Stock movements fetch failed: ${movErr.message}`)
+
+  // Sum movements to reverse per item
+  const adjustments = new Map<string, number>()
+  for (const m of movements ?? []) {
+    const prev = adjustments.get(m.inventory_item_id) ?? 0
+    adjustments.set(m.inventory_item_id, prev + Number(m.quantity_change ?? 0))
+  }
+
+  return (items ?? []).map(item => ({
     id: item.id,
-    currentStock: item.current_stock ?? 0,
-    unitCost: item.unit_cost ?? 0,
+    // Undo future movements: stock_at_date = current_stock - sum(future movements)
+    currentStock: Number(item.current_stock ?? 0) - (adjustments.get(item.id) ?? 0),
+    unitCost: Number(item.unit_cost ?? 0),
   }))
 }
 
 function computeTotalValue(items: Array<{ currentStock: number; unitCost: number }>): number {
-  return items.reduce((sum, item) => sum + item.currentStock * item.unitCost, 0)
+  return Number(items.reduce((sum, item) => sum + item.currentStock * item.unitCost, 0).toFixed(2))
 }
 
 async function getPurchasesInPeriod(
@@ -134,29 +169,31 @@ async function main() {
   console.log(`   Dry run: ${DRY_RUN}`)
   console.log()
 
-  // We need to process periods using the data that was already inserted
-  // by simulate-operations.ts and simulate-sales.ts
-  // The beginning inventory for Feb = starting state (all items at initial stock)
-  // The ending inventory = current state after Feb operations
+  // Reconstruct point-in-time inventory from stock_movements to get
+  // accurate beginning/ending values for each period.
+  let priorEndingValue: number | null = null
 
   for (const period of PERIODS) {
     console.log(`\n${'═'.repeat(50)}`)
     console.log(`📅 ${period.label}: ${period.startAt.slice(0, 10)} → ${period.endAt.slice(0, 10)}`)
     console.log('═'.repeat(50))
 
-    // 1. Get inventory snapshot (serves as beginning for this period's computation)
-    const inventoryItems = await getInventorySnapshot(supabase, TENANT_ID)
+    // 1. Reconstruct ending inventory at period end
+    const inventoryItems = await getInventorySnapshotAtDate(supabase, TENANT_ID, period.endAt, 'at')
     const endingValue = computeTotalValue(inventoryItems)
 
-    // 2. Get purchases in this period
-    const purchasesValue = await getPurchasesInPeriod(supabase, TENANT_ID, period.startAt, period.endAt)
+    // 2. Beginning inventory: prior period's ending, or reconstruct at period start
+    let beginningValue: number
+    if (priorEndingValue !== null) {
+      beginningValue = priorEndingValue
+    } else {
+      const beginItems = await getInventorySnapshotAtDate(supabase, TENANT_ID, period.startAt, 'before')
+      beginningValue = computeTotalValue(beginItems)
+    }
+    beginningValue = Number(beginningValue.toFixed(2))
 
-    // 3. For beginning inventory, we estimate from ending + sales - purchases
-    //    In practice, beginning = previous period's ending
-    //    For Feb (first period), we use a rough estimate: ending + estimated consumption - purchases
-    //    Simplified: beginning ≈ ending + purchases * 0.8 (80% of purchases consumed)
-    const estimatedConsumption = purchasesValue * 0.85
-    const beginningValue = Number((endingValue + estimatedConsumption - purchasesValue).toFixed(2))
+    // 3. Get purchases in this period
+    const purchasesValue = await getPurchasesInPeriod(supabase, TENANT_ID, period.startAt, period.endAt)
 
     // 4. COGS = beginning + purchases - ending
     const periodicCogs = Number((beginningValue + purchasesValue - endingValue).toFixed(2))
@@ -165,6 +202,9 @@ async function main() {
     console.log(`  🛒 Purchases: $${purchasesValue.toFixed(2)}`)
     console.log(`  📦 Ending inventory: $${endingValue.toFixed(2)}`)
     console.log(`  💰 Periodic COGS: $${periodicCogs.toFixed(2)}`)
+
+    // Carry forward for next period
+    priorEndingValue = endingValue
 
     if (DRY_RUN) {
       console.log(`  ⏭️ Dry run — skipping DB writes`)
@@ -207,10 +247,12 @@ async function main() {
       console.log(`  ✅ Period created: ${periodRow.id}`)
     }
 
-    // 6. Snapshot inventory valuations
+    // 6. Snapshot inventory valuations (delete old + re-insert)
+    await supabase.from('inventory_valuations').delete().eq('period_id', periodRow.id)
     for (const item of inventoryItems) {
       if (item.currentStock <= 0 && item.unitCost <= 0) continue
       await supabase.from('inventory_valuations').insert({
+        tenant_id: TENANT_ID,
         period_id: periodRow.id,
         inventory_item_id: item.id,
         qty_on_hand: item.currentStock,
@@ -221,7 +263,22 @@ async function main() {
     }
     console.log(`  ✅ Inventory valuations snapshotted (${inventoryItems.length} items)`)
 
-    // 7. Insert COGS report (or update if exists)
+    // 7. Upsert COGS report
+    const reportPayload = {
+      period_id: periodRow.id,
+      tenant_id: TENANT_ID,
+      begin_inventory_value: beginningValue,
+      purchases_value: purchasesValue,
+      end_inventory_value: endingValue,
+      periodic_cogs_value: periodicCogs,
+      currency: 'USD',
+      inputs: {
+        simulation: true,
+        period: period.label,
+        items_counted: inventoryItems.length,
+      },
+    }
+
     const { data: existingReport } = await supabase
       .from('cogs_reports')
       .select('id')
@@ -229,25 +286,19 @@ async function main() {
       .single()
 
     if (existingReport) {
-      console.log(`  ✅ COGS report already exists`)
+      const { error: updateErr } = await supabase
+        .from('cogs_reports')
+        .update(reportPayload)
+        .eq('id', existingReport.id)
+      if (updateErr) {
+        console.error(`  ❌ COGS report update failed: ${updateErr.message}`)
+      } else {
+        console.log(`  ✅ COGS report updated`)
+      }
     } else {
-      const { error: reportErr } = await supabase.from('cogs_reports').insert({
-        period_id: periodRow.id,
-        tenant_id: TENANT_ID,
-        begin_inventory_value: beginningValue,
-        purchases_value: purchasesValue,
-        end_inventory_value: endingValue,
-        periodic_cogs_value: periodicCogs,
-        currency: 'USD',
-        inputs: {
-          simulation: true,
-          period: period.label,
-          items_counted: inventoryItems.length,
-        },
-      })
-
-      if (reportErr) {
-        console.error(`  ❌ COGS report insert failed: ${reportErr.message}`)
+      const { error: insertErr } = await supabase.from('cogs_reports').insert(reportPayload)
+      if (insertErr) {
+        console.error(`  ❌ COGS report insert failed: ${insertErr.message}`)
       } else {
         console.log(`  ✅ COGS report inserted`)
       }
@@ -289,20 +340,25 @@ async function main() {
         .eq('summary_date', dateStr)
         .single()
 
-      if (existingDaily) {
-        // Already exists, skip
-      } else {
-        const { error: dailyErr } = await supabase.from('ai_cogs_daily_summaries').insert({
-          tenant_id: TENANT_ID,
-          summary_date: dateStr,
-          beginning_inventory_value: dailyBeginning,
-          purchases_value: dailyPurchases.value,
-          ending_inventory_value: dailyEnding,
-          periodic_cogs: dailyCogs,
-          contributing_invoice_ids: dailyPurchases.invoiceIds,
-          computation_method: 'periodic',
-        })
+      const dailyPayload = {
+        tenant_id: TENANT_ID,
+        summary_date: dateStr,
+        beginning_inventory_value: dailyBeginning,
+        purchases_value: dailyPurchases.value,
+        ending_inventory_value: dailyEnding,
+        periodic_cogs: dailyCogs,
+        contributing_invoice_ids: dailyPurchases.invoiceIds,
+        computation_method: 'periodic',
+      }
 
+      if (existingDaily) {
+        await supabase
+          .from('ai_cogs_daily_summaries')
+          .update(dailyPayload)
+          .eq('id', existingDaily.id)
+        dailySummariesInserted++
+      } else {
+        const { error: dailyErr } = await supabase.from('ai_cogs_daily_summaries').insert(dailyPayload)
         if (dailyErr) {
           console.warn(`    ⚠️ Daily summary ${dateStr}: ${dailyErr.message}`)
         } else {

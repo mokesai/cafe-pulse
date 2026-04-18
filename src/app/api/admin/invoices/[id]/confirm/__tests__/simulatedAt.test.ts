@@ -6,7 +6,7 @@
  * route contract (request shape → expected response body) is maintained.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Helpers — extracted timestamp logic (mirrors what the route does)
@@ -68,9 +68,6 @@ describe('SIMULATION_MODE env-var gating', () => {
   const NOW = '2026-04-05T00:00:00.000Z'
 
   it('activates simulation when SIMULATION_MODE === "true"', () => {
-    const simulationMode = process.env.SIMULATION_MODE === 'true'
-    // This test runs without the env var set, so simulationMode should be false
-    // We test the truthiness branch directly:
     const result = resolveEffectiveTimestamp(true /* mock: env is "true" */, SIMULATED, NOW)
     expect(result).toBe(SIMULATED)
   })
