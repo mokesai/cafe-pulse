@@ -28,12 +28,43 @@ async function main() {
   console.log()
 
   try {
-    // Delete sales transactions (cascades to items & movements)
+    // Delete stock movements (must happen before sales/PO deletes)
+    console.log('  Deleting stock movements...')
+    await supabase
+      .from('stock_movements')
+      .delete()
+      .eq('tenant_id', TENANT_ID)
+      .gte('created_at', '2026-02-01')
+
+    // Delete cost history from simulation invoices
+    console.log('  Deleting cost history...')
+    await supabase
+      .from('inventory_item_cost_history')
+      .delete()
+      .like('notes', 'Invoice SIM-INV-%')
+
+    // Delete sales transactions (cascades to items)
     console.log('  Deleting sales transactions...')
     await supabase
       .from('sales_transactions')
       .delete()
       .like('order_number', '#SIM-%')
+      .eq('tenant_id', TENANT_ID)
+
+    // Delete order-invoice matches before POs and invoices
+    console.log('  Deleting order-invoice matches...')
+    await supabase
+      .from('order_invoice_matches')
+      .delete()
+      .eq('tenant_id', TENANT_ID)
+      .eq('match_method', 'simulation')
+
+    // Delete invoices (cascades to items)
+    console.log('  Deleting invoices...')
+    await supabase
+      .from('invoices')
+      .delete()
+      .like('invoice_number', 'SIM-INV-%')
       .eq('tenant_id', TENANT_ID)
 
     // Delete purchase orders (cascades to items & receipts)
@@ -44,13 +75,13 @@ async function main() {
       .like('order_number', 'SIM-PO-%')
       .eq('tenant_id', TENANT_ID)
 
-    // Delete invoices (cascades to items & matches)
-    console.log('  Deleting invoices...')
+    // Reset inventory stock to 0 (seed state) for all simulation items
+    console.log('  Resetting inventory stock to 0...')
     await supabase
-      .from('invoices')
-      .delete()
-      .like('invoice_number', 'SIM-INV-%')
+      .from('inventory_items')
+      .update({ current_stock: 0 })
       .eq('tenant_id', TENANT_ID)
+      .like('square_item_id', 'SEED-%')
 
     // Delete COGS periods
     console.log('  Deleting COGS periods...')
@@ -59,7 +90,7 @@ async function main() {
       .select('id')
       .eq('tenant_id', TENANT_ID)
       .gte('start_at', '2026-02-01')
-      .lte('end_at', '2026-03-31')
+      .lte('end_at', '2026-04-01')
 
     if (periods?.length) {
       for (const p of periods) {

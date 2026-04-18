@@ -4,7 +4,8 @@
  * MOK-81 (SIM-5): Cafe Operations Simulation — Daily Drink Sales
  *
  * Generates daily sales data (Feb 1 – Mar 31, 2026):
- *   ~80 drinks/day (weekdays), ~50 drinks/day (weekends)
+ *   ~95 sales/day (weekdays), ~58 sales/day (weekends)
+ *   Mix: ~84% drinks, ~16% food
  *   Spread across 8am–6pm in realistic clusters
  *
  * For each sale:
@@ -12,9 +13,10 @@
  *   2. Decrement inventory via decrement_inventory_stock RPC
  *   3. Insert stock_movements (movement_type='sale', backdated)
  *
- * Drink mix: 35% lattes, 12% frappuccinos, 10% double espresso,
- *   12% refreshers, 10% iced teas, 8% smoothies, 8% matcha/chai,
- *   5% caramel/hazelnut lattes
+ * Drink mix: 28% lattes, 10% frappuccinos, 8% espresso, 4% cold brew,
+ *   10% refreshers, 8% iced teas, 6% smoothies, 6% matcha/chai,
+ *   4% caramel/hazelnut lattes
+ * Food mix: 6% croissants, 4% bagels, 3% danish, 3% sourdough sandwiches
  *
  * Usage:
  *   SIMULATION_MODE=true npx tsx scripts/simulate-sales.ts --dry-run
@@ -90,11 +92,14 @@ interface DrinkType {
   ingredients: IngredientUsage[]
 }
 
+// Weights sum to 1.0: ~84% drinks, ~16% food
+// Daily targets bumped to ~95 weekday / ~58 weekend so drink volume stays ~80/day
 const DRINK_TYPES: DrinkType[] = [
+  // ── Drinks (84%) ─────────────────────────────────────────────
   {
     name: 'Latte',
     catalogId: 'SIM-DRINK-LATTE',
-    weight: 0.35,
+    weight: 0.28,
     priceRange: [5.50, 6.50],
     ingredients: [
       { squareItemId: 'SEED-SC-ESPRESSO', qtyPerDrink: 0.04 },     // ~18g × 2 shots
@@ -104,7 +109,7 @@ const DRINK_TYPES: DrinkType[] = [
   {
     name: 'Frappuccino',
     catalogId: 'SIM-DRINK-FRAP',
-    weight: 0.12,
+    weight: 0.10,
     priceRange: [6.00, 7.50],
     ingredients: [
       { squareItemId: 'SEED-WM-MILK-WHOLE', qtyPerDrink: 0.06 },
@@ -115,16 +120,26 @@ const DRINK_TYPES: DrinkType[] = [
   {
     name: 'Double Espresso',
     catalogId: 'SIM-DRINK-ESPRESSO',
-    weight: 0.10,
+    weight: 0.08,
     priceRange: [3.50, 4.50],
     ingredients: [
       { squareItemId: 'SEED-SC-ESPRESSO', qtyPerDrink: 0.04 },
     ],
   },
   {
+    name: 'Cold Brew',
+    catalogId: 'SIM-DRINK-COLDBREW',
+    weight: 0.04,
+    priceRange: [4.50, 5.50],
+    ingredients: [
+      { squareItemId: 'SEED-SC-COLDBREW', qtyPerDrink: 0.08 },
+      { squareItemId: 'SEED-WM-MILK-WHOLE', qtyPerDrink: 0.02 },
+    ],
+  },
+  {
     name: 'Refresher',
     catalogId: 'SIM-DRINK-REFRESHER',
-    weight: 0.12,
+    weight: 0.10,
     priceRange: [5.00, 6.00],
     ingredients: [
       { squareItemId: 'SEED-ODEKO-PUREE-STRAWB', qtyPerDrink: 0.04 },
@@ -134,7 +149,7 @@ const DRINK_TYPES: DrinkType[] = [
   {
     name: 'Iced Tea',
     catalogId: 'SIM-DRINK-ICEDTEA',
-    weight: 0.10,
+    weight: 0.08,
     priceRange: [3.00, 4.00],
     ingredients: [
       { squareItemId: 'SEED-WM-SYRUP-VANILLA', qtyPerDrink: 0.02 },
@@ -143,7 +158,7 @@ const DRINK_TYPES: DrinkType[] = [
   {
     name: 'Smoothie',
     catalogId: 'SIM-DRINK-SMOOTHIE',
-    weight: 0.08,
+    weight: 0.06,
     priceRange: [6.50, 8.00],
     ingredients: [
       { squareItemId: 'SEED-WM-MILK-WHOLE', qtyPerDrink: 0.06 },
@@ -153,7 +168,7 @@ const DRINK_TYPES: DrinkType[] = [
   {
     name: 'Matcha Latte',
     catalogId: 'SIM-DRINK-MATCHA',
-    weight: 0.04,
+    weight: 0.03,
     priceRange: [5.50, 7.00],
     ingredients: [
       { squareItemId: 'SEED-WM-MILK-OAT', qtyPerDrink: 0.08 },
@@ -163,7 +178,7 @@ const DRINK_TYPES: DrinkType[] = [
   {
     name: 'Chai Latte',
     catalogId: 'SIM-DRINK-CHAI',
-    weight: 0.04,
+    weight: 0.03,
     priceRange: [5.00, 6.50],
     ingredients: [
       { squareItemId: 'SEED-WM-MILK-OAT', qtyPerDrink: 0.06 },
@@ -173,7 +188,7 @@ const DRINK_TYPES: DrinkType[] = [
   {
     name: 'Caramel Latte',
     catalogId: 'SIM-DRINK-CARAMEL',
-    weight: 0.03,
+    weight: 0.02,
     priceRange: [5.75, 6.75],
     ingredients: [
       { squareItemId: 'SEED-SC-ESPRESSO', qtyPerDrink: 0.04 },
@@ -190,6 +205,43 @@ const DRINK_TYPES: DrinkType[] = [
       { squareItemId: 'SEED-SC-ESPRESSO', qtyPerDrink: 0.04 },
       { squareItemId: 'SEED-WM-MILK-WHOLE', qtyPerDrink: 0.08 },
       { squareItemId: 'SEED-ODEKO-SYRUP-HAZELNUT', qtyPerDrink: 0.02 },
+    ],
+  },
+  // ── Food (16%) ───────────────────────────────────────────────
+  {
+    name: 'Croissant',
+    catalogId: 'SIM-FOOD-CROISSANT',
+    weight: 0.06,
+    priceRange: [3.50, 4.50],
+    ingredients: [
+      { squareItemId: 'SEED-BP-CROISSANT', qtyPerDrink: 1 },
+    ],
+  },
+  {
+    name: 'Bagel',
+    catalogId: 'SIM-FOOD-BAGEL',
+    weight: 0.04,
+    priceRange: [2.50, 3.50],
+    ingredients: [
+      { squareItemId: 'SEED-BP-BAGEL', qtyPerDrink: 1 },
+    ],
+  },
+  {
+    name: 'Danish Pastry',
+    catalogId: 'SIM-FOOD-DANISH',
+    weight: 0.03,
+    priceRange: [3.00, 4.00],
+    ingredients: [
+      { squareItemId: 'SEED-BP-DANISH', qtyPerDrink: 1 },
+    ],
+  },
+  {
+    name: 'Sourdough Sandwich',
+    catalogId: 'SIM-FOOD-SOURDOUGH',
+    weight: 0.03,
+    priceRange: [8.00, 10.00],
+    ingredients: [
+      { squareItemId: 'SEED-BP-SOURDOUGH', qtyPerDrink: 1 },
     ],
   },
 ]
@@ -254,7 +306,7 @@ async function main() {
   console.log(`   Tenant:   ${opts.tenantId}`)
   console.log(`   Period:   ${opts.startDate} to ${opts.endDate}`)
   console.log(`   Location: ${opts.locationId}`)
-  console.log(`   Target:   ~80 drinks/day (weekdays), ~50 weekends`)
+  console.log(`   Target:   ~95 sales/day (weekdays), ~58 weekends (drinks + food)`)
   console.log(`   Dry run:  ${opts.dryRun}`)
   console.log()
 
@@ -311,7 +363,7 @@ async function main() {
   while (day <= end) {
     const dayStr = day.toISOString().slice(0, 10)
     const isWeekend = day.getUTCDay() === 0 || day.getUTCDay() === 6
-    const dailyTarget = isWeekend ? Math.floor(40 + rand() * 20) : Math.floor(70 + rand() * 20)
+    const dailyTarget = isWeekend ? Math.floor(48 + rand() * 20) : Math.floor(85 + rand() * 20)
 
     // Plan all sales for the day
     const daySales: Array<{ drink: DrinkType; time: Date; price: number }> = []

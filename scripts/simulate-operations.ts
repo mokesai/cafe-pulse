@@ -289,7 +289,7 @@ async function createPO(
 }
 
 // ─── PO Receipt (Wednesday) ────────────────────────────────────────
-async function receivePO(db: SupabaseClient, po: CreatedPO, receiptDate: Date): Promise<void> {
+async function receivePO(db: SupabaseClient, tenantId: string, po: CreatedPO, receiptDate: Date): Promise<void> {
   for (const item of po.poItems) {
     const { error } = await db.rpc('log_purchase_order_receipt', {
       p_purchase_order_id: po.poId,
@@ -301,6 +301,35 @@ async function receivePO(db: SupabaseClient, po: CreatedPO, receiptDate: Date): 
     if (error) {
       console.warn(`  ⚠️ Receipt RPC failed (${item.itemName}): ${error.message}`)
     }
+
+    // The log_purchase_order_receipt RPC does NOT increase current_stock
+    // (migration: make_receipts_info_only). We must increment stock and
+    // record the movement so close-cogs-periods can reconstruct point-in-time inventory.
+    const { data: currentItem } = await db
+      .from('inventory_items')
+      .select('current_stock')
+      .eq('id', item.inventoryItemId)
+      .single()
+
+    const previousStock = Number(currentItem?.current_stock ?? 0)
+    const newStock = previousStock + item.quantity
+
+    await db
+      .from('inventory_items')
+      .update({ current_stock: newStock, updated_at: isoAt(receiptDate, 10) })
+      .eq('id', item.inventoryItemId)
+
+    await db.from('stock_movements').insert({
+      inventory_item_id: item.inventoryItemId,
+      tenant_id: tenantId,
+      movement_type: 'purchase',
+      quantity_change: item.quantity,
+      previous_stock: previousStock,
+      new_stock: newStock,
+      reference_id: po.poId,
+      notes: `PO receipt: ${po.supplierName} (${item.itemName})`,
+      created_at: isoAt(receiptDate, 10),
+    })
   }
 
   await db
@@ -547,7 +576,7 @@ async function main() {
 
     // Wednesday: Receive POs
     for (const po of weekPOs) {
-      await receivePO(db, po, wednesday)
+      await receivePO(db, opts.tenantId, po, wednesday)
       console.log(`  📥 PO received: ${po.supplierName}`)
     }
 
