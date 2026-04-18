@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrentTenantId } from '@/lib/tenant/context'
+import { formatApiError, unexpectedError } from '@/lib/api/errors'
 
 export async function PUT(
   request: NextRequest,
@@ -15,7 +16,20 @@ export async function PUT(
 
     const { id } = await context.params
 
-    console.log('✅ Confirming invoice import:', id)
+    // Parse optional simulatedAt for backdated timestamps (simulation mode only)
+    let body: { simulatedAt?: string } = {}
+    try {
+      body = await request.json()
+    } catch {
+      // Body is optional; ignore parse errors
+    }
+    const simulationMode = process.env.SIMULATION_MODE === 'true'
+    const effectiveTimestamp =
+      simulationMode && body.simulatedAt
+        ? body.simulatedAt
+        : new Date().toISOString()
+
+    console.log('✅ Confirming invoice import:', id, simulationMode && body.simulatedAt ? `(simulated: ${body.simulatedAt})` : '')
 
     const supabase = createServiceClient()
     const tenantId = await getCurrentTenantId()
@@ -25,6 +39,9 @@ export async function PUT(
       .from('invoices')
       .select(`
         *,
+        total_fees,
+        fee_cogs_distributed,
+        supplier_fees,
         invoice_items!inner(
           id,
           item_description,
@@ -41,11 +58,7 @@ export async function PUT(
       .single()
 
     if (invoiceError) {
-      console.error('Failed to fetch invoice:', invoiceError)
-      return NextResponse.json({
-        success: false,
-        error: `Failed to fetch invoice: ${invoiceError.message}`
-      }, { status: 500 })
+      return formatApiError('fetch invoice for confirmation', invoiceError)
     }
 
     // Fetch linked purchase orders
@@ -185,7 +198,7 @@ export async function PUT(
         // Update inventory item cost on the target (base) item
         const { error: costError } = await supabase
           .from('inventory_items')
-          .update({ unit_cost: effectiveUnitCost, updated_at: new Date().toISOString() })
+          .update({ unit_cost: effectiveUnitCost, updated_at: effectiveTimestamp })
           .eq('id', targetInventoryId)
 
         if (costError) {
@@ -201,9 +214,121 @@ export async function PUT(
               source: 'invoice_confirm',
               source_ref: invoice.id,
               notes: `Invoice ${invoice.invoice_number} (${invoice.suppliers?.name || 'Unknown Supplier'})`,
-              changed_by: null
+              changed_by: null,
+              changed_at: effectiveTimestamp,
             })
           console.log(`✅ Updated unit cost for item ${targetInventoryId}: ${currentUnitCost} -> ${effectiveUnitCost}`)
+        }
+      }
+    }
+
+    // ── Distribute supplier fees proportionally across matched items ──────────
+    // Fees (delivery, shipping, processing, etc.) are COGS overhead.
+    // We spread them across matched line items proportionally by line-item value,
+    // recording each allocation as an 'invoice_fee' entry in inventory_item_cost_history.
+    // This keeps fee overhead visible in the cost history time-series.
+    const totalFees = Number(invoice.total_fees ?? 0)
+    const feeAlreadyDistributed = Boolean(invoice.fee_cogs_distributed)
+
+    if (totalFees > 0 && !feeAlreadyDistributed && matchedItems.length > 0) {
+      console.log(`💰 Distributing supplier fees ($${totalFees}) across ${matchedItems.length} matched items`)
+
+      // Compute the total value of matched line items for proportional weighting
+      const totalMatchedValue = matchedItems.reduce(
+        (sum, item) => sum + Number(item.total_price ?? 0),
+        0
+      )
+
+      if (totalMatchedValue > 0) {
+        const feeHistoryRows: Array<{
+          tenant_id: string
+          inventory_item_id: string
+          previous_unit_cost: number
+          new_unit_cost: number
+          pack_size: number
+          source: string
+          source_ref: string
+          notes: string
+          changed_by: null
+          changed_at: string
+          fee_amount: number
+        }> = []
+
+        for (const invoiceItem of matchedItems) {
+          if (!invoiceItem.matched_item_id) continue
+
+          // What fraction of total line-item value does this item represent?
+          const itemValue = Number(invoiceItem.total_price ?? 0)
+          const feeShare = (itemValue / totalMatchedValue) * totalFees
+          const roundedFeeShare = Math.round(feeShare * 10000) / 10000 // 4 decimal places
+
+          if (roundedFeeShare <= 0) continue
+
+          // Fetch current unit_cost for this item (resolve to base item if pack variant)
+          const { data: invRow } = await supabase
+            .from('inventory_items')
+            .select('id, unit_cost, pack_size, square_item_id')
+            .eq('id', invoiceItem.matched_item_id)
+            .single()
+
+          if (!invRow) continue
+
+          let targetId = invRow.id
+          if (invRow.square_item_id) {
+            const { data: baseItem } = await supabase
+              .from('inventory_items')
+              .select('id, unit_cost')
+              .eq('square_item_id', invRow.square_item_id)
+              .or('pack_size.eq.1,pack_size.is.null')
+              .is('deleted_at', null)
+              .maybeSingle()
+            if (baseItem?.id) targetId = baseItem.id
+          }
+
+          const { data: targetRow } = await supabase
+            .from('inventory_items')
+            .select('unit_cost')
+            .eq('id', targetId)
+            .single()
+
+          const currentCost = Number(targetRow?.unit_cost ?? 0)
+          const invoiceQty = Number(invoiceItem.quantity ?? 1)
+          // Fee overhead per unit = allocated fee share / invoice quantity
+          const feePerUnit = invoiceQty > 0
+            ? Math.round((roundedFeeShare / invoiceQty) * 10000) / 10000
+            : 0
+
+          if (feePerUnit <= 0) continue
+
+          // new_unit_cost = current cost + fee-per-unit overhead
+          // This represents the fully-loaded cost including proportional fees
+          const newCost = Math.round((currentCost + feePerUnit) * 10000) / 10000
+
+          feeHistoryRows.push({
+            tenant_id: tenantId,
+            inventory_item_id: targetId,
+            previous_unit_cost: currentCost,
+            new_unit_cost: newCost,
+            pack_size: 1,
+            source: 'invoice_fee',
+            source_ref: invoice.id,
+            notes: `Fee allocation from Invoice ${invoice.invoice_number} (${invoice.suppliers?.name || 'Unknown Supplier'}): $${roundedFeeShare.toFixed(4)} of $${totalFees.toFixed(2)} total fees`,
+            changed_by: null,
+            changed_at: effectiveTimestamp,
+            fee_amount: roundedFeeShare,
+          })
+        }
+
+        if (feeHistoryRows.length > 0) {
+          const { error: feeInsertError } = await supabase
+            .from('inventory_item_cost_history')
+            .insert(feeHistoryRows)
+
+          if (feeInsertError) {
+            console.error('Failed to insert fee cost history rows:', feeInsertError)
+          } else {
+            console.log(`✅ Recorded ${feeHistoryRows.length} fee allocation entries in cost history`)
+          }
         }
       }
     }
@@ -211,13 +336,12 @@ export async function PUT(
     if (linkedOrders && linkedOrders.length > 0) {
       for (const link of linkedOrders) {
         if (!link.purchase_order_id) continue
-        const nowIso = new Date().toISOString()
         const { error: poError } = await supabase
           .from('purchase_orders')
           .update({
             status: 'confirmed',
-            confirmed_at: nowIso,
-            received_at: nowIso,
+            confirmed_at: effectiveTimestamp,
+            received_at: effectiveTimestamp,
             notes: `Confirmed via invoice ${invoice.invoice_number}`
           })
           .eq('id', link.purchase_order_id)
@@ -231,22 +355,19 @@ export async function PUT(
       }
     }
 
-    // Update invoice status to confirmed
+    // Update invoice status to confirmed (also mark fees as distributed if applicable)
     const { error: confirmError } = await supabase
       .from('invoices')
       .update({
         status: 'confirmed',
-        confirmed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        confirmed_at: effectiveTimestamp,
+        updated_at: effectiveTimestamp,
+        ...(totalFees > 0 && !feeAlreadyDistributed && { fee_cogs_distributed: true }),
       })
       .eq('id', id)
 
     if (confirmError) {
-      console.error('Failed to confirm invoice:', confirmError)
-      return NextResponse.json({
-        success: false,
-        error: `Failed to confirm invoice: ${confirmError.message}`
-      }, { status: 500 })
+      return formatApiError('confirm invoice', confirmError)
     }
 
     console.log('✅ Invoice import confirmed successfully')
@@ -267,16 +388,14 @@ export async function PUT(
           created_items: createdCount,
           skipped_items: skippedCount,
           inventory_updated: true,
-          purchase_order_updated: linkedOrders && linkedOrders.length > 0
+          purchase_order_updated: linkedOrders && linkedOrders.length > 0,
+          fees_distributed: totalFees > 0,
+          total_fees: totalFees,
         }
       }
     })
 
   } catch (error) {
-    console.error('Error confirming invoice:', error)
-    return NextResponse.json({
-      success: false,
-      error: `Server error: ${error instanceof Error ? error.message : 'Unknown error'}`
-    }, { status: 500 })
+    return unexpectedError('confirm invoice', error)
   }
 }

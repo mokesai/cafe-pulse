@@ -1,0 +1,111 @@
+name: E2E Tests
+
+on:
+  push:
+    branches:
+      - staging
+  pull_request:
+    branches:
+      - staging
+      - main
+
+# Cancel in-progress runs for the same branch/PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: E2E (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: preview
+
+    strategy:
+      fail-fast: true
+      matrix:
+        browser: [chromium]
+
+    env:
+      # Test credentials — sensitive (from GitHub Secrets)
+      TEST_SUPER_ADMIN_EMAIL: ${{ secrets.TEST_SUPER_ADMIN_EMAIL }}
+      TEST_SUPER_ADMIN_PASSWORD: ${{ secrets.TEST_SUPER_ADMIN_PASSWORD }}
+      TEST_TENANT_OWNER_EMAIL: ${{ secrets.TEST_TENANT_OWNER_EMAIL }}
+      TEST_TENANT_OWNER_PASSWORD: ${{ secrets.TEST_TENANT_OWNER_PASSWORD }}
+      TEST_TENANT_ADMIN_EMAIL: ${{ secrets.TEST_TENANT_ADMIN_EMAIL }}
+      TEST_TENANT_ADMIN_PASSWORD: ${{ secrets.TEST_TENANT_ADMIN_PASSWORD }}
+      TEST_TENANT_1: ${{ secrets.TEST_TENANT_1 }}
+      TEST_TENANT_2: ${{ secrets.TEST_TENANT_2 }}
+
+      # Local dev server mode — no BASE_URL so Playwright spins up next dev
+      # Tenant routes use bigcafe.localhost:3000
+      TEST_TENANT_BASE_URL: 'http://bigcafe.localhost:3000'
+
+      # Skip MFA in CI test environment
+      SKIP_MFA_FOR_TESTING: "true"
+      NEXT_PUBLIC_SKIP_MFA_FOR_TESTING: "true"
+
+      # Mock AI parsing in CI to avoid OpenRouter/OpenAI spend
+      CI_MOCK_AI_PARSING: "true"
+
+      # CI flag
+      CI: "true"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Write .env.local for dev server
+        run: |
+          cat > .env.local << EOF
+          NEXT_PUBLIC_SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SECRET_KEY=${{ secrets.SUPABASE_SECRET_KEY }}
+          SUPABASE_PROJECT_REF=${{ secrets.SUPABASE_PROJECT_REF }}
+          NEXT_PUBLIC_SITE_URL=http://localhost:3000
+          NEXT_PUBLIC_APP_URL=http://localhost:3000
+          OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+          RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
+          RESEND_PURCHASING_FROM=${{ vars.RESEND_PURCHASING_FROM }}
+          SQUARE_ENVIRONMENT=${{ vars.NEXT_PUBLIC_SQUARE_ENVIRONMENT }}
+          SQUARE_APPLICATION_ID=${{ vars.NEXT_PUBLIC_SQUARE_APPLICATION_ID }}
+          SQUARE_ACCESS_TOKEN=${{ secrets.SQUARE_ACCESS_TOKEN }}
+          SQUARE_LOCATION_ID=${{ vars.NEXT_PUBLIC_SQUARE_LOCATION_ID }}
+          NEXT_PUBLIC_SQUARE_APPLICATION_ID=${{ vars.NEXT_PUBLIC_SQUARE_APPLICATION_ID }}
+          NEXT_PUBLIC_SQUARE_LOCATION_ID=${{ vars.NEXT_PUBLIC_SQUARE_LOCATION_ID }}
+          NEXT_PUBLIC_SQUARE_ENVIRONMENT=${{ vars.NEXT_PUBLIC_SQUARE_ENVIRONMENT }}
+          SKIP_MFA_FOR_TESTING=true
+          NEXT_PUBLIC_SKIP_MFA_FOR_TESTING=true
+          CI_MOCK_AI_PARSING=true
+          EOF
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+
+      - name: Run E2E tests
+        run: npx playwright test --project=${{ matrix.browser }} --max-failures=5
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.browser }}
+          path: playwright-report/
+          retention-days: 30
+
+      - name: Upload test results (traces/screenshots/videos)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.browser }}
+          path: test-results/
+          retention-days: 7

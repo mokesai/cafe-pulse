@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrentTenantId } from '@/lib/tenant/context'
+import { formatApiError, apiError, unexpectedError } from '@/lib/api/errors'
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
     const { id } = body
 
     if (!id) {
-      return NextResponse.json({ error: 'Missing required field: id' }, { status: 400 })
+      return apiError('Inventory item ID is required to restore an archived item.')
     }
 
     const supabase = createServiceClient()
@@ -29,11 +30,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) {
-      console.error('Failed to restore inventory item:', error)
-      return NextResponse.json(
-        { error: 'Failed to restore inventory item', details: error.message },
-        { status: 500 }
-      )
+      return formatApiError('restore inventory item', error)
     }
 
     return NextResponse.json({
@@ -42,13 +39,6 @@ export async function POST(request: NextRequest) {
       message: 'Inventory item restored'
     })
   } catch (error) {
-    console.error('Failed to restore inventory item:', error)
-    return NextResponse.json(
-      {
-        error: 'Failed to restore inventory item',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    )
+    return unexpectedError('restore inventory item', error)
   }
 }

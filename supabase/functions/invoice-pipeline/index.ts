@@ -177,3 +177,4 @@ serve(async (req: Request) => {
     )
   }
 })
+// Edge Function version: v2-text-extraction-1774730790

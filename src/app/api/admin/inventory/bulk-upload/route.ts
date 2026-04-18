@@ -13,6 +13,7 @@ interface InventoryItemInput {
   unit_type?: 'each' | 'lb' | 'oz' | 'gallon' | 'liter' | 'ml'
   is_ingredient?: boolean
   supplier_id?: string
+  pack_size?: number
   location?: string
   notes?: string
   last_restocked_at?: string
@@ -32,14 +33,19 @@ async function validateInventoryItems(
   const requiredFields = ['square_item_id', 'item_name']
   const validUnitTypes = ['each', 'lb', 'oz', 'gallon', 'liter', 'ml']
 
-  // Get existing square_item_ids to check for duplicates (tenant-scoped)
+  // Get existing (supplier_id, square_item_id, pack_size) combos to check for duplicates (tenant-scoped).
+  // MOK-63: Multiple suppliers can reference the same Square item ID — uniqueness is per-supplier.
   const { data: existingItems } = await supabase
     .from('inventory_items')
-    .select('square_item_id')
+    .select('supplier_id, square_item_id, pack_size')
     .eq('tenant_id', tenantId)
 
-  const existingSquareIds = new Set(existingItems?.map(item => item.square_item_id) || [])
-  const newSquareIds = new Set()
+  // Key: `${supplier_id}|${square_item_id}|${pack_size}`
+  const existingSupplierItemKeys = new Set(
+    (existingItems || []).map(i => `${i.supplier_id ?? ''}|${i.square_item_id}|${i.pack_size ?? 1}`)
+  )
+  // Track keys within this upload batch to catch intra-batch duplicates
+  const newSupplierItemKeys = new Set<string>()
 
   items.forEach((item, index) => {
     // Check required fields
@@ -49,16 +55,17 @@ async function validateInventoryItems(
       }
     })
 
-    // Check for duplicate square_item_ids within the upload
-    if (newSquareIds.has(item.square_item_id)) {
-      errors.push(`Item ${index + 1}: Duplicate square_item_id "${item.square_item_id}" in upload`)
+    // Check for duplicate (supplier_id + square_item_id + pack_size) within the upload batch
+    const batchKey = `${item.supplier_id ?? ''}|${item.square_item_id}|${item.pack_size ?? 1}`
+    if (newSupplierItemKeys.has(batchKey)) {
+      errors.push(`Item ${index + 1}: Duplicate combination of supplier_id + square_item_id + pack_size "${item.square_item_id}" in upload`)
     } else {
-      newSquareIds.add(item.square_item_id)
+      newSupplierItemKeys.add(batchKey)
     }
 
-    // Check if square_item_id already exists in database
-    if (existingSquareIds.has(item.square_item_id)) {
-      errors.push(`Item ${index + 1}: square_item_id "${item.square_item_id}" already exists in database`)
+    // Check if this supplier already has this Square item ID + pack size in the database
+    if (existingSupplierItemKeys.has(batchKey)) {
+      errors.push(`Item ${index + 1}: This supplier already has an inventory item with square_item_id "${item.square_item_id}" and the same pack size`)
     }
 
     // Validate unit_type
@@ -136,6 +143,12 @@ async function insertInventoryItems(
     .select('id, item_name, current_stock')
 
   if (error) {
+    // 23505 = unique_violation: a supplier already has this Square item ID + pack size combo
+    if (error.code === '23505') {
+      throw new Error(
+        'One or more items conflict with existing inventory: a supplier already has an item with the same Square item ID and pack size. Check for duplicates and try again.'
+      )
+    }
     throw new Error(`Failed to insert inventory items: ${error.message}`)
   }
 

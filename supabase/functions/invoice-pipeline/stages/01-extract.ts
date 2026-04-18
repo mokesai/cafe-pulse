@@ -33,7 +33,12 @@ export async function runExtraction(ctx: PipelineContext): Promise<StageResult> 
   }))
 
   const { file_url, file_type } = ctx.invoice
-  const fileTypeLower = file_type.toLowerCase().replace('.', '')
+  // Normalize file type: handle both extensions (.pdf) and MIME types (application/pdf)
+  const fileTypeLower = file_type
+    .toLowerCase()
+    .replace('application/', '')  // Strip MIME type prefix
+    .replace('image/', '')         // Strip image/ prefix
+    .replace('.', '')              // Strip dot prefix
 
   try {
     // ── Idempotency: clear any existing invoice_items for this invoice ────────
@@ -58,13 +63,12 @@ export async function runExtraction(ctx: PipelineContext): Promise<StageResult> 
     }
 
     if (isPdf) {
-      // Step 1: Attempt text extraction for native PDFs
+      // For PDFs: always attempt text extraction first
+      // Vision API does not support PDF format, so text extraction is the primary path
       let textResult: Awaited<ReturnType<typeof fetchExtractedText>> | null = null
-      let textAttempted = false
 
       try {
         textResult = await fetchExtractedText(ctx.invoiceId, ctx.tenantId)
-        textAttempted = true
         console.log(JSON.stringify({
           event: 'text_extraction_attempted',
           invoice_id: ctx.invoiceId,
@@ -72,20 +76,42 @@ export async function runExtraction(ctx: PipelineContext): Promise<StageResult> 
           method: textResult.method,
           text_length: textResult.text.length,
         }))
+
+        const visionThreshold = ctx.tenantSettings.visionConfidenceThresholdPct / 100
+        if (textResult.confidence >= visionThreshold) {
+          // Text extraction succeeded with sufficient confidence
+          return await runTextBasedExtraction(ctx, textResult.text, textResult.confidence)
+        }
+        
+        // Text extraction succeeded but low confidence — create exception
+        console.warn('[01-extract] PDF text extraction too low confidence:', textResult.confidence)
+        await createException(ctx, {
+          type: 'parse_error',
+          message: `PDF text extraction confidence too low (${(textResult.confidence * 100).toFixed(1)}%). Manual review recommended.`,
+          context: {
+            stage: STAGE,
+            method: textResult.method,
+            confidence: textResult.confidence,
+            retry_count: 0,
+          },
+          pipelineStage: STAGE,
+        })
+        return { ok: false, fatal: true, error: 'PDF extraction confidence below threshold' }
       } catch (textErr) {
-        console.warn('[01-extract] Text extraction unavailable:', sanitizeError(textErr))
-        // Fall through to Vision
-      }
-
-      const visionThreshold = ctx.tenantSettings.visionConfidenceThresholdPct / 100
-
-      if (textAttempted && textResult && textResult.confidence >= visionThreshold) {
-        // High-quality native PDF: use text extraction + AI text parser
-        return await runTextBasedExtraction(ctx, textResult.text, textResult.confidence)
-      } else {
-        // Low-quality, scanned, encrypted, or image-only PDF → Vision
-        const isFallback = textAttempted
-        return await runVisionExtraction(ctx, file_url, 'pdf', isFallback)
+        console.error('[01-extract] PDF text extraction failed:', sanitizeError(textErr))
+        // Text extraction failed — create exception instead of trying Vision (not supported for PDFs)
+        const errorMessage = sanitizeError(textErr)
+        await createException(ctx, {
+          type: 'parse_error',
+          message: `PDF text extraction failed: ${errorMessage}`,
+          context: {
+            stage: STAGE,
+            error_message: errorMessage,
+            retry_count: 0,
+          },
+          pipelineStage: STAGE,
+        })
+        return { ok: false, fatal: true, error: errorMessage }
       }
     }
 
@@ -270,6 +296,8 @@ async function saveExtractedData(
   const parsed = ctx.parsedData!
 
   // ── Update invoice header ────────────────────────────────────────────────
+  // Include supplier fees if the AI extracted any; mark fee_source accordingly
+  const hasFees = parsed.total_fees > 0
   const { error: invoiceUpdateError } = await ctx.supabase
     .from('invoices')
     .update({
@@ -278,6 +306,11 @@ async function saveExtractedData(
       total_amount: parsed.total_amount,
       vision_confidence: overallConfidence,
       pipeline_stage: STAGE,
+      ...(hasFees && {
+        supplier_fees: parsed.supplier_fees,
+        total_fees: parsed.total_fees,
+        fee_source: 'ai_extracted',
+      }),
     })
     .eq('id', ctx.invoiceId)
     .eq('tenant_id', ctx.tenantId)

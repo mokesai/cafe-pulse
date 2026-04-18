@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrentTenantId } from '@/lib/tenant/context'
+import { formatApiError, unexpectedError } from '@/lib/api/errors'
 
 export async function PUT(
   request: NextRequest,
@@ -38,11 +39,7 @@ export async function PUT(
       .eq('tenant_id', tenantId)
 
     if (skipError) {
-      console.error('Failed to skip invoice item:', skipError)
-      return NextResponse.json({
-        success: false,
-        error: `Failed to skip invoice item: ${skipError.message}`
-      }, { status: 500 })
+      return formatApiError('skip invoice item', skipError)
     }
 
     console.log('✅ Invoice item marked as skipped')
@@ -55,10 +52,6 @@ export async function PUT(
     })
 
   } catch (error) {
-    console.error('Error skipping item:', error)
-    return NextResponse.json({
-      success: false,
-      error: `Server error: ${error instanceof Error ? error.message : 'Unknown error'}`
-    }, { status: 500 })
+    return unexpectedError('skip invoice item', error)
   }
 }

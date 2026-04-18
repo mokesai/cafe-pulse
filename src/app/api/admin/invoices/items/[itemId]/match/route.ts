@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/admin/middleware'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrentTenantId } from '@/lib/tenant/context'
+import { formatApiError, apiError, unexpectedError } from '@/lib/api/errors'
 
 interface RouteContext {
   params: Promise<{ itemId: string }>
@@ -26,10 +27,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     } = body
 
     if (!matched_item_id) {
-      return NextResponse.json(
-        { error: 'matched_item_id is required' },
-        { status: 400 }
-      )
+      return apiError('A matched_item_id is required to link an invoice item to inventory.')
     }
 
     const supabase = createServiceClient()
@@ -44,9 +42,10 @@ export async function PUT(request: NextRequest, context: RouteContext) {
       .single()
 
     if (fetchError || !invoiceItem) {
-      return NextResponse.json(
-        { error: 'Invoice item not found' },
-        { status: 404 }
+      return apiError(
+        'Invoice item not found. It may have been deleted — refresh and try again.',
+        404,
+        'NOT_FOUND'
       )
     }
 
@@ -59,9 +58,10 @@ export async function PUT(request: NextRequest, context: RouteContext) {
       .single()
 
     if (inventoryError || !inventoryItem) {
-      return NextResponse.json(
-        { error: 'Inventory item not found' },
-        { status: 404 }
+      return apiError(
+        'The selected inventory item was not found. It may have been deleted — refresh the inventory list and try again.',
+        404,
+        'INVENTORY_ITEM_NOT_FOUND'
       )
     }
 
@@ -95,11 +95,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
       .single()
 
     if (updateError) {
-      console.error('Error updating invoice item match:', updateError)
-      return NextResponse.json(
-        { error: 'Failed to update item match', details: updateError.message },
-        { status: 500 }
-      )
+      return formatApiError('match invoice item to inventory', updateError)
     }
 
     console.log(`✅ Updated item match: ${invoiceItem.item_description} -> ${inventoryItem.item_name}`)
@@ -111,14 +107,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     })
 
   } catch (error) {
-    console.error('Failed to update item match:', error)
-    return NextResponse.json(
-      { 
-        error: 'Failed to update item match', 
-        details: error instanceof Error ? error.message : 'Unknown error' 
-      },
-      { status: 500 }
-    )
+    return unexpectedError('match invoice item to inventory', error)
   }
 }
 
@@ -151,10 +140,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       .single()
 
     if (updateError) {
-      return NextResponse.json(
-        { error: 'Failed to remove item match', details: updateError.message },
-        { status: 500 }
-      )
+      return formatApiError('remove invoice item match', updateError)
     }
 
     console.log(`✅ Removed item match for: ${updatedItem?.item_description}`)
@@ -165,13 +151,6 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     })
 
   } catch (error) {
-    console.error('Failed to remove item match:', error)
-    return NextResponse.json(
-      { 
-        error: 'Failed to remove item match', 
-        details: error instanceof Error ? error.message : 'Unknown error' 
-      },
-      { status: 500 }
-    )
+    return unexpectedError('remove invoice item match', error)
   }
 }

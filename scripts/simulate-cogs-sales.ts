@@ -30,6 +30,10 @@
  *  --include-modifiers           Include modifiers in sales_transaction_items.metadata.modifiers
  *  --seed-cogs-only              Only seed cogs_products/cogs_sellables, no sales inserts
  *  --skip-seed-cogs              Do not seed cogs_products/cogs_sellables
+ *  --estimate-recipes            After seeding cogs_products, call AI to estimate recipes for
+ *                                products lacking one. Saves to ai_recipe_estimates (pending).
+ *                                Requires OPENROUTER_API_KEY in env.
+ *  --auto-approve-recipes        Auto-promote AI estimates to cogs_product_recipes (TEST ONLY)
  *
  * square mode:
  *  --orders <n>                  Number of orders to create (default: 8)
@@ -55,8 +59,15 @@ import dotenv from 'dotenv'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { createRequire } from 'module'
 import { Client as SquareClient, Environment as SquareEnvironment } from 'square/legacy'
+import {
+  generateSingleRecipeEstimate,
+  type SquareProductInput,
+  type InventoryItemCandidate,
+  type AiRecipeEstimate,
+} from '../src/lib/cogs/ai-recipe-service'
 
-const DEFAULT_TENANT_ID = '00000000-0000-0000-0000-000000000001'
+// Bigcafe is the only tenant used for simulation
+const BIGCAFE_TENANT_ID = '4fa1cbbe-49ff-4cde-a686-8d34252945b4'
 
 type Mode = 'db' | 'square'
 
@@ -101,6 +112,8 @@ type DbOptions = {
   modifiersFile: string | null
   seedCogs: boolean
   seedCogsOnly: boolean
+  estimateRecipes: boolean
+  autoApproveRecipes: boolean
 }
 
 type SquareOptions = {
@@ -178,6 +191,8 @@ function parseArgs(argv: string[]): Options {
   const startDate = args.includes('--start-date') ? args[args.indexOf('--start-date') + 1] : null
   const seedCogs = !args.includes('--skip-seed-cogs')
   const seedCogsOnly = args.includes('--seed-cogs-only')
+  const estimateRecipes = args.includes('--estimate-recipes')
+  const autoApproveRecipes = args.includes('--auto-approve-recipes')
 
   return {
     mode: 'db',
@@ -193,6 +208,8 @@ function parseArgs(argv: string[]): Options {
     modifiersFile,
     seedCogs,
     seedCogsOnly,
+    estimateRecipes,
+    autoApproveRecipes,
   }
 }
 
@@ -410,7 +427,7 @@ async function fetchExistingOrderIds(supabase: SupabaseClient, ids: string[]) {
   return existing
 }
 
-async function seedCogsCatalogForSimulator(supabase: SupabaseClient, config: SimulatorConfig, seed: string, tenantId: string = DEFAULT_TENANT_ID) {
+async function seedCogsCatalogForSimulator(supabase: SupabaseClient, config: SimulatorConfig, seed: string, tenantId: string = BIGCAFE_TENANT_ID) {
   const templates = config.items.filter(item => item.variationId && item.key && item.name)
   if (templates.length === 0) return
 
@@ -456,6 +473,226 @@ async function seedCogsCatalogForSimulator(supabase: SupabaseClient, config: Sim
   if (sellableError) throw new Error(`Failed seeding cogs_sellables: ${sellableError.message}`)
 }
 
+// ============================================================
+// AI Recipe Estimation (MOK-79)
+// ============================================================
+
+async function estimateRecipesForSimulatedProducts(
+  supabase: SupabaseClient,
+  config: SimulatorConfig,
+  seed: string,
+  autoApprove: boolean,
+  tenantId: string = BIGCAFE_TENANT_ID,
+) {
+  if (!process.env.OPENROUTER_API_KEY) {
+    console.warn('\n⚠️  --estimate-recipes skipped: OPENROUTER_API_KEY is not set.')
+    return
+  }
+
+  if (autoApprove) {
+    console.warn('\n⚠️  --auto-approve-recipes: estimates will be promoted to cogs_product_recipes (TEST ONLY).')
+  }
+
+  console.log('\nEstimating recipes for simulated products...')
+
+  // Find all cogs_products seeded for this simulation run
+  const squareItemIds = config.items.map(item => `SIM-COGS-ITEM-${seed}-${item.key}`)
+
+  const { data: products, error: productError } = await supabase
+    .from('cogs_products')
+    .select('id, square_item_id, name, category')
+    .eq('tenant_id', tenantId)
+    .in('square_item_id', squareItemIds)
+
+  if (productError) {
+    console.error('  Failed to fetch products for estimation:', productError.message)
+    return
+  }
+
+  if (!products || products.length === 0) {
+    console.log('  No products found for estimation.')
+    return
+  }
+
+  // Find products already covered by a recipe
+  const productIds = products.map(p => p.id as string)
+  const { data: existingRecipes } = await supabase
+    .from('cogs_product_recipes')
+    .select('product_id')
+    .eq('tenant_id', tenantId)
+    .in('product_id', productIds)
+
+  const coveredIds = new Set((existingRecipes ?? []).map(r => r.product_id as string))
+
+  // Skip products with pending estimates too (avoid duplicate AI calls)
+  const { data: existingEstimates } = await supabase
+    .from('ai_recipe_estimates')
+    .select('square_product_id')
+    .eq('tenant_id', tenantId)
+    .in('review_status', ['pending', 'approved'])
+
+  const estimatedIds = new Set((existingEstimates ?? []).map(r => r.square_product_id as string))
+
+  const toEstimate = (products as Array<{ id: string; square_item_id: string; name: string; category: string | null }>)
+    .filter(p => !coveredIds.has(p.id) && !estimatedIds.has(p.square_item_id))
+
+  if (toEstimate.length === 0) {
+    console.log('  All products already have recipes or pending estimates.')
+    return
+  }
+
+  console.log(`  ${toEstimate.length} product(s) need recipe estimation.`)
+
+  // Fetch inventory candidates
+  const { data: inventoryItems, error: invError } = await supabase
+    .from('inventory_items')
+    .select('id, item_name, unit_type, unit_cost, is_ingredient, category')
+    .eq('tenant_id', tenantId)
+    .order('item_name', { ascending: true })
+
+  if (invError) {
+    console.error('  Failed to fetch inventory items:', invError.message)
+    return
+  }
+
+  const candidates: InventoryItemCandidate[] = (inventoryItems ?? []).map(item => ({
+    id: item.id as string,
+    item_name: item.item_name as string,
+    unit_type: (item.unit_type as string) || 'each',
+    unit_cost: typeof item.unit_cost === 'number' ? item.unit_cost : 0,
+    is_ingredient: Boolean(item.is_ingredient),
+    category: typeof item.category === 'string' ? item.category : undefined,
+  }))
+
+  if (candidates.length === 0) {
+    console.warn('  ⚠️  No inventory items found as candidates. Skipping estimation.')
+    console.warn('     Run seed-inventory first, or set is_ingredient=true on inventory items.')
+    return
+  }
+
+  console.log(`  ${candidates.length} inventory candidates (${candidates.filter(c => c.is_ingredient).length} flagged as ingredients)`)
+
+  let estimated = 0
+  let promoted = 0
+  let empty = 0
+
+  for (const product of toEstimate) {
+    const productInput: SquareProductInput = {
+      id: product.id,
+      square_item_id: product.square_item_id,
+      name: product.name,
+      category: product.category,
+    }
+
+    process.stdout.write(`  ${product.name}... `)
+
+    let aiResult
+    try {
+      aiResult = await generateSingleRecipeEstimate(productInput, candidates)
+    } catch (err) {
+      console.error(`ERROR: ${err instanceof Error ? err.message : String(err)}`)
+      continue
+    }
+
+    if (aiResult.estimates.length === 0) {
+      console.log(`no estimates (conf: ${aiResult.overall_confidence.toFixed(2)})`)
+      empty++
+      continue
+    }
+
+    // Save to ai_recipe_estimates
+    const ingredientRows = aiResult.estimates.map(e => ({
+      inventory_item_id: e.inventory_item_id,
+      item_name: e.item_name,
+      quantity: e.quantity,
+      unit: e.unit,
+      confidence: e.confidence,
+      notes: e.notes,
+    }))
+
+    const { data: saved, error: saveError } = await supabase
+      .from('ai_recipe_estimates')
+      .upsert(
+        {
+          tenant_id: tenantId,
+          square_product_id: product.id,
+          product_name: product.name,
+          estimated_ingredients: ingredientRows,
+          ai_model: aiResult.ai_model,
+          ai_confidence: aiResult.overall_confidence,
+          ai_reasoning: aiResult.ai_reasoning ?? null,
+          review_status: 'pending',
+          generated_at: new Date().toISOString(),
+        },
+        { onConflict: 'tenant_id,square_product_id', ignoreDuplicates: false },
+      )
+      .select('id')
+
+    if (saveError || !saved || saved.length === 0) {
+      console.error(`SAVE ERROR: ${saveError?.message}`)
+      continue
+    }
+
+    const estimateId = saved[0].id as string
+    console.log(`✓ conf:${aiResult.overall_confidence.toFixed(2)} ingredients:${aiResult.estimates.length}`)
+    estimated++
+
+    // Auto-approve if requested (test mode only)
+    if (autoApprove) {
+      const now = new Date().toISOString()
+      const { data: recipe, error: recipeError } = await supabase
+        .from('cogs_product_recipes')
+        .insert({
+          tenant_id: tenantId,
+          product_id: product.id,
+          version: 1,
+          effective_from: now,
+          yield_qty: 1,
+          yield_unit: 'each',
+          notes: `AI-estimated (auto-approved via --auto-approve-recipes). Model: ${aiResult.ai_model}`,
+        })
+        .select('id')
+        .single()
+
+      if (recipeError || !recipe) {
+        console.error(`  ⚠️  Recipe insert failed: ${recipeError?.message}`)
+        continue
+      }
+
+      const recipeId = recipe.id as string
+      const recipeLines = aiResult.estimates.map((e: AiRecipeEstimate) => ({
+        recipe_id: recipeId,
+        inventory_item_id: e.inventory_item_id,
+        qty: e.quantity,
+        unit: e.unit,
+        loss_pct: 0,
+      }))
+
+      const { error: linesError } = await supabase.from('cogs_product_recipe_lines').insert(recipeLines)
+
+      if (linesError) {
+        await supabase.from('cogs_product_recipes').delete().eq('id', recipeId)
+        console.error(`  ⚠️  Recipe lines insert failed: ${linesError.message}`)
+        continue
+      }
+
+      await supabase
+        .from('ai_recipe_estimates')
+        .update({ review_status: 'approved', reviewed_at: now, promoted_recipe_id: recipeId })
+        .eq('id', estimateId)
+
+      console.log(`    → auto-promoted to cogs_product_recipes (${recipeId})`)
+      promoted++
+    }
+  }
+
+  console.log(`\n  Recipe estimation complete: ${estimated} estimated, ${promoted} auto-promoted, ${empty} empty.`)
+
+  if (!autoApprove && estimated > 0) {
+    console.log('  → Review estimates in /admin/cogs to approve and include in COGS calculations.')
+  }
+}
+
 async function insertDbSimulation(options: DbOptions, config: SimulatorConfig, pool: ModifierPoolEntry[]) {
   if (!options.locationId) {
     throw new Error('Missing Square location ID. Provide SQUARE_LOCATION_ID or --location.')
@@ -478,6 +715,12 @@ async function insertDbSimulation(options: DbOptions, config: SimulatorConfig, p
     console.log('\nSeeding cogs_products + cogs_sellables from simulator config...')
     await seedCogsCatalogForSimulator(supabase, config, options.seed)
     console.log('COGS catalog seeded.')
+
+    // If --estimate-recipes, trigger AI estimation for products without recipes
+    if (options.estimateRecipes) {
+      await estimateRecipesForSimulatedProducts(supabase, config, options.seed, options.autoApproveRecipes)
+    }
+
     if (options.seedCogsOnly) {
       console.log('\nSeed-only mode complete. (No sales inserted.)')
       return

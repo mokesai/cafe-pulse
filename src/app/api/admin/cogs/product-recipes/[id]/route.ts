@@ -59,7 +59,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const { data: lines, error: linesError } = await supabase
     .from('cogs_product_recipe_lines')
     .select('id, inventory_item_id, qty, unit, loss_pct, created_at, inventory_items(id, item_name, unit_type)')
-    .eq('tenant_id', tenantId)
     .eq('recipe_id', id)
     .order('created_at', { ascending: true })
 

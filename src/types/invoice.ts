@@ -1,5 +1,12 @@
 // TypeScript interfaces for Invoice Import System
 
+export interface SupplierFees {
+  delivery: number
+  shipping: number
+  processing: number
+  other: number
+}
+
 export interface Invoice {
   id: string
   supplier_id: string
@@ -7,6 +14,14 @@ export interface Invoice {
   invoice_date: string
   due_date?: string
   total_amount: number
+  /** Breakdown of supplier fees (delivery, shipping, processing, other) */
+  supplier_fees?: SupplierFees
+  /** Pre-computed sum of all supplier_fees values */
+  total_fees?: number
+  /** How fees were captured: ai_extracted | manual | none */
+  fee_source?: 'ai_extracted' | 'manual' | 'none'
+  /** True once fees have been distributed to inventory_item_cost_history */
+  fee_cogs_distributed?: boolean
   
   // File storage
   file_url?: string
@@ -260,6 +275,10 @@ export interface ParsedInvoiceData {
   tax_amount?: number
   discount_amount?: number
   total_amount?: number
+  /** Supplier fees extracted by AI or entered manually */
+  supplier_fees?: SupplierFees
+  /** Pre-computed sum of all supplier_fees values */
+  total_fees?: number
   
   // Line items
   line_items?: ParsedLineItem[]

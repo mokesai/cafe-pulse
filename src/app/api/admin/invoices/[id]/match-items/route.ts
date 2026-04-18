@@ -3,6 +3,7 @@ import { requireAdminAuth } from '@/lib/admin/middleware'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrentTenantId } from '@/lib/tenant/context'
 import { findItemMatches, type InventoryItem as MatchingInventoryItem, type InvoiceItem as MatchingInvoiceItem, type ItemMatch } from '@/lib/matching/item-matcher'
+import { formatApiError, apiError, unexpectedError } from '@/lib/api/errors'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -114,16 +115,18 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .single()
 
     if (invoiceError || !invoice) {
-      return NextResponse.json(
-        { error: 'Invoice not found' },
-        { status: 404 }
+      return apiError(
+        'Invoice not found. It may have been deleted — refresh and try again.',
+        404,
+        'NOT_FOUND'
       )
     }
 
     if (!invoice.invoice_items || invoice.invoice_items.length === 0) {
-      return NextResponse.json(
-        { error: 'Invoice has no items to match' },
-        { status: 400 }
+      return apiError(
+        'This invoice has no line items to match. Parse the invoice first to extract items.',
+        400,
+        'NO_INVOICE_ITEMS'
       )
     }
 
@@ -147,11 +150,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .eq('tenant_id', tenantId)
 
     if (inventoryError) {
-      console.error('Error fetching inventory items:', inventoryError)
-      return NextResponse.json(
-        { error: 'Failed to fetch inventory items' },
-        { status: 500 }
-      )
+      return formatApiError('fetch inventory items for matching', inventoryError)
     }
 
     // Transform inventory items for matching
@@ -261,14 +260,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     })
 
   } catch (error) {
-    console.error('Failed to match items:', error)
-    return NextResponse.json(
-      { 
-        error: 'Failed to match items', 
-        details: error instanceof Error ? error.message : 'Unknown error' 
-      },
-      { status: 500 }
-    )
+    return unexpectedError('match invoice items to inventory', error)
   }
 }
 
@@ -315,9 +307,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
       .single()
 
     if (error || !invoice) {
-      return NextResponse.json(
-        { error: 'Invoice not found' },
-        { status: 404 }
+      return apiError(
+        'Invoice not found. It may have been deleted — refresh and try again.',
+        404,
+        'NOT_FOUND'
       )
     }
 
@@ -352,13 +345,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
     })
 
   } catch (error) {
-    console.error('Failed to get item matches:', error)
-    return NextResponse.json(
-      { 
-        error: 'Failed to get item matches', 
-        details: error instanceof Error ? error.message : 'Unknown error' 
-      },
-      { status: 500 }
-    )
+    return unexpectedError('get invoice item matches', error)
   }
 }

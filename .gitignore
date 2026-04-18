@@ -69,3 +69,9 @@ RENAME.md
 # Test credentials (never commit)
 .env.test.local
 tests/e2e/.auth/
+
+# Playwright E2E
+test-results/
+playwright-report/
+.auth/
+e2e/.auth/

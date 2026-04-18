@@ -45,6 +45,13 @@ export interface ParsedLineItem {
   confidence: number
 }
 
+export interface SupplierFees {
+  delivery: number
+  shipping: number
+  processing: number
+  other: number
+}
+
 export interface ParsedInvoiceResult {
   invoice_number: string | null
   invoice_date: string | null
@@ -57,6 +64,10 @@ export interface ParsedInvoiceResult {
   subtotal: number | null
   tax_amount: number | null
   total_amount: number | null
+  /** Supplier fees extracted from the invoice (delivery, shipping, processing, other) */
+  supplier_fees: SupplierFees
+  /** Pre-computed sum of all supplier_fees values */
+  total_fees: number
   line_items: ParsedLineItem[]
   /** Overall extraction confidence (0–1) */
   overall_confidence: number

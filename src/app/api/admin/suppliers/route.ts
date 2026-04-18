@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth } from '@/lib/admin/middleware'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrentTenantId } from '@/lib/tenant/context'
+import { formatApiError, apiError, unexpectedError } from '@/lib/api/errors'
 
 export async function GET(request: NextRequest) {
   try {
@@ -34,11 +35,7 @@ export async function GET(request: NextRequest) {
     const { data: suppliers, error } = await query.order('name')
 
     if (error) {
-      console.error('Database error fetching suppliers:', error)
-      return NextResponse.json(
-        { error: 'Failed to fetch suppliers', details: error.message },
-        { status: 500 }
-      )
+      return formatApiError('fetch suppliers', error)
     }
 
     console.log('✅ Fetched', suppliers?.length || 0, 'suppliers')
@@ -51,14 +48,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Failed to fetch suppliers:', error)
-    return NextResponse.json(
-      { 
-        error: 'Failed to fetch suppliers', 
-        details: error instanceof Error ? error.message : 'Unknown error' 
-      },
-      { status: 500 }
-    )
+    return unexpectedError('fetch suppliers', error)
   }
 }
 
@@ -83,10 +73,7 @@ export async function POST(request: NextRequest) {
     } = body
 
     if (!name?.trim()) {
-      return NextResponse.json(
-        { error: 'Supplier name is required' },
-        { status: 400 }
-      )
+      return apiError('Supplier name is required.')
     }
 
     console.log('Creating new supplier:', name)
@@ -110,11 +97,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) {
-      console.error('Database error creating supplier:', error)
-      return NextResponse.json(
-        { error: 'Failed to create supplier', details: error.message },
-        { status: 500 }
-      )
+      return formatApiError('create supplier', error)
     }
 
     console.log('✅ Successfully created supplier:', newSupplier.id)
@@ -126,13 +109,6 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Failed to create supplier:', error)
-    return NextResponse.json(
-      { 
-        error: 'Failed to create supplier', 
-        details: error instanceof Error ? error.message : 'Unknown error' 
-      },
-      { status: 500 }
-    )
+    return unexpectedError('create supplier', error)
   }
 }
