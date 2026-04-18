@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ScanLine, FileImage, FileText, ExternalLink } from 'lucide-react'
+import { ScanLine, FileText, ExternalLink } from 'lucide-react'
 import type { InvoiceException, LowExtractionConfidenceContext } from '@/types/invoice-exceptions'
 
 interface Props {
@@ -50,6 +50,8 @@ export function LowExtractionConfidenceForm({ exception, onResolve, onDismiss, l
       {ctx.file_url && (
         <div>
           {isImage ? (
+            // Signed Supabase URL from an unknown host; next/image remotePatterns isn't configured for this.
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={ctx.file_url}
               alt="Invoice preview"

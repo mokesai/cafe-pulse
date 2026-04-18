@@ -43,7 +43,7 @@ const mockAiEstimates = [
 
 // ── Supabase mock factory ─────────────────────────────────────────────────────
 
-function makeSupabaseMock(overrides: {
+function _makeSupabaseMock(overrides: {
   recipes?: unknown[]
   recipeLines?: unknown[]
   estimates?: unknown[]

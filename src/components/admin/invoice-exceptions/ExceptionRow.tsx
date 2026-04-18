@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import {
   ScanLine, Building2, FileX, PackageX, TrendingUp, TrendingDown,
-  Scale, AlertCircle, Copy, ChevronDown, ChevronUp, MoreHorizontal
+  Scale, AlertCircle, Copy, ChevronDown, ChevronUp
 } from 'lucide-react'
 import type { InvoiceException, InvoiceExceptionType } from '@/types/invoice-exceptions'
 import { LowExtractionConfidenceForm } from './resolution-forms/LowExtractionConfidenceForm'
@@ -222,7 +222,7 @@ export function ExceptionRow({ exception, selected, onSelect, onResolved, onDism
         open={drawerOpen}
         exception={exception}
         onClose={() => setDrawerOpen(false)}
-        onCreated={(itemId, itemName) => {
+        onCreated={(_itemId, _itemName) => {
           setDrawerOpen(false)
           onResolved(exception.id)
         }}

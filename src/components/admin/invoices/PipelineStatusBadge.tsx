@@ -20,7 +20,7 @@ export function PipelineStatusBadge({
   pipelineStage,
   status,
   openExceptionCount = 0,
-  compact = false,
+  compact: _compact = false,
 }: PipelineStatusBadgeProps) {
   // Determine what to display based on pipeline_stage + status
   const displayStage = pipelineStage ?? status
