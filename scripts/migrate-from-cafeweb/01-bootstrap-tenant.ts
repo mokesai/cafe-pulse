@@ -120,11 +120,12 @@ async function main() {
     }
 
     // ── Upsert platform_admins rows (tenant_admin scoped to JMC) ────────
+    // Grants access to the /platform super-admin UI.
     console.log('')
     console.log('→ Upserting platform_admins rows...')
     for (const admin of resolvedAdmins) {
       if (DRY_RUN) {
-        console.log(`  [dry-run] Would grant tenant_admin(tenant=${tenantId}) to ${admin.email}`)
+        console.log(`  [dry-run] Would grant platform_admins.tenant_admin(tenant=${tenantId}) to ${admin.email}`)
         continue
       }
       const { rows } = await client.query<{ action: string }>(
@@ -137,7 +138,43 @@ async function main() {
         `,
         [admin.userId, tenantId]
       )
-      console.log(`  ✅ ${admin.email} → tenant_admin ${rows[0].action}`)
+      console.log(`  ✅ ${admin.email} → platform_admins.tenant_admin ${rows[0].action}`)
+    }
+
+    // ── Upsert tenant_memberships rows (owner of JMC) ───────────────────
+    // Grants access to the /admin tenant-scoped UI. Required by requireAdmin().
+    // tenant_memberships lacks a UNIQUE(tenant_id, user_id) constraint so we
+    // use check-then-insert instead of ON CONFLICT.
+    console.log('')
+    console.log('→ Upserting tenant_memberships rows...')
+    for (const admin of resolvedAdmins) {
+      if (DRY_RUN) {
+        console.log(`  [dry-run] Would grant tenant_memberships.owner(tenant=${tenantId}) to ${admin.email}`)
+        continue
+      }
+      const existing = await client.query<{ id: string; role: string }>(
+        `SELECT id, role FROM tenant_memberships
+         WHERE tenant_id = $1 AND user_id = $2 AND deleted_at IS NULL
+         LIMIT 1`,
+        [tenantId, admin.userId]
+      )
+      if (existing.rows.length > 0) {
+        if (existing.rows[0].role !== 'owner') {
+          await client.query(
+            `UPDATE tenant_memberships SET role = 'owner' WHERE id = $1`,
+            [existing.rows[0].id]
+          )
+          console.log(`  ✅ ${admin.email} → tenant_memberships.owner updated (was ${existing.rows[0].role})`)
+        } else {
+          console.log(`  ✓ ${admin.email} → tenant_memberships.owner already present`)
+        }
+      } else {
+        await client.query(
+          `INSERT INTO tenant_memberships (tenant_id, user_id, role) VALUES ($1, $2, 'owner')`,
+          [tenantId, admin.userId]
+        )
+        console.log(`  ✅ ${admin.email} → tenant_memberships.owner inserted`)
+      }
     }
 
     // ── Write state file for downstream migration scripts ──────────────
