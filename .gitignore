@@ -39,6 +39,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# except committed templates
+!scripts/migrate-from-cafeweb/.env.migration.example
 
 # vercel
 .vercel
@@ -75,3 +77,6 @@ test-results/
 playwright-report/
 .auth/
 e2e/.auth/
+
+# Migration state (JSON dumps and UUID maps — may contain sensitive identifiers)
+/scripts/migrate-from-cafeweb/state/
