@@ -4,6 +4,8 @@ Hand-authored mapping document for MOK-86. Based on the auto-generated schema di
 
 **Scope**: migrate the JMC Pastry & Coffee tenant from `cafe-web-app-prod` (ref `etihvnzzmtxsnbifftfh`) into the multi-tenant `cafe-pulse-dev` (ref `ettmabcwfhidcpapphgm`), then replicate to `cafe-pulse-prod` (ref `tjxarjzohmwqiqdruczv`).
 
+**JMC tenant on cafe-pulse-dev**: slug `jmcpastry`, id `e29403c1-0ec9-4e28-a72a-579524dee31b` (bootstrapped in Phase 1, MOK-87). Downstream scripts read this from `scripts/migrate-from-cafeweb/state/tenant-config.json`.
+
 **Totals**: source = 49 base tables + 2 views, 16,316 rows. Target = 61 base tables + 2 views. Delta: 12 new tables on target, 0 tables dropped.
 
 **The one transform that dominates the migration**: almost every table gains a `tenant_id` column on the target. Every insert needs `tenant_id = <JMC tenant UUID>`.
