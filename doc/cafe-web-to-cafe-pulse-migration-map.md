@@ -75,9 +75,16 @@ Hand-authored mapping document for MOK-86. Based on the auto-generated schema di
 
 #### `profiles` — 3 rows
 
-- **Target**: `profiles` + `tenant_id`, `user_id = NULL` (customers re-sign-up; join trigger attaches them to their profile by email — see [MOK-89](https://linear.app/mokesai/issue/MOK-89)).
-- **Columns**: id, email, full_name, phone, created_at, updated_at, role. All identical in target.
-- **Notes**: Only 3 source profile rows — basically Jerry + 2 others. Negligible data volume. The first-signup join trigger must exist on target before cutover; it doesn't exist yet (verify during Phase 2.1 and add as a migration if missing).
+- **Target**: `profiles`. **Schema note**: profiles has **no** `tenant_id` — profiles are global to the platform, not per-tenant. Customer-to-tenant relationship is implicit via `sales_transactions`.
+- **FK constraint**: `profiles.id` → `auth.users(id)`. Cannot insert a profile without a matching auth user.
+- **Columns**: id, email, full_name, phone, created_at, updated_at, role. Identical in both schemas.
+- **Existing trigger**: `on_auth_user_created` (from `20250101000000_initial_schema.sql`) auto-creates a profile when a new `auth.users` row is inserted. No first-signup-join trigger needed — the auto-create handles it.
+- **Migration behaviour** (implemented in `02-profiles.ts`):
+  - For each source profile, look up target auth user by email.
+  - If target auth user exists: sync `full_name` / `phone` from source to target (only when target field is null — never overwrite richer target data).
+  - If no target auth user: **skip**. Customer will self-register post-cutover, trigger auto-creates their profile, historical orders remain identifiable via `sales_transactions.customer_name`.
+- **Result on cafe-pulse-dev**: jerry.mccommas@gmail.com synced (full_name + phone set). The other 2 source profiles skipped (no auth users on target).
+- **Linkage to historical orders**: `sales_transactions` does not FK to profiles — it stores `customer_name` as plain text. Historical orders keep their identity regardless of whether the customer ever re-registers.
 
 #### `suppliers` — 13 rows
 
