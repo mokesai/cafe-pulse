@@ -259,6 +259,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             const { data: newMatch, error: matchError } = await supabase
               .from('order_invoice_matches')
               .insert({
+                tenant_id: tenantId,
                 invoice_id: id,
                 purchase_order_id: match.purchase_order_id,
                 match_confidence: match.confidence,

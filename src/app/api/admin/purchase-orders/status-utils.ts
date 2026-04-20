@@ -45,6 +45,7 @@ export function canTransition(fromStatus: string, toStatus: string): boolean {
 
 export async function insertStatusHistory(
   supabase: SupabaseClient,
+  tenantId: string,
   purchaseOrderId: string,
   previousStatus: string | null,
   newStatus: string,
@@ -55,6 +56,7 @@ export async function insertStatusHistory(
   const canonicalNew = canonicalStatus(newStatus) || newStatus
 
   const payload = {
+    tenant_id: tenantId,
     purchase_order_id: purchaseOrderId,
     previous_status: canonicalPrevious,
     new_status: canonicalNew,

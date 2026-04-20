@@ -170,6 +170,7 @@ export async function POST(
 
     // Insert cogs_product_recipe_lines
     const recipeLines = ingredientsToUse.map(ing => ({
+      tenant_id: tenantId,
       recipe_id: recipeId,
       inventory_item_id: ing.inventory_item_id,
       qty: ing.quantity,

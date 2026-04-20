@@ -262,6 +262,7 @@ async function runEnrichmentSync(
 
             if (stockChange !== 0) {
               stockMovements.push({
+                tenant_id: tenantId,
                 inventory_item_id: existingItem.id,
                 movement_type: 'adjustment',
                 quantity_change: stockChange,

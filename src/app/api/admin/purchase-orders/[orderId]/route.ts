@@ -446,6 +446,7 @@ export async function PATCH(
           await supabase
             .from('stock_movements')
             .insert({
+              tenant_id: tenantId,
               inventory_item_id: targetInventoryId,
               movement_type: 'in',
               quantity: unitQuantity,
@@ -462,6 +463,7 @@ export async function PATCH(
     if (targetStatus && canonicalStatus(currentStatus) !== targetStatus) {
       await insertStatusHistory(
         supabase,
+        tenantId,
         orderId,
         canonicalStatus(currentStatus),
         targetStatus,
@@ -685,6 +687,7 @@ export async function PUT(
     }
 
     const itemsToInsert = sanitizedItems.map(item => ({
+      tenant_id: tenantId,
       purchase_order_id: orderId,
       inventory_item_id: item.inventory_item_id,
       quantity_ordered: item.quantity_ordered,
@@ -711,6 +714,7 @@ export async function PUT(
     if (canonicalStatus(currentStatus) !== targetStatus) {
       await insertStatusHistory(
         supabase,
+        tenantId,
         orderId,
         canonicalStatus(currentStatus),
         targetStatus,

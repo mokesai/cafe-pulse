@@ -162,11 +162,13 @@ type InsertedInventoryItem = {
 
 async function createStockMovements(
   inventoryItems: InsertedInventoryItem[],
-  supabase: ReturnType<typeof createServiceClient>
+  supabase: ReturnType<typeof createServiceClient>,
+  tenantId: string
 ) {
   const stockMovements = inventoryItems
     .filter(item => item.current_stock > 0)
     .map(item => ({
+      tenant_id: tenantId,
       inventory_item_id: item.id,
       movement_type: 'purchase',
       quantity_change: item.current_stock,
@@ -223,7 +225,7 @@ export async function POST(request: NextRequest) {
     const insertedItems = await insertInventoryItems(body.items, supabase, tenantId)
 
     // Create stock movements
-    const stockMovements = await createStockMovements(insertedItems, supabase)
+    const stockMovements = await createStockMovements(insertedItems, supabase, tenantId)
 
     // Calculate summary stats
     const stats = {
