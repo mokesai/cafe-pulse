@@ -82,10 +82,15 @@ serve(async (req: Request) => {
     )
   }
 
-  // ── Filter: only process INSERT events on uploaded invoices ──────────────
-  if (payload.type !== 'INSERT') {
+  // ── Filter: process INSERT and UPDATE events on uploaded invoices ────────
+  // INSERT fires for first-time uploads. UPDATE fires for re-uploads: the
+  // admin upload route UPDATEs an existing invoice row (resetting status to
+  // 'uploaded') when the same (tenant_id, invoice_number, supplier_id) is
+  // re-submitted. The record.status check below gates on 'uploaded' so we
+  // only run the pipeline when the row is in the right state.
+  if (payload.type !== 'INSERT' && payload.type !== 'UPDATE') {
     return new Response(
-      JSON.stringify({ ok: true, skipped: true, reason: 'not_insert_event' }),
+      JSON.stringify({ ok: true, skipped: true, reason: 'unsupported_event_type', type: payload.type }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     )
   }
