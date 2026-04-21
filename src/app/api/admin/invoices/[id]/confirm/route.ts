@@ -207,6 +207,7 @@ export async function PUT(
           await supabase
             .from('inventory_item_cost_history')
             .insert({
+              tenant_id: tenantId,
               inventory_item_id: targetInventoryId,
               previous_unit_cost: previousCost,
               new_unit_cost: effectiveUnitCost,

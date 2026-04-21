@@ -363,6 +363,7 @@ export async function POST(request: NextRequest) {
     const { data: newOrder, error: orderError } = await supabase
       .from('purchase_orders')
       .insert({
+        tenant_id: tenantId,
         supplier_id,
         order_number: order_number.trim(),
         status: 'draft',
@@ -387,6 +388,7 @@ export async function POST(request: NextRequest) {
 
     // Insert purchase order items
     const orderItems = normalizedItems.map(item => ({
+      tenant_id: tenantId,
       purchase_order_id: newOrder.id,
       inventory_item_id: item.inventory_item_id,
       quantity_ordered: item.quantity_ordered,
@@ -414,6 +416,7 @@ export async function POST(request: NextRequest) {
 
     await insertStatusHistory(
       supabase,
+      tenantId,
       newOrder.id,
       null,
       canonicalStatus(newOrder.status || 'draft') || 'draft',
