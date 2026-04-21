@@ -254,6 +254,7 @@ export async function POST(
       if (statusChanged) {
         await insertStatusHistory(
           supabase,
+          tenantId,
           order.id,
           currentStatus,
           targetStatus,
@@ -263,6 +264,7 @@ export async function POST(
       } else {
         await insertStatusHistory(
           supabase,
+          tenantId,
           order.id,
           currentStatus,
           currentStatus,

@@ -316,6 +316,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           // Create purchase order items from invoice line items
           if (aiResult.data.line_items && aiResult.data.line_items.length > 0) {
             const orderItems = aiResult.data.line_items.map(item => ({
+              tenant_id: tenantId,
               purchase_order_id: purchaseOrderId,
               item_description: item.description || 'Unknown Item',
               supplier_item_code: item.item_code || null,
@@ -326,7 +327,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
               unit_type: item.unit_type || 'each',
               status: 'received' // Mark as received since we have the invoice
             }))
-            
+
             const { error: orderItemsError } = await supabase
               .from('purchase_order_items')
               .insert(orderItems)
@@ -359,6 +360,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       // Step 8: Create invoice items from parsed line items
       if (aiResult.data.line_items && aiResult.data.line_items.length > 0) {
         const invoiceItems = aiResult.data.line_items.map(item => ({
+          tenant_id: tenantId,
           invoice_id: id,
           line_number: item.line_number || 0,
           item_description: item.description || 'Unknown Item',

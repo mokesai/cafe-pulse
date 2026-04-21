@@ -79,11 +79,13 @@ export async function POST(request: NextRequest) {
     console.log('Creating new supplier:', name)
 
     const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
 
     // Insert new supplier
     const { data: newSupplier, error } = await supabase
       .from('suppliers')
       .insert({
+        tenant_id: tenantId,
         name: name.trim(),
         contact_person: contact_person?.trim() || null,
         email: email?.trim() || null,

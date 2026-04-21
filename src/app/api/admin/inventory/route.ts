@@ -115,11 +115,13 @@ export async function POST(request: NextRequest) {
     console.log('Creating new inventory item:', { square_item_id: finalSquareId, item_name, current_stock })
 
     const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
 
     // Insert new inventory item
     const { data: newItem, error } = await supabase
       .from('inventory_items')
       .insert({
+        tenant_id: tenantId,
         square_item_id: finalSquareId,
         item_name,
         current_stock,
@@ -146,6 +148,7 @@ export async function POST(request: NextRequest) {
     const { error: movementError } = await supabase
       .from('stock_movements')
       .insert({
+        tenant_id: tenantId,
         inventory_item_id: newItem.id,
         movement_type: 'adjustment',
         quantity_change: current_stock,
@@ -204,6 +207,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const supabase = createServiceClient()
+    const tenantId = await getCurrentTenantId()
 
     // Load current values for change tracking (unit_cost, pack_size)
     const { data: existing, error: existingError } = await supabase
@@ -259,6 +263,7 @@ export async function PUT(request: NextRequest) {
       await supabase
         .from('inventory_item_cost_history')
         .insert({
+          tenant_id: tenantId,
           inventory_item_id: id,
           previous_unit_cost: existing.unit_cost,
           new_unit_cost: unit_cost,
