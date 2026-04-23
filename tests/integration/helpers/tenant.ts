@@ -103,11 +103,112 @@ export async function createTenantForTest(prefix = 'itest'): Promise<TestTenant>
   }
 }
 
+// Tables with tenant_id → tenants.id (RESTRICT) that block a tenant delete.
+// Order: dependents (via intra-tenant FKs) before parents so a single pass clears
+// the tree. CASCADE-linked descendants drop automatically when their parent is
+// deleted (e.g., invoice_items when invoices is cleared).
+const TENANT_CHILD_TABLES = [
+  // COGS leaves reference inventory_items with RESTRICT — must precede it
+  'cogs_product_recipe_lines',
+  'cogs_modifier_option_recipe_lines',
+  'cogs_sellable_recipe_override_ops',
+  'cogs_sellable_aliases',
+  'cogs_product_recipes',
+  'cogs_modifier_option_recipes',
+  'cogs_sellable_recipe_overrides',
+  'cogs_products',
+  'cogs_sellables',
+  'cogs_modifier_options',
+  'cogs_modifier_sets',
+  'cogs_reports',
+  'inventory_valuations',
+  'cogs_periods',
+  // KDS
+  'kds_images',
+  'kds_settings',
+  'kds_menu_items',
+  'kds_categories',
+  // Parents whose cascades cover many children
+  'invoices',
+  'purchase_orders',
+  'sales_transactions',
+  'inventory_sales_sync_runs',
+  'orders',
+  'inventory_items',
+  'suppliers',
+  // Remaining tenant-scoped tables
+  'inventory_locations',
+  'inventory_settings',
+  'inventory_unit_types',
+  'site_settings',
+  'notifications',
+  'webhook_events',
+  'credential_audit_log',
+  'user_addresses',
+  'user_favorites',
+]
+
 export async function cleanupTenant(t: TestTenant | undefined): Promise<void> {
   if (!t) return
   const supabase = getServiceClient()
-  await supabase.from('tenants').delete().eq('id', t.id)
+
+  for (const table of TENANT_CHILD_TABLES) {
+    const { error } = await supabase.from(table).delete().eq('tenant_id', t.id)
+    if (error) {
+      console.warn(`[cleanupTenant ${t.slug}] ${table}: ${error.message}`)
+    }
+  }
+
+  const { error: tenantErr } = await supabase.from('tenants').delete().eq('id', t.id)
+  if (tenantErr) {
+    throw new Error(
+      `Failed to delete test tenant ${t.slug} (${t.id}): ${tenantErr.message}. ` +
+        `Child rows likely remain — check TENANT_CHILD_TABLES in tests/integration/helpers/tenant.ts.`,
+    )
+  }
+
   await supabase.auth.admin.deleteUser(t.adminUserId).catch(() => {})
+}
+
+export interface CreateInventoryItemOptions {
+  item_name?: string
+  current_stock?: number
+  unit_cost?: number
+  pack_size?: number
+  item_type?: 'supply' | 'ingredient' | 'prepackaged' | 'prepared'
+  supplier_id?: string | null
+}
+
+export async function createInventoryItem(
+  tenant: TestTenant,
+  overrides: CreateInventoryItemOptions = {},
+): Promise<{ id: string; item_name: string; current_stock: number; unit_cost: number }> {
+  const supabase = getServiceClient()
+  const suffix = crypto.randomBytes(3).toString('hex')
+  const { data, error } = await supabase
+    .from('inventory_items')
+    .insert({
+      tenant_id: tenant.id,
+      square_item_id: `manual-test-${suffix}`,
+      item_name: overrides.item_name ?? `Test Item ${suffix}`,
+      current_stock: overrides.current_stock ?? 10,
+      minimum_threshold: 5,
+      reorder_point: 10,
+      unit_cost: overrides.unit_cost ?? 1.5,
+      unit_type: 'each',
+      pack_size: overrides.pack_size ?? 1,
+      is_ingredient: (overrides.item_type ?? 'supply') === 'ingredient',
+      item_type: overrides.item_type ?? 'supply',
+      supplier_id: overrides.supplier_id ?? null,
+      location: 'main',
+      last_restocked_at: new Date().toISOString(),
+    })
+    .select('id, item_name, current_stock, unit_cost')
+    .single()
+  if (error || !data) {
+    throw new Error(`Failed to create test inventory item: ${error?.message}`)
+  }
+  return data
 }
 
 export interface BuildAuthedRequestOptions {
