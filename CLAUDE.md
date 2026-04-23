@@ -34,6 +34,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run export-cogs-product-codes-template` - Export product code mapping template
 
 ### Testing
+- `npm run test` - Run unit + integration tests
+- `npm run test:watch` - Vitest watch mode
+- `npm run test:unit` - Unit tests only (no DB)
+- `npm run test:integration` - Integration tests (requires `.env.local` with Supabase creds)
+- `npm run test:e2e` - Playwright end-to-end tests
 - `npm run test:ai` - Test AI invoice parsing
 
 ## Architecture
@@ -120,8 +125,35 @@ The dev server connects to `ofppjltowsdvojixeflr` unless performing testing and 
 Before considering any code change complete, you MUST verify:
 1. **Lint**: `npm run lint` — must pass with zero warnings and zero errors
 2. **Build**: `npm run build` — must compile successfully
+3. **Tests**: `npm run test:unit` — must pass. Run `npm run test:integration` too if the change touches admin write routes, tenant scoping, or data-layer logic.
 
-If either check fails, fix the issues before moving on. Do not leave broken lint or build for the user to discover.
+If any check fails, fix the issues before moving on. Do not leave broken lint, build, or tests for the user to discover.
+
+### Testing conventions
+
+Three layers, each catches a different class of bug. Pick the lightest one that works.
+
+**Unit tests** — `__tests__/` or co-located `*.test.ts` under `src/`.
+Pure functions, schema validators, cost math, date utilities. No DB, no fetch, no Next.js runtime. Mocks for any external call.
+
+**Integration tests** — `tests/integration/**/*.test.ts`.
+Import the API route handler directly and call it in-process against a real Supabase project (`.env.local`). Use `createTenantForTest()` / `cleanupTenant()` / `buildAuthedRequest()` from `tests/integration/helpers/tenant.ts`. `next/headers`'s `cookies()` and `headers()` are mocked via `tests/integration/setup.ts`.
+
+Every admin write route should have at least one **tenant-isolation** test following this pattern:
+
+```ts
+// 1. Create two test tenants
+// 2. POST/PATCH/DELETE as tenant A's admin
+// 3. Assert the row(s) exist under tenant A
+// 4. Assert nothing leaked to tenant B or the default littlecafe tenant
+```
+
+Example: `tests/integration/admin-suppliers-isolation.test.ts`. This pattern catches the MOK-107 class of bug (inserts silently falling back to the default `tenant_id`).
+
+**E2E tests** — `tests/e2e/**` (Playwright).
+Full browser, real user flows, multi-page journeys. Slow — reserve for happy-path flows and multi-step flows that can't be collapsed to a single API call. See `.github/workflows/e2e.yml` for CI setup.
+
+**CI runs all three on every PR** — see `.github/workflows/test.yml` (unit + integration) and `e2e.yml` (browser).
 
 ### Do NOT
 - Don't modify the database without first verifying which Supabase project `.env.local` points to
