@@ -2,7 +2,11 @@ import { vi, afterEach } from 'vitest'
 import { config as loadDotenv } from 'dotenv'
 import path from 'node:path'
 
-loadDotenv({ path: path.resolve(__dirname, '../../.env.local'), quiet: true })
+loadDotenv({
+  path: path.resolve(__dirname, '../../.env.local'),
+  quiet: true,
+  override: true,
+})
 
 process.env.SKIP_MFA_FOR_TESTING = 'true'
 process.env.NEXT_PUBLIC_SKIP_MFA_FOR_TESTING = 'true'
