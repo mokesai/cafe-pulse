@@ -1,0 +1,195 @@
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
+
+vi.mock('@/lib/supabase/server', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/supabase/server')>(
+    '@/lib/supabase/server',
+  )
+  const storageStub = {
+    from: () => ({
+      upload: async () => ({ data: { path: 'test/mock-upload' }, error: null }),
+      createSignedUrl: async () => ({
+        data: { signedUrl: 'https://mock.invoices/signed-url' },
+        error: null,
+      }),
+      remove: async () => ({ data: null, error: null }),
+    }),
+  }
+  return {
+    ...actual,
+    createServiceClient: () => {
+      const client = actual.createServiceClient() as unknown as { storage: unknown }
+      return new Proxy(client, {
+        get(target, prop, receiver) {
+          if (prop === 'storage') return storageStub
+          return Reflect.get(target, prop, receiver)
+        },
+      })
+    },
+  }
+})
+
+import { POST as uploadPOST } from '@/app/api/admin/invoices/upload/route'
+
+import {
+  buildAuthedRequest,
+  cleanupTenant,
+  createSupplier,
+  createTenantForTest,
+  getServiceClient,
+  type TestTenant,
+} from './helpers/tenant'
+
+const DEFAULT_TENANT = '00000000-0000-0000-0000-000000000001'
+
+function makePdfFormData(opts: {
+  supplier_id: string
+  invoice_number: string
+  invoice_date?: string
+}): FormData {
+  const fd = new FormData()
+  const pdfBlob = new Blob(['%PDF-1.4\n1 0 obj\n<<\n>>\nendobj\n'], {
+    type: 'application/pdf',
+  })
+  fd.append('file', pdfBlob, 'test-invoice.pdf')
+  fd.append('supplier_id', opts.supplier_id)
+  fd.append('invoice_number', opts.invoice_number)
+  fd.append('invoice_date', opts.invoice_date ?? new Date().toISOString().slice(0, 10))
+  return fd
+}
+
+describe('admin invoices/upload — tenant isolation', () => {
+  let tenantA: TestTenant | undefined
+  let tenantB: TestTenant | undefined
+
+  beforeAll(async () => {
+    tenantA = await createTenantForTest()
+    tenantB = await createTenantForTest()
+  })
+
+  afterAll(async () => {
+    await cleanupTenant(tenantA)
+    await cleanupTenant(tenantB)
+  })
+
+  it('INSERT path: creates a new invoice under the calling tenant only', async () => {
+    if (!tenantA || !tenantB) throw new Error('test setup failed')
+    const supplier = await createSupplier(tenantA)
+    const invoiceNumber = `UPLOAD-INS-${Date.now()}`
+
+    const req = buildAuthedRequest({
+      tenant: tenantA,
+      method: 'POST',
+      url: '/api/admin/invoices/upload',
+      body: makePdfFormData({ supplier_id: supplier.id, invoice_number: invoiceNumber }),
+    })
+    const res = await uploadPOST(req)
+    expect(res.status).toBe(201)
+    const json = await res.json()
+    expect(json.success).toBe(true)
+    const invoiceId: string = json.data.id
+
+    const svc = getServiceClient()
+    const { data: inv } = await svc
+      .from('invoices')
+      .select('tenant_id, supplier_id, status')
+      .eq('id', invoiceId)
+      .single()
+    expect(inv!.tenant_id).toBe(tenantA.id)
+    expect(inv!.tenant_id).not.toBe(tenantB.id)
+    expect(inv!.tenant_id).not.toBe(DEFAULT_TENANT)
+    expect(inv!.status).toBe('uploaded')
+
+    const { count: countB } = await svc
+      .from('invoices')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantB.id)
+      .eq('invoice_number', invoiceNumber)
+    expect(countB).toBe(0)
+  })
+
+  it('UPDATE path: re-upload of the same (tenant, supplier, invoice_number) updates in-place and stays on the calling tenant', async () => {
+    if (!tenantA || !tenantB) throw new Error('test setup failed')
+    const supplier = await createSupplier(tenantA)
+    const invoiceNumber = `UPLOAD-UPD-${Date.now()}`
+
+    // First upload — creates the invoice
+    const firstReq = buildAuthedRequest({
+      tenant: tenantA,
+      method: 'POST',
+      url: '/api/admin/invoices/upload',
+      body: makePdfFormData({ supplier_id: supplier.id, invoice_number: invoiceNumber }),
+    })
+    const firstRes = await uploadPOST(firstReq)
+    expect(firstRes.status).toBe(201)
+    const firstId: string = (await firstRes.json()).data.id
+
+    // Second upload — same tenant + supplier + invoice_number triggers UPDATE path
+    const secondReq = buildAuthedRequest({
+      tenant: tenantA,
+      method: 'POST',
+      url: '/api/admin/invoices/upload',
+      body: makePdfFormData({ supplier_id: supplier.id, invoice_number: invoiceNumber }),
+    })
+    const secondRes = await uploadPOST(secondReq)
+    expect(secondRes.status).toBe(201)
+    const secondId: string = (await secondRes.json()).data.id
+    expect(secondId).toBe(firstId)
+
+    const svc = getServiceClient()
+    const { data: rows } = await svc
+      .from('invoices')
+      .select('id, tenant_id, status')
+      .eq('tenant_id', tenantA.id)
+      .eq('supplier_id', supplier.id)
+      .eq('invoice_number', invoiceNumber)
+    expect(rows).toHaveLength(1)
+    expect(rows![0].id).toBe(firstId)
+    expect(rows![0].tenant_id).toBe(tenantA.id)
+    expect(rows![0].tenant_id).not.toBe(tenantB.id)
+    expect(rows![0].tenant_id).not.toBe(DEFAULT_TENANT)
+  })
+
+  it('tenant B uploading the same invoice_number + supplier_id as tenant A creates a separate row under B', async () => {
+    if (!tenantA || !tenantB) throw new Error('test setup failed')
+    const supplierA = await createSupplier(tenantA)
+    const supplierB = await createSupplier(tenantB)
+    const invoiceNumber = `UPLOAD-X-${Date.now()}`
+
+    // A uploads first
+    const reqA = buildAuthedRequest({
+      tenant: tenantA,
+      method: 'POST',
+      url: '/api/admin/invoices/upload',
+      body: makePdfFormData({ supplier_id: supplierA.id, invoice_number: invoiceNumber }),
+    })
+    const resA = await uploadPOST(reqA)
+    expect(resA.status).toBe(201)
+    const idA: string = (await resA.json()).data.id
+
+    // B uploads same invoice_number (but different supplier_id within B)
+    const reqB = buildAuthedRequest({
+      tenant: tenantB,
+      method: 'POST',
+      url: '/api/admin/invoices/upload',
+      body: makePdfFormData({ supplier_id: supplierB.id, invoice_number: invoiceNumber }),
+    })
+    const resB = await uploadPOST(reqB)
+    expect(resB.status).toBe(201)
+    const idB: string = (await resB.json()).data.id
+    expect(idB).not.toBe(idA)
+
+    const svc = getServiceClient()
+    const { data: inA } = await svc
+      .from('invoices')
+      .select('tenant_id')
+      .eq('id', idA)
+      .single()
+    const { data: inB } = await svc
+      .from('invoices')
+      .select('tenant_id')
+      .eq('id', idB)
+      .single()
+    expect(inA!.tenant_id).toBe(tenantA.id)
+    expect(inB!.tenant_id).toBe(tenantB.id)
+  })
+})
