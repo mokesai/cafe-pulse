@@ -326,10 +326,12 @@ export function buildAuthedRequest(opts: BuildAuthedRequestOptions): NextRequest
   setTestCookies(cookieMap)
   setTestHeaders({ host: tenantHost })
 
+  const isFormData = opts.body instanceof FormData
+  const defaultContentType = isFormData ? undefined : 'application/json'
   const headers = new Headers({
-    'content-type': 'application/json',
     host: tenantHost,
     origin: `http://${tenantHost}`,
+    ...(defaultContentType ? { 'content-type': defaultContentType } : {}),
     ...(opts.headers ?? {}),
   })
 
@@ -338,7 +340,7 @@ export function buildAuthedRequest(opts: BuildAuthedRequestOptions): NextRequest
     headers,
   }
   if (opts.body !== undefined && opts.method !== 'GET' && opts.method !== 'HEAD') {
-    init.body = JSON.stringify(opts.body)
+    init.body = isFormData ? (opts.body as FormData) : JSON.stringify(opts.body)
   }
 
   return new NextRequest(new URL(opts.url, `http://${tenantHost}`), init)
