@@ -211,6 +211,101 @@ export async function createInventoryItem(
   return data
 }
 
+export async function createSupplier(
+  tenant: TestTenant,
+  overrides: Partial<{ name: string; email: string; contact_person: string }> = {},
+): Promise<{ id: string; name: string }> {
+  const supabase = getServiceClient()
+  const suffix = crypto.randomBytes(3).toString('hex')
+  const { data, error } = await supabase
+    .from('suppliers')
+    .insert({
+      tenant_id: tenant.id,
+      name: overrides.name ?? `Test Supplier ${suffix}`,
+      email: overrides.email ?? `supplier-${suffix}@cafepulse.test`,
+      contact_person: overrides.contact_person ?? 'Test Contact',
+      is_active: true,
+    })
+    .select('id, name')
+    .single()
+  if (error || !data) {
+    throw new Error(`Failed to create test supplier: ${error?.message}`)
+  }
+  return data
+}
+
+export interface CreatePurchaseOrderOptions {
+  supplier_id: string
+  inventory_item_id: string
+  status?: string
+  order_number?: string
+  quantity_ordered?: number
+  unit_cost?: number
+}
+
+export async function createPurchaseOrder(
+  tenant: TestTenant,
+  opts: CreatePurchaseOrderOptions,
+): Promise<{ id: string; order_number: string; status: string }> {
+  const supabase = getServiceClient()
+  const suffix = crypto.randomBytes(3).toString('hex')
+  const orderNumber = opts.order_number ?? `TEST-PO-${suffix}`
+  const { data: po, error: poErr } = await supabase
+    .from('purchase_orders')
+    .insert({
+      tenant_id: tenant.id,
+      supplier_id: opts.supplier_id,
+      order_number: orderNumber,
+      status: opts.status ?? 'draft',
+      order_date: new Date().toISOString(),
+      total_amount: (opts.quantity_ordered ?? 2) * (opts.unit_cost ?? 1),
+    })
+    .select('id, order_number, status')
+    .single()
+  if (poErr || !po) {
+    throw new Error(`Failed to create test PO: ${poErr?.message}`)
+  }
+
+  const { error: itemErr } = await supabase.from('purchase_order_items').insert({
+    tenant_id: tenant.id,
+    purchase_order_id: po.id,
+    inventory_item_id: opts.inventory_item_id,
+    quantity_ordered: opts.quantity_ordered ?? 2,
+    quantity_received: 0,
+    unit_cost: opts.unit_cost ?? 1,
+  })
+  if (itemErr) {
+    await supabase.from('purchase_orders').delete().eq('id', po.id)
+    throw new Error(`Failed to create test PO item: ${itemErr.message}`)
+  }
+
+  return po
+}
+
+export async function createInvoice(
+  tenant: TestTenant,
+  opts: { supplier_id: string; status?: string; total_amount?: number },
+): Promise<{ id: string; invoice_number: string; status: string }> {
+  const supabase = getServiceClient()
+  const suffix = crypto.randomBytes(3).toString('hex')
+  const { data, error } = await supabase
+    .from('invoices')
+    .insert({
+      tenant_id: tenant.id,
+      supplier_id: opts.supplier_id,
+      invoice_number: `INV-TEST-${suffix}`,
+      invoice_date: new Date().toISOString().slice(0, 10),
+      status: opts.status ?? 'parsed',
+      total_amount: opts.total_amount ?? 25.0,
+    })
+    .select('id, invoice_number, status')
+    .single()
+  if (error || !data) {
+    throw new Error(`Failed to create test invoice: ${error?.message}`)
+  }
+  return data
+}
+
 export interface BuildAuthedRequestOptions {
   tenant: TestTenant
   method: string
