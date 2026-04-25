@@ -40,6 +40,29 @@ export async function runPOMatching(ctx: PipelineContext): Promise<StageResult> 
     resolved_supplier_id: ctx.resolvedSupplierId,
   }))
 
+  // MOK-117: respect existing manual PO links. The upload route from a PO view
+  // modal creates a manual link in order_invoice_matches at upload time. Without
+  // this short-circuit, the auto-matcher's variance threshold could raise a
+  // false no_po_match exception even when the user explicitly linked a PO.
+  const { data: existingManualMatch } = await ctx.supabase
+    .from('order_invoice_matches')
+    .select('id, purchase_order_id')
+    .eq('tenant_id', ctx.tenantId)
+    .eq('invoice_id', ctx.invoiceId)
+    .eq('match_method', 'manual')
+    .maybeSingle()
+
+  if (existingManualMatch) {
+    ctx.poMatchId = existingManualMatch.id
+    console.log(JSON.stringify({
+      event: 'po_match_existing_manual',
+      invoice_id: ctx.invoiceId,
+      purchase_order_id: existingManualMatch.purchase_order_id,
+      match_id: existingManualMatch.id,
+    }))
+    return { ok: true }
+  }
+
   // No supplier resolved → can't match PO
   if (!ctx.resolvedSupplierId) {
     console.log('[03-match-po] No supplier resolved — skipping PO match')
