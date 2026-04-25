@@ -50,8 +50,7 @@ describe('admin inventory — tenant isolation', () => {
   })
 
   afterAll(async () => {
-    await cleanupTenant(tenantA)
-    await cleanupTenant(tenantB)
+    await Promise.all([cleanupTenant(tenantA), cleanupTenant(tenantB)])
   })
 
   it('POST /api/admin/inventory creates the item + opening stock_movement under the calling tenant', async () => {

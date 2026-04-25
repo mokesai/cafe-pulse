@@ -67,8 +67,7 @@ describe('admin invoices/upload — tenant isolation', () => {
   })
 
   afterAll(async () => {
-    await cleanupTenant(tenantA)
-    await cleanupTenant(tenantB)
+    await Promise.all([cleanupTenant(tenantA), cleanupTenant(tenantB)])
   })
 
   it('INSERT path: creates a new invoice under the calling tenant only', async () => {

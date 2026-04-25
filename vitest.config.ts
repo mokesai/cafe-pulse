@@ -33,6 +33,10 @@ export default defineConfig({
           include: ['tests/integration/**/*.test.ts'],
           exclude: ['node_modules/**', 'dist/**', '.next/**'],
           testTimeout: 30_000,
+          // cleanupTenant runs ~50 DELETEs per tenant; the inventory test
+          // creates ~7 tenants worth of fixtures via createInventoryItem and
+          // tears them down in afterAll. Default 10s hook timeout is too tight.
+          hookTimeout: 60_000,
           setupFiles: ['tests/integration/setup.ts'],
         },
       },
