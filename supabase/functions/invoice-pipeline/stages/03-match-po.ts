@@ -23,7 +23,7 @@ const PO_SEARCH_WINDOW_DAYS = 90
 
 interface PurchaseOrder {
   id: string
-  po_number: string
+  order_number: string
   supplier_id: string
   total_amount: number | null
   status: string
@@ -56,7 +56,7 @@ export async function runPOMatching(ctx: PipelineContext): Promise<StageResult> 
 
   const { data: purchaseOrders, error: poError } = await ctx.supabase
     .from('purchase_orders')
-    .select('id, po_number, supplier_id, total_amount, status, order_date, tenant_id')
+    .select('id, order_number, supplier_id, total_amount, status, order_date, tenant_id')
     .eq('tenant_id', ctx.tenantId)
     .eq('supplier_id', ctx.resolvedSupplierId)
     .in('status', ['pending', 'sent', 'partial']) // open statuses
@@ -157,7 +157,7 @@ export async function runPOMatching(ctx: PipelineContext): Promise<StageResult> 
     event: 'po_matched',
     invoice_id: ctx.invoiceId,
     purchase_order_id: bestPo.id,
-    po_number: bestPo.po_number,
+    order_number: bestPo.order_number,
     match_id: newMatch.id,
     invoice_total: invoiceTotal,
     po_total: bestPo.total_amount,
