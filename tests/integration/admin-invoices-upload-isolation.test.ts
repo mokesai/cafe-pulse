@@ -67,8 +67,7 @@ describe('admin invoices/upload — tenant isolation', () => {
   })
 
   afterAll(async () => {
-    await cleanupTenant(tenantA)
-    await cleanupTenant(tenantB)
+    await Promise.all([cleanupTenant(tenantA), cleanupTenant(tenantB)])
   })
 
   it('INSERT path: creates a new invoice under the calling tenant only', async () => {
@@ -107,7 +106,7 @@ describe('admin invoices/upload — tenant isolation', () => {
     expect(countB).toBe(0)
   })
 
-  it('UPDATE path: re-upload of the same (tenant, supplier, invoice_number) updates in-place and stays on the calling tenant', async () => {
+  it('Re-upload (MOK-109): replaces prior invoice with a fresh row, leaves exactly one row under the calling tenant', async () => {
     if (!tenantA || !tenantB) throw new Error('test setup failed')
     const supplier = await createSupplier(tenantA)
     const invoiceNumber = `UPLOAD-UPD-${Date.now()}`
@@ -123,7 +122,8 @@ describe('admin invoices/upload — tenant isolation', () => {
     expect(firstRes.status).toBe(201)
     const firstId: string = (await firstRes.json()).data.id
 
-    // Second upload — same tenant + supplier + invoice_number triggers UPDATE path
+    // Second upload of same (tenant, supplier, invoice_number) — DELETEs the prior
+    // row and INSERTs a fresh one. The new row gets a NEW id (post-MOK-109 behavior).
     const secondReq = buildAuthedRequest({
       tenant: tenantA,
       method: 'POST',
@@ -133,9 +133,19 @@ describe('admin invoices/upload — tenant isolation', () => {
     const secondRes = await uploadPOST(secondReq)
     expect(secondRes.status).toBe(201)
     const secondId: string = (await secondRes.json()).data.id
-    expect(secondId).toBe(firstId)
+    expect(secondId).not.toBe(firstId)
 
     const svc = getServiceClient()
+
+    // Old id is gone (cascaded with the prior invoice row)
+    const { data: oldRow } = await svc
+      .from('invoices')
+      .select('id')
+      .eq('id', firstId)
+      .maybeSingle()
+    expect(oldRow).toBeNull()
+
+    // Exactly one current row under tenant A with the new id
     const { data: rows } = await svc
       .from('invoices')
       .select('id, tenant_id, status')
@@ -143,7 +153,7 @@ describe('admin invoices/upload — tenant isolation', () => {
       .eq('supplier_id', supplier.id)
       .eq('invoice_number', invoiceNumber)
     expect(rows).toHaveLength(1)
-    expect(rows![0].id).toBe(firstId)
+    expect(rows![0].id).toBe(secondId)
     expect(rows![0].tenant_id).toBe(tenantA.id)
     expect(rows![0].tenant_id).not.toBe(tenantB.id)
     expect(rows![0].tenant_id).not.toBe(DEFAULT_TENANT)

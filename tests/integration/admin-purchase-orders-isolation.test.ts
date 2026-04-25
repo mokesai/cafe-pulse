@@ -42,8 +42,7 @@ describe('admin purchase-orders — tenant isolation', () => {
   })
 
   afterAll(async () => {
-    await cleanupTenant(tenantA)
-    await cleanupTenant(tenantB)
+    await Promise.all([cleanupTenant(tenantA), cleanupTenant(tenantB)])
   })
 
   it('POST /api/admin/purchase-orders creates PO + items + status_history under the calling tenant', async () => {

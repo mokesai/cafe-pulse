@@ -1,9 +1,19 @@
 /**
- * Stage 01 — Invoice Extraction
+ * Stage 01 — Invoice Extraction (MOK-110: Vision-first)
  *
- * Extracts structured invoice data from the uploaded file using:
- * 1. GPT-4o Vision (primary path for images; primary + fallback for PDFs)
- * 2. Text extraction via Next.js /api/admin/invoices/[id]/extract-text (fallback for native PDFs)
+ * Order of operations for both PDFs and images:
+ *   1. Call OpenRouter Vision (file-parser plugin auto-rasterizes PDFs for
+ *      non-native models). This is the PRIMARY path.
+ *   2. If Vision throws OR returns 0 line items, AND the file is a PDF,
+ *      fall back to text extraction via Next.js
+ *      /api/admin/invoices/[id]/extract-text → AI text parse.
+ *   3. If both fail (or it's an image with no Vision output), raise a
+ *      parse_error exception.
+ *
+ * Previously (pre-MOK-110), PDFs went through pdf2json first and only
+ * reached Vision if a confidence threshold was met — meaning Vision was
+ * effectively never invoked for image-based or low-OCR PDFs. That gate is
+ * removed: Vision always runs first.
  *
  * Architecture: §3.2, §3.3, §2.7
  * Runtime: Deno (Supabase Edge Function)
@@ -54,69 +64,11 @@ export async function runExtraction(ctx: PipelineContext): Promise<StageResult> 
       // Non-fatal — continue anyway
     }
 
-    // ── Route to Vision or Text extraction based on file type ─────────────────
-    const isImage = ['png', 'jpg', 'jpeg', 'webp'].includes(fileTypeLower)
-    const isPdf = fileTypeLower === 'pdf'
-
-    if (isImage) {
-      return await runVisionExtraction(ctx, file_url, fileTypeLower, false)
-    }
-
-    if (isPdf) {
-      // For PDFs: always attempt text extraction first
-      // Vision API does not support PDF format, so text extraction is the primary path
-      let textResult: Awaited<ReturnType<typeof fetchExtractedText>> | null = null
-
-      try {
-        textResult = await fetchExtractedText(ctx.invoiceId, ctx.tenantId)
-        console.log(JSON.stringify({
-          event: 'text_extraction_attempted',
-          invoice_id: ctx.invoiceId,
-          confidence: textResult.confidence,
-          method: textResult.method,
-          text_length: textResult.text.length,
-        }))
-
-        const visionThreshold = ctx.tenantSettings.visionConfidenceThresholdPct / 100
-        if (textResult.confidence >= visionThreshold) {
-          // Text extraction succeeded with sufficient confidence
-          return await runTextBasedExtraction(ctx, textResult.text, textResult.confidence)
-        }
-        
-        // Text extraction succeeded but low confidence — create exception
-        console.warn('[01-extract] PDF text extraction too low confidence:', textResult.confidence)
-        await createException(ctx, {
-          type: 'parse_error',
-          message: `PDF text extraction confidence too low (${(textResult.confidence * 100).toFixed(1)}%). Manual review recommended.`,
-          context: {
-            stage: STAGE,
-            method: textResult.method,
-            confidence: textResult.confidence,
-            retry_count: 0,
-          },
-          pipelineStage: STAGE,
-        })
-        return { ok: false, fatal: true, error: 'PDF extraction confidence below threshold' }
-      } catch (textErr) {
-        console.error('[01-extract] PDF text extraction failed:', sanitizeError(textErr))
-        // Text extraction failed — create exception instead of trying Vision (not supported for PDFs)
-        const errorMessage = sanitizeError(textErr)
-        await createException(ctx, {
-          type: 'parse_error',
-          message: `PDF text extraction failed: ${errorMessage}`,
-          context: {
-            stage: STAGE,
-            error_message: errorMessage,
-            retry_count: 0,
-          },
-          pipelineStage: STAGE,
-        })
-        return { ok: false, fatal: true, error: errorMessage }
-      }
-    }
-
-    // Unknown file type — try Vision anyway
-    console.warn('[01-extract] Unknown file type:', fileTypeLower, '— attempting Vision')
+    // ── Vision-first extraction (MOK-110) ─────────────────────────────────────
+    // PDFs and images both go through Vision via OpenRouter. Vision-service
+    // routes PDFs through OpenRouter's file-parser plugin so any model can
+    // process them. pdf2json+text remains as a last-resort fallback inside
+    // runVisionExtraction if Vision fails or returns an empty result.
     return await runVisionExtraction(ctx, file_url, fileTypeLower, false)
   } catch (err) {
     // Unhandled extraction error
@@ -176,6 +128,15 @@ async function runVisionExtraction(
       line_item_count: parsed.line_items.length,
       extraction_method: isFallback ? 'vision_fallback' : 'vision',
     }))
+
+    // Structural validation: model self-confidence is unreliable (MOK-110 spike
+    // showed gpt-4o-mini reporting overall_confidence=1.0 on extractions that
+    // returned 0 line items). If Vision returns no line items but we have a
+    // text-extraction path available, fall back to it before accepting the result.
+    if (parsed.line_items.length === 0 && fileType === 'pdf') {
+      console.warn('[01-extract] Vision returned 0 line items for PDF — attempting text fallback')
+      throw new Error('Vision returned 0 line items')
+    }
 
     // Store parsed data in context
     ctx.parsedData = {

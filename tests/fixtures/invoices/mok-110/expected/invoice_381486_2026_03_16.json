@@ -1,0 +1,8 @@
+{
+  "_comment": "Copy this file as <pdf-basename>.json for each PDF in ../pdfs/. Tier 1 (below) is the minimum needed to run the harness. Tier 2 fields (line_items detail, expected_inventory_matches) can be added later — see _template-full.json for the complete schema.",
+
+  "pdf_filename": "invoice_381486_2026_03_16.pdf",
+  "invoice_number": "381486",
+  "total_amount": 94.00,
+  "line_items_count": 12
+}

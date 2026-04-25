@@ -1,13 +1,14 @@
 /**
- * Vision Service — GPT-4o Vision extraction via OpenRouter.
+ * Vision Service — invoice extraction via OpenRouter.
  *
- * Accepts image files and PDFs (via URL). For PDFs that Vision cannot
- * process directly, callers should use text extraction fallback.
+ * Accepts image files and PDFs (via URL). PDFs are routed through OpenRouter's
+ * file-parser plugin so any model (vision-capable or otherwise) can extract
+ * structured data — see MOK-110 spike findings (2026-04-25) for benchmarks.
  *
  * Architecture: §3.1, §3.2, §3.3
  * Runtime: Deno (Supabase Edge Function)
  * AI Provider: OpenRouter (https://openrouter.ai/api/v1)
- * Model: openai/gpt-4o
+ * Default model: openai/gpt-4o-mini (override with INVOICE_VISION_MODEL env)
  */
 
 import type { ParsedInvoiceResult, ParsedLineItem, SupplierFees } from './context.ts'
@@ -25,6 +26,30 @@ export interface VisionExtractionInput {
   supplierName?: string
   /** For multi-page PDFs: 0-indexed page (default: process all) */
   pageIndex?: number
+  /** OpenRouter model slug. Defaults to env INVOICE_VISION_MODEL or openai/gpt-4o-mini. */
+  model?: string
+}
+
+/**
+ * Models with native PDF support on OpenRouter — these accept PDF files
+ * directly. Other models need OpenRouter's file-parser plugin to rasterize
+ * server-side (mistral-ocr is most reliable; pdf-text fails on image-only PDFs).
+ */
+const MODEL_PDF_NATIVE: Record<string, boolean> = {
+  'anthropic/claude-sonnet-4.6': true,
+  'anthropic/claude-sonnet-4.5': true,
+  'anthropic/claude-opus-4.7': true,
+  'google/gemini-2.5-pro': true,
+  'google/gemini-2.0-flash': true,
+}
+
+/** USD per 1M tokens for cost estimation. Add new models as needed. */
+const MODEL_PRICING: Record<string, { promptPer1M: number; completionPer1M: number }> = {
+  'openai/gpt-4o': { promptPer1M: 2.5, completionPer1M: 10 },
+  'openai/gpt-4o-mini': { promptPer1M: 0.15, completionPer1M: 0.6 },
+  'anthropic/claude-sonnet-4.6': { promptPer1M: 3, completionPer1M: 15 },
+  'google/gemini-2.5-pro': { promptPer1M: 1.25, completionPer1M: 10 },
+  'mistralai/pixtral-large-2411': { promptPer1M: 2, completionPer1M: 6 },
 }
 
 export interface VisionExtractionOutput {
@@ -153,12 +178,16 @@ Return ONLY the JSON object. No other text.`
 // ============================================================
 
 /**
- * Call GPT-4o Vision via OpenRouter with the invoice file URL.
- * Supports images (PNG/JPG/WEBP) and PDFs.
+ * Extract invoice data from an image or PDF via OpenRouter.
  *
- * For PDFs: passes URL directly. OpenRouter/GPT-4o will process
- * the document. If the model cannot handle the PDF format,
- * this will throw and the caller should fall back to text extraction.
+ * - Images (PNG/JPG/WEBP): sent as base64 image_url.
+ * - PDFs: sent via OpenRouter's file-parser plugin. Models with native PDF
+ *   support (Claude, Gemini) get the PDF directly; others (OpenAI, Pixtral)
+ *   are served pre-rasterized by the mistral-ocr engine.
+ *
+ * MOK-110: previously this function used image_url for both, which silently
+ * failed on PDFs. The pipeline's pdf2json-confidence gate masked the failure
+ * by short-circuiting before Vision was attempted.
  */
 export async function extractInvoiceWithVision(
   input: VisionExtractionInput
@@ -168,80 +197,83 @@ export async function extractInvoiceWithVision(
     throw new Error('[vision-service] OPENROUTER_API_KEY not set')
   }
 
-  const baseUrl = 'https://openrouter.ai/api/v1'
-  const model = 'openai/gpt-4o'
-
-  // Build the content array for the Vision API call
-  const content: Array<Record<string, unknown>> = [
-    {
-      type: 'text',
-      text: buildSystemPrompt(input.supplierName),
-    },
-  ]
-
-  // Add the file as a vision input
+  const model = input.model ?? Deno.env.get('INVOICE_VISION_MODEL') ?? 'openai/gpt-4o-mini'
   const fileType = input.fileType.toLowerCase()
-  const mimeType = getMimeType(fileType)
+  const isPdf = fileType === 'pdf'
 
-  // Download file from URL and convert to base64 for Vision API
-  // Use Deno's fetch which has better binary handling
+  // Download file → base64
   console.log(`[vision-service] Downloading file from ${input.fileUrl}`)
-  
   let fileBase64: string
   try {
-    // Fetch with timeout to avoid hanging
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 30000) // 30s timeout
-    
+    const timeoutId = setTimeout(() => controller.abort(), 30000)
     const fileResponse = await fetch(input.fileUrl, {
       method: 'GET',
       signal: controller.signal,
-      headers: {
-        'User-Agent': 'CafePulse/1.0',
-      },
+      headers: { 'User-Agent': 'CafePulse/1.0' },
     })
     clearTimeout(timeoutId)
-
     if (!fileResponse.ok) {
       throw new Error(`Failed to download file: HTTP ${fileResponse.status}`)
     }
-
     const fileBuffer = await fileResponse.arrayBuffer()
-    
-    // Convert to base64 using Deno's built-in encoding
     const bytes = new Uint8Array(fileBuffer)
     fileBase64 = btoa(String.fromCharCode.apply(null, Array.from(bytes)))
-    
     console.log(`[vision-service] Downloaded file: ${fileBuffer.byteLength} bytes`)
   } catch (err) {
     throw new Error(`[vision-service] Failed to download file: ${String(err).slice(0, 300)}`)
   }
 
-  // Pass file as base64 data URL to Vision API
-  const dataUrl = `data:${mimeType};base64,${fileBase64}`
-  
-  content.push({
-    type: 'image_url',
-    image_url: {
-      url: dataUrl,
-      detail: 'high',
-    },
-  })
-
-  const requestBody = {
+  // Build the message content + plugins, branching by file type
+  const systemPromptText = buildSystemPrompt(input.supplierName)
+  const requestBody: Record<string, unknown> = {
     model,
-    messages: [
-      {
-        role: 'user',
-        content,
-      },
-    ],
     temperature: 0.1,
     max_tokens: 4096,
     response_format: { type: 'json_object' },
   }
 
-  const response = await fetch(`${baseUrl}/chat/completions`, {
+  if (isPdf) {
+    const filename = input.fileUrl.split('/').pop()?.split('?')[0] ?? 'invoice.pdf'
+    requestBody.messages = [
+      { role: 'system', content: systemPromptText },
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Extract structured data from this invoice. Return only the JSON object per the system schema.' },
+          {
+            type: 'file',
+            file: {
+              filename,
+              file_data: `data:application/pdf;base64,${fileBase64}`,
+            },
+          },
+        ],
+      },
+    ]
+    requestBody.plugins = [
+      {
+        id: 'file-parser',
+        pdf: { engine: MODEL_PDF_NATIVE[model] ? 'native' : 'mistral-ocr' },
+      },
+    ]
+  } else {
+    const mimeType = getMimeType(fileType)
+    requestBody.messages = [
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: systemPromptText },
+          {
+            type: 'image_url',
+            image_url: { url: `data:${mimeType};base64,${fileBase64}`, detail: 'high' },
+          },
+        ],
+      },
+    ]
+  }
+
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
@@ -255,29 +287,28 @@ export async function extractInvoiceWithVision(
   if (!response.ok) {
     const errorText = await response.text()
     throw new Error(
-      `[vision-service] OpenRouter API error ${response.status}: ${errorText.slice(0, 300)}`
+      `[vision-service] OpenRouter API error ${response.status} (model=${model}): ${errorText.slice(0, 300)}`
     )
   }
 
   const responseJson = await response.json()
-
   const rawContent = responseJson?.choices?.[0]?.message?.content
   if (!rawContent) {
-    throw new Error('[vision-service] Empty response from OpenRouter Vision API')
+    throw new Error(`[vision-service] Empty response from OpenRouter (model=${model})`)
   }
 
-  // Parse and validate the JSON response
+  // Parse JSON. Some models (Claude, sometimes Gemini) wrap in ```json fences
+  // despite response_format=json_object, so strip those before parsing.
   let rawData: RawVisionResponse
   try {
-    rawData = JSON.parse(rawContent) as RawVisionResponse
+    rawData = JSON.parse(stripCodeFences(rawContent)) as RawVisionResponse
   } catch (e) {
     throw new Error(
-      `[vision-service] Invalid JSON from Vision API: ${String(e).slice(0, 200)}. ` +
+      `[vision-service] Invalid JSON from model ${model}: ${String(e).slice(0, 200)}. ` +
         `Raw: ${rawContent.slice(0, 300)}`
     )
   }
 
-  // Normalize and validate the parsed data
   const parsed = normalizeVisionResponse(rawData, input.fileUrl)
 
   const tokenUsage = {
@@ -287,6 +318,12 @@ export async function extractInvoiceWithVision(
   }
 
   return { parsed, tokenUsage }
+}
+
+function stripCodeFences(s: string): string {
+  const trimmed = s.trim()
+  const m = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```\s*$/)
+  return m ? m[1].trim() : trimmed
 }
 
 // ============================================================
@@ -331,18 +368,21 @@ export async function withRetry<T>(
 export function logVisionTokenUsage(
   invoiceId: string,
   tenantId: string,
-  usage: VisionExtractionOutput['tokenUsage']
+  usage: VisionExtractionOutput['tokenUsage'],
+  model?: string
 ): void {
-  // Rough GPT-4o pricing: $5/1M prompt tokens, $15/1M completion tokens
-  const estimatedCostUsd =
-    usage.promptTokens * 0.000005 + usage.completionTokens * 0.000015
+  const m = model ?? Deno.env.get('INVOICE_VISION_MODEL') ?? 'openai/gpt-4o-mini'
+  const pricing = MODEL_PRICING[m]
+  const estimatedCostUsd = pricing
+    ? (usage.promptTokens * pricing.promptPer1M + usage.completionTokens * pricing.completionPer1M) / 1_000_000
+    : 0
 
   console.log(
     JSON.stringify({
       event: 'vision_token_usage',
       invoice_id: invoiceId,
       tenant_id: tenantId,
-      model: 'openai/gpt-4o',
+      model: m,
       prompt_tokens: usage.promptTokens,
       completion_tokens: usage.completionTokens,
       total_tokens: usage.totalTokens,
@@ -439,6 +479,8 @@ export async function parseInvoiceTextWithAI(
     throw new Error('[vision-service] OPENROUTER_API_KEY not set')
   }
 
+  const model = Deno.env.get('INVOICE_VISION_MODEL') ?? 'openai/gpt-4o-mini'
+
   const systemPrompt = `You are an expert invoice data extraction AI.
 Extract structured data from the invoice text provided.${supplierName ? `\nSupplier: ${supplierName}` : ''}
 
@@ -489,7 +531,7 @@ other non-product fees. Use 0 (not null) when a fee type is absent. Do not inclu
       'X-Title': 'CafePulse Invoice Pipeline',
     },
     body: JSON.stringify({
-      model: 'openai/gpt-4o',
+      model,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `Parse this invoice text:\n\n${text}` },
@@ -503,17 +545,17 @@ other non-product fees. Use 0 (not null) when a fee type is absent. Do not inclu
   if (!response.ok) {
     const errorText = await response.text()
     throw new Error(
-      `[vision-service] OpenRouter text API error ${response.status}: ${errorText.slice(0, 300)}`
+      `[vision-service] OpenRouter text API error ${response.status} (model=${model}): ${errorText.slice(0, 300)}`
     )
   }
 
   const responseJson = await response.json()
   const rawContent = responseJson?.choices?.[0]?.message?.content
   if (!rawContent) {
-    throw new Error('[vision-service] Empty response from OpenRouter text API')
+    throw new Error(`[vision-service] Empty response from OpenRouter text API (model=${model})`)
   }
 
-  const rawData = JSON.parse(rawContent) as RawVisionResponse
+  const rawData = JSON.parse(stripCodeFences(rawContent)) as RawVisionResponse
   return normalizeVisionResponse(rawData, '')
 }
 
