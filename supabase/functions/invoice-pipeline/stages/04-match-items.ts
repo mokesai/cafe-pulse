@@ -45,7 +45,6 @@ interface InvoiceItem {
 interface InventoryItem {
   id: string
   item_name: string
-  sku: string | null
   unit_cost: number
   tenant_id: string
 }
@@ -74,6 +73,14 @@ export async function runItemMatching(ctx: PipelineContext): Promise<StageResult
     .order('line_number')
 
   if (itemsError) {
+    // MOK-119: surface load failures via exception so stage 5 routes the
+    // invoice to pending_exceptions instead of silently auto-confirming.
+    await createException(ctx, {
+      type: 'parse_error',
+      message: `Item matching could not load invoice line items from the database: ${itemsError.message}`,
+      context: { stage: STAGE, error_message: itemsError.message },
+      pipelineStage: STAGE,
+    })
     return { ok: false, fatal: true, error: `Failed to load invoice items: ${itemsError.message}` }
   }
 
@@ -87,13 +94,22 @@ export async function runItemMatching(ctx: PipelineContext): Promise<StageResult
   }
 
   // ── Load all inventory items for this tenant ──────────────────────────────
+  // MOK-119: inventory_items uses soft-delete (deleted_at IS NULL), not
+  // is_active. Earlier code referenced both `is_active` and `sku` which don't
+  // exist on the schema — the query errored on every run.
   const { data: inventoryItems, error: invError } = await ctx.supabase
     .from('inventory_items')
-    .select('id, item_name, sku, unit_cost, tenant_id')
+    .select('id, item_name, unit_cost, tenant_id')
     .eq('tenant_id', ctx.tenantId)
-    .eq('is_active', true)
+    .is('deleted_at', null)
 
   if (invError) {
+    await createException(ctx, {
+      type: 'parse_error',
+      message: `Item matching could not load inventory items from the database: ${invError.message}`,
+      context: { stage: STAGE, error_message: invError.message },
+      pipelineStage: STAGE,
+    })
     return { ok: false, fatal: true, error: `Failed to load inventory items: ${invError.message}` }
   }
 
@@ -185,27 +201,11 @@ async function processInvoiceItem(
     }
   }
 
-  // ── Step 2: SKU match ──────────────────────────────────────────────────────
-  if (item.supplier_item_code) {
-    const skuMatch = inventory.find(
-      (i) => i.sku && i.sku.toLowerCase() === item.supplier_item_code!.toLowerCase()
-    )
-    if (skuMatch) {
-      await applyItemMatch(ctx, item, skuMatch, 1.0, 'sku')
-      if (ctx.resolvedSupplierId) {
-        await upsertAlias(ctx, {
-          supplierId: ctx.resolvedSupplierId,
-          supplierDescription: item.item_description,
-          inventoryItemId: skuMatch.id,
-          confidence: 1.0,
-          source: 'auto',
-        })
-      }
-      return
-    }
-  }
-
-  // ── Step 3: Exact name match ───────────────────────────────────────────────
+  // ── Step 2: Exact name match ───────────────────────────────────────────────
+  // MOK-119: removed the prior SKU-based match path. inventory_items has no
+  // supplier-SKU column to compare invoice_item.supplier_item_code against.
+  // Supplier→inventory mapping persists via supplier_item_aliases (the alias
+  // path above) plus the AI fuzzy match below.
   const exactNameMatch = inventory.find(
     (i) => i.item_name.toLowerCase() === item.item_description.toLowerCase()
   )
@@ -439,7 +439,7 @@ async function fuzzyMatchItemsWithAI(
   const maxItems = 200
   const inventorySlice = inventory.slice(0, maxItems)
   const inventoryListText = inventorySlice
-    .map((i) => `ID:${i.id}|Name:${i.item_name}|SKU:${i.sku ?? 'none'}|Cost:${i.unit_cost}`)
+    .map((i) => `ID:${i.id}|Name:${i.item_name}|Cost:${i.unit_cost}`)
     .join('\n')
 
   const prompt = `You are an inventory item matching assistant for a coffee shop/cafe.
@@ -448,7 +448,7 @@ Match the invoice line item description to the best inventory items.
 
 Invoice description: "${description}"
 
-Inventory items (ID|Name|SKU|UnitCost):
+Inventory items (ID|Name|UnitCost):
 ${inventoryListText}
 
 Return ONLY a JSON array of the best matches (up to 5), best first:
