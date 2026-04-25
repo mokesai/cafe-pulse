@@ -385,7 +385,7 @@ async function checkQuantityVariance(
     // Get PO number for message
     const { data: po } = await ctx.supabase
       .from('purchase_orders')
-      .select('po_number')
+      .select('order_number')
       .eq('id', poMatch.purchase_order_id)
       .eq('tenant_id', ctx.tenantId)
       .maybeSingle()
@@ -401,7 +401,7 @@ async function checkQuantityVariance(
         variance_pct: variancePct,
         threshold_pct: thresholdPct,
         purchase_order_id: poMatch.purchase_order_id,
-        purchase_order_number: po?.po_number ?? 'Unknown',
+        purchase_order_number: po?.order_number ?? 'Unknown',
       },
       invoiceItemId: item.id,
       pipelineStage: STAGE,
