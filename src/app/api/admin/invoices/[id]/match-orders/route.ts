@@ -177,11 +177,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     let linkedMatch = null
 
     if (linkedOrderId) {
-      // Remove the linked order from suggestions if present
+      // MOK-118: keep the linked PO in `order_matches` so search/filter UIs that
+      // render only that array can still surface it. The dedicated
+      // `linked_match` field still flags which one is currently linked.
       const linkedIndex = orderMatches.findIndex(match => match.purchase_order_id === linkedOrderId)
       if (linkedIndex >= 0) {
         linkedMatch = orderMatches[linkedIndex]
-        orderMatches.splice(linkedIndex, 1)
       } else {
         const embeddedPurchaseOrder = extractEmbeddedPurchaseOrder(existingMatchRecord?.purchase_orders)
         let linkedPurchaseOrder: PurchaseOrderRow | null = embeddedPurchaseOrder
