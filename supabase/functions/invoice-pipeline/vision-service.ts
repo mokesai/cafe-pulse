@@ -217,8 +217,7 @@ export async function extractInvoiceWithVision(
       throw new Error(`Failed to download file: HTTP ${fileResponse.status}`)
     }
     const fileBuffer = await fileResponse.arrayBuffer()
-    const bytes = new Uint8Array(fileBuffer)
-    fileBase64 = btoa(String.fromCharCode.apply(null, Array.from(bytes)))
+    fileBase64 = uint8ToBase64(new Uint8Array(fileBuffer))
     console.log(`[vision-service] Downloaded file: ${fileBuffer.byteLength} bytes`)
   } catch (err) {
     throw new Error(`[vision-service] Failed to download file: ${String(err).slice(0, 300)}`)
@@ -324,6 +323,20 @@ function stripCodeFences(s: string): string {
   const trimmed = s.trim()
   const m = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```\s*$/)
   return m ? m[1].trim() : trimmed
+}
+
+/**
+ * Encode a Uint8Array to base64 in 32KB chunks. The naive
+ * `String.fromCharCode(...bytes)` approach exceeds the JS engine's max
+ * function-argument count for files > ~100KB and throws a RangeError.
+ */
+function uint8ToBase64(bytes: Uint8Array): string {
+  const chunkSize = 0x8000 // 32KB
+  let binary = ''
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize))
+  }
+  return btoa(binary)
 }
 
 // ============================================================
