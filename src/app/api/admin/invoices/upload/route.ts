@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrentTenantId } from '@/lib/tenant/context'
-import type { PostgrestError } from '@supabase/supabase-js'
 import { formatApiError, apiError, unexpectedError } from '@/lib/api/errors'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
@@ -156,118 +155,69 @@ export async function POST(request: NextRequest) {
 
     const file_url = signedUrlData.signedUrl
 
-    // When an invoice already exists (non-confirmed), replace it in-place; otherwise insert.
-    let newInvoice: UploadedInvoiceRecord | null = null
-    let dbError: PostgrestError | null = null
-
+    // MOK-109: re-upload removes the prior invoice and inserts a fresh row.
+    // Single INSERT path covers both first-upload and re-upload — keeps the
+    // pipeline trigger surface to AFTER INSERT only. DELETE cascades
+    // invoice_items, order_invoice_matches, invoice_import_sessions, and
+    // invoice_exceptions; supplier_item_aliases.last_seen_invoice_id is set
+    // NULL. Behavior change vs prior UPDATE path: invoice id, created_at, and
+    // created_by reflect the latest upload (audit trail intent).
     if (existingInvoice) {
-      // Remove any previous file so we do not leave stale blobs around
       if (existingInvoice.file_path) {
         await supabase.storage.from('invoices').remove([existingInvoice.file_path])
       }
 
-      // Clear matches and items so the new upload starts clean
-      const { error: deleteMatchesError } = await supabase
-        .from('order_invoice_matches')
-        .delete()
-        .eq('invoice_id', existingInvoice.id)
-
-      if (deleteMatchesError) {
-        console.error('Error clearing invoice matches before replacement:', deleteMatchesError)
-      }
-
-      // Reset invoice content so it can be re-parsed cleanly
-      const { error: deleteItemsError } = await supabase
-        .from('invoice_items')
-        .delete()
-        .eq('invoice_id', existingInvoice.id)
-
-      if (deleteItemsError) {
-        console.error('Error clearing invoice items before replacement:', deleteItemsError)
-      }
-
-      const { data, error } = await supabase
+      const { error: deleteError } = await supabase
         .from('invoices')
-        .update({
-          invoice_number,
-          supplier_id: supplier_id || null,
-          invoice_date,
-          total_amount: 0,
-          file_url,
-          file_path: uniqueFileName,
-          file_name: file.name,
-          file_type: file.type,
-          file_size: file.size,
-          status: 'uploaded',
-          raw_text: null,
-          clean_text: null,
-          text_analysis: {},
-          parsed_data: null,
-          parsing_confidence: null,
-          parsing_error: null,
-          processed_at: null,
-          processed_by: null,
-          updated_at: new Date().toISOString()
-        })
+        .delete()
         .eq('id', existingInvoice.id)
-        .select(`
-          id,
-          invoice_number,
-          invoice_date,
-          total_amount,
-          status,
-          file_name,
-          file_type,
-          file_size,
-          file_url,
-          created_at,
-          suppliers (
-            id,
-            name
-          )
-        `)
-        .single()
+        .eq('tenant_id', tenantId)
 
-      newInvoice = data as UploadedInvoiceRecord | null
-      dbError = error
-    } else {
-      const { data, error } = await supabase
-        .from('invoices')
-        .insert({
-          tenant_id: tenantId,
-          supplier_id: supplier_id || null,
-          invoice_number,
-          invoice_date,
-          total_amount: 0, // Will be updated after parsing
-          file_url,
-          file_path: uniqueFileName,
-          file_name: file.name,
-          file_type: file.type,
-          file_size: file.size,
-          status: 'uploaded',
-          created_by: adminAuth.userId
-        })
-        .select(`
-          id,
-          invoice_number,
-          invoice_date,
-          total_amount,
-          status,
-          file_name,
-          file_type,
-          file_size,
-          file_url,
-          created_at,
-          suppliers (
-            id,
-            name
-          )
-        `)
-        .single()
-
-      newInvoice = data as UploadedInvoiceRecord | null
-      dbError = error
+      if (deleteError) {
+        console.error('Error deleting prior invoice during re-upload:', deleteError)
+        return apiError(
+          'Failed to clear the prior invoice during re-upload. Please try again.',
+          500,
+          'INVOICE_REPLACE_FAILED'
+        )
+      }
     }
+
+    const { data: insertedInvoice, error: dbError } = await supabase
+      .from('invoices')
+      .insert({
+        tenant_id: tenantId,
+        supplier_id: supplier_id || null,
+        invoice_number,
+        invoice_date,
+        total_amount: 0, // Will be updated after parsing
+        file_url,
+        file_path: uniqueFileName,
+        file_name: file.name,
+        file_type: file.type,
+        file_size: file.size,
+        status: 'uploaded',
+        created_by: adminAuth.userId
+      })
+      .select(`
+        id,
+        invoice_number,
+        invoice_date,
+        total_amount,
+        status,
+        file_name,
+        file_type,
+        file_size,
+        file_url,
+        created_at,
+        suppliers (
+          id,
+          name
+        )
+      `)
+      .single()
+
+    const newInvoice = insertedInvoice as UploadedInvoiceRecord | null
 
     if (dbError) {
       // If database insert fails, clean up uploaded file
