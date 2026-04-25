@@ -367,18 +367,20 @@ async function checkQuantityVariance(
 
   if (!poMatch) return
 
-  // Look for a PO line item matching this inventory item
+  // Look for a PO line item matching this inventory item.
+  // MOK-119: column is `quantity_ordered`, not `quantity` — the prior code
+  // would error here even when the column-existence check upstream passed.
   const { data: poItem } = await ctx.supabase
     .from('purchase_order_items')
-    .select('id, quantity, inventory_item_id')
+    .select('id, quantity_ordered, inventory_item_id')
     .eq('purchase_order_id', poMatch.purchase_order_id)
     .eq('inventory_item_id', inventoryItem.id)
     .eq('tenant_id', ctx.tenantId)
     .maybeSingle()
 
-  if (!poItem || !poItem.quantity) return
+  if (!poItem || !poItem.quantity_ordered) return
 
-  const variancePct = Math.abs((item.quantity - poItem.quantity) / poItem.quantity) * 100
+  const variancePct = Math.abs((item.quantity - poItem.quantity_ordered) / poItem.quantity_ordered) * 100
   const thresholdPct = ctx.tenantSettings.totalVarianceThresholdPct
 
   if (variancePct > thresholdPct) {
@@ -392,11 +394,11 @@ async function checkQuantityVariance(
 
     await createException(ctx, {
       type: 'quantity_variance',
-      message: `Quantity for "${inventoryItem.item_name}" differs from PO by ${variancePct.toFixed(1)}% (PO: ${poItem.quantity}, Invoice: ${item.quantity}). Exceeds the ${thresholdPct}% threshold.`,
+      message: `Quantity for "${inventoryItem.item_name}" differs from PO by ${variancePct.toFixed(1)}% (PO: ${poItem.quantity_ordered}, Invoice: ${item.quantity}). Exceeds the ${thresholdPct}% threshold.`,
       context: {
         item_description: item.item_description,
         inventory_item_id: inventoryItem.id,
-        po_quantity: poItem.quantity,
+        po_quantity: poItem.quantity_ordered,
         invoice_quantity: item.quantity,
         variance_pct: variancePct,
         threshold_pct: thresholdPct,
