@@ -1,0 +1,41 @@
+{
+  "_comment": "PROPOSED tier-2 ground truth for Order #455320.pdf, derived from Claude Sonnet 4.6 workflow C extraction (overall_confidence 0.93). All 5 models converged on these values in the spike. Review and rename to 'Order #455320.json' (replacing the tier-1 file) once verified. Math: 1.75 + 15.00 + 43.98 + 43.98 = $104.71 subtotal + $4.41 tax = $109.12 total ✓",
+
+  "pdf_filename": "Order #455320.pdf",
+  "supplier_name": "Lotus Plant Power",
+  "invoice_number": "455320",
+  "invoice_date": "2026-04-12",
+  "total_amount": 109.12,
+  "line_items_count": 4,
+
+  "line_items": [
+    {
+      "description": "ShipInsure Package Protection",
+      "quantity": 1,
+      "unit_price": 1.75,
+      "total_price": 1.75,
+      "supplier_item_code": null
+    },
+    {
+      "description": "0.5 Oz Lotus Plant Power Dispenser Pump",
+      "quantity": 5,
+      "unit_price": 3.00,
+      "total_price": 15.00,
+      "supplier_item_code": null
+    },
+    {
+      "description": "Peach Lotus Fruit Fusion Concentrate",
+      "quantity": 2,
+      "unit_price": 21.99,
+      "total_price": 43.98,
+      "supplier_item_code": null
+    },
+    {
+      "description": "Orange Creamsicle Lotus Fruit Fusion Concentrate",
+      "quantity": 2,
+      "unit_price": 21.99,
+      "total_price": 43.98,
+      "supplier_item_code": null
+    }
+  ]
+}

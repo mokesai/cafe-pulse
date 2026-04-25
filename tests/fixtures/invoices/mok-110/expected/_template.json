@@ -1,0 +1,8 @@
+{
+  "_comment": "Copy this file as <pdf-basename>.json for each PDF in ../pdfs/. Tier 1 (below) is the minimum needed to run the harness. Tier 2 fields (line_items detail, expected_inventory_matches) can be added later — see _template-full.json for the complete schema.",
+
+  "pdf_filename": "bluepoint-2024-04-01.pdf",
+  "invoice_number": "INV-12345",
+  "total_amount": 423.55,
+  "line_items_count": 12
+}

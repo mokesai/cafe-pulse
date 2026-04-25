@@ -41,7 +41,8 @@
     "db:reset": "npx supabase db reset",
     "db:generate": "npx supabase gen types typescript --local",
     "db:link": "npx supabase link",
-    "test:ai": "node scripts/test-ai-invoice-parsing.js"
+    "test:ai": "node scripts/test-ai-invoice-parsing.js",
+    "spike:mok-110": "npx tsx scripts/spike-mok-110/run.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

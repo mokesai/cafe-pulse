@@ -1,0 +1,32 @@
+{
+  "_comment": "Tier 2 — full ground truth. Use this once you want to score per-line accuracy and (optionally) inventory matching. Delete _comment in real fixtures.",
+
+  "pdf_filename": "bluepoint-2024-04-01.pdf",
+  "supplier_name": "Bluepoint Coffee Co.",
+  "invoice_number": "INV-12345",
+  "invoice_date": "2024-04-01",
+  "total_amount": 423.55,
+  "line_items_count": 2,
+
+  "line_items": [
+    {
+      "description": "Whole Bean Espresso 5lb",
+      "quantity": 4,
+      "unit_price": 28.50,
+      "total_price": 114.00,
+      "supplier_item_code": "WBE-5LB"
+    },
+    {
+      "description": "Decaf House Blend 2lb",
+      "quantity": 6,
+      "unit_price": 18.75,
+      "total_price": 112.50,
+      "supplier_item_code": "DHB-2LB"
+    }
+  ],
+
+  "expected_inventory_matches": [
+    { "line_index": 0, "inventory_item_code": "COFFEE-ESPRESSO-WB" },
+    { "line_index": 1, "inventory_item_code": "COFFEE-DECAF-HB" }
+  ]
+}
