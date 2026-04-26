@@ -23,6 +23,7 @@ interface FilterableQuery<TSelf> {
   lte(column: string, value: unknown): TSelf
   gt(column: string, value: unknown): TSelf
   neq(column: string, value: unknown): TSelf
+  or(filters: string): TSelf
 }
 
 function applyBaseFilters<T extends FilterableQuery<T>>(query: T, filters: FilterParams) {
@@ -32,6 +33,30 @@ function applyBaseFilters<T extends FilterableQuery<T>>(query: T, filters: Filte
   if (start_date) query = query.gte('invoice_date', start_date)
   if (end_date) query = query.lte('invoice_date', end_date)
   return query
+}
+
+/**
+ * MOK-127: hide pre-pipeline invoices (status='uploaded' with no
+ * pipeline_started_at) from the Invoices page by default — the page is for
+ * reviewing pipeline outcomes, not tracking upload activity. After MOK-120,
+ * uploads must be linked to a PO and the pipeline trigger fires immediately,
+ * so a row should only sit in this state for milliseconds. If something is
+ * stuck here, the admin can opt in via `?include_pre_pipeline=true`.
+ *
+ * Uses `pipeline_started_at.gt.1970-01-01` rather than `.not.is.null` because
+ * the `not` modifier inside PostgREST's `.or()` expression doesn't reliably
+ * negate `is.null` (the OR returns no filtering at all). A `gt` against an
+ * impossibly-early date matches any non-null timestamp and excludes nulls.
+ */
+function applyPipelineOnlyFilter<T extends FilterableQuery<T>>(
+  query: T,
+  includePrePipeline: boolean,
+) {
+  if (includePrePipeline) return query
+  return query.or(
+    'pipeline_started_at.gt.1970-01-01,' +
+      'status.in.(pending_exceptions,confirmed,error,duplicate,pipeline_running)',
+  )
 }
 
 function applyTextQueueFilter<T extends FilterableQuery<T>>(query: T, queue: TextQueue | null) {
@@ -74,6 +99,7 @@ export async function GET(request: NextRequest) {
     const start_date = searchParams.get('start_date')
     const end_date = searchParams.get('end_date')
     const text_queue = (searchParams.get('text_queue') as TextQueue) || 'all'
+    const includePrePipeline = searchParams.get('include_pre_pipeline') === 'true'
 
     const supabase = createServiceClient()
 
@@ -115,6 +141,7 @@ export async function GET(request: NextRequest) {
 
     query = applyBaseFilters(query, filters)
     query = applyTextQueueFilter(query, text_queue)
+    query = applyPipelineOnlyFilter(query, includePrePipeline)
 
     // Apply pagination
     const offset = (page - 1) * limit
@@ -161,6 +188,7 @@ export async function GET(request: NextRequest) {
           .eq('tenant_id', tenantId)
         queueQuery = applyBaseFilters(queueQuery, filters)
         queueQuery = applyTextQueueFilter(queueQuery, queueId)
+        queueQuery = applyPipelineOnlyFilter(queueQuery, includePrePipeline)
         const { count } = await queueQuery
         return [queueId, count || 0] as const
       })
