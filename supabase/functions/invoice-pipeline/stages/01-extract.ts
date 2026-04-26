@@ -113,6 +113,52 @@ export async function runExtraction(ctx: PipelineContext): Promise<StageResult> 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// MOK-132: build the invoice-header UPDATE payload defensively
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Compose the UPDATE payload for `invoices` after a Vision extraction.
+ *
+ * Only writes a column if the parsed value is meaningful — Vision returning
+ * null for `invoice_number` (or any other NOT NULL column) used to clobber
+ * the upload-time placeholder and trip a NOT NULL constraint. Now: the
+ * upload-time value is preserved; the admin can edit it via the review UI.
+ *
+ * Always writes `vision_confidence` and `pipeline_stage` because they're
+ * pipeline-internal bookkeeping, not extracted content.
+ *
+ * Exported for unit tests.
+ */
+export function buildInvoiceHeaderUpdate(
+  parsed: import('../context.ts').ParsedInvoiceResult,
+  overallConfidence: number,
+  stage: string,
+): Record<string, unknown> {
+  const updates: Record<string, unknown> = {
+    vision_confidence: overallConfidence,
+    pipeline_stage: stage,
+  }
+
+  if (parsed.invoice_number != null && parsed.invoice_number.trim() !== '') {
+    updates.invoice_number = parsed.invoice_number
+  }
+  if (parsed.invoice_date != null && parsed.invoice_date.trim() !== '') {
+    updates.invoice_date = parsed.invoice_date
+  }
+  if (parsed.total_amount != null) {
+    updates.total_amount = parsed.total_amount
+  }
+
+  if (parsed.total_fees > 0) {
+    updates.supplier_fees = parsed.supplier_fees
+    updates.total_fees = parsed.total_fees
+    updates.fee_source = 'ai_extracted'
+  }
+
+  return updates
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // MOK-131: refresh signed URL from file_path
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -325,22 +371,17 @@ async function saveExtractedData(
   const parsed = ctx.parsedData!
 
   // ── Update invoice header ────────────────────────────────────────────────
-  // Include supplier fees if the AI extracted any; mark fee_source accordingly
-  const hasFees = parsed.total_fees > 0
+  // MOK-132: build the UPDATE payload conditionally. The upload route writes
+  // a non-null placeholder for invoice_number (e.g. `${PO_number}-N`); if
+  // Vision can't extract a real value, we keep the placeholder rather than
+  // overwrite it with null and trip the NOT NULL constraint. Same defensive
+  // treatment for invoice_date and total_amount — Vision returning null for
+  // any of them shouldn't fail the pipeline.
+  const updates = buildInvoiceHeaderUpdate(parsed, overallConfidence, STAGE)
+
   const { error: invoiceUpdateError } = await ctx.supabase
     .from('invoices')
-    .update({
-      invoice_number: parsed.invoice_number,
-      invoice_date: parsed.invoice_date,
-      total_amount: parsed.total_amount,
-      vision_confidence: overallConfidence,
-      pipeline_stage: STAGE,
-      ...(hasFees && {
-        supplier_fees: parsed.supplier_fees,
-        total_fees: parsed.total_fees,
-        fee_source: 'ai_extracted',
-      }),
-    })
+    .update(updates)
     .eq('id', ctx.invoiceId)
     .eq('tenant_id', ctx.tenantId)
 
