@@ -327,7 +327,7 @@ async function applyItemMatch(
       ? `Exceeds the ${priceThresholdPct}% threshold.`
       : `Below the ${priceThresholdPct}% threshold — informational only.`
 
-    await createException(ctx, {
+    const exceptionId = await createException(ctx, {
       type: 'price_variance',
       severity,
       message: `Unit price for "${inventoryItem.item_name}" changed ${priceVariancePct > 0 ? '+' : ''}${priceVariancePct.toFixed(1)}% (from $${inventoryItem.unit_cost.toFixed(2)} to $${item.unit_price.toFixed(2)}). ${direction}`,
@@ -343,6 +343,19 @@ async function applyItemMatch(
       },
       invoiceItemId: item.id,
       pipelineStage: STAGE,
+    })
+
+    // MOK-122: persist to variance history shadow table
+    await recordVariance(ctx, {
+      varianceType: 'price_variance',
+      severity,
+      invoiceItemId: item.id,
+      poUnitCost: inventoryItem.unit_cost,
+      invoiceUnitPrice: item.unit_price,
+      invoiceDescription: item.item_description,
+      variancePct: priceVariancePct,
+      thresholdPct: priceThresholdPct,
+      relatedExceptionId: exceptionId,
     })
   }
 
@@ -407,7 +420,7 @@ async function checkQuantityVariance(
       ? `Exceeds the ${thresholdPct}% threshold.`
       : `Below the ${thresholdPct}% threshold — informational only.`
 
-    await createException(ctx, {
+    const exceptionId = await createException(ctx, {
       type: 'quantity_variance',
       severity,
       message: `Quantity for "${inventoryItem.item_name}" differs from PO by ${variancePct.toFixed(1)}% (PO: ${poItem.quantity_ordered}, Invoice: ${item.quantity}). ${direction}`,
@@ -424,6 +437,83 @@ async function checkQuantityVariance(
       invoiceItemId: item.id,
       pipelineStage: STAGE,
     })
+
+    // MOK-122: persist to variance history shadow table
+    await recordVariance(ctx, {
+      varianceType: 'quantity_variance',
+      severity,
+      invoiceItemId: item.id,
+      purchaseOrderId: poMatch.purchase_order_id,
+      poQuantity: poItem.quantity_ordered,
+      invoiceQuantity: item.quantity,
+      invoiceDescription: item.item_description,
+      variancePct,
+      thresholdPct,
+      relatedExceptionId: exceptionId,
+    })
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Variance history (MOK-122)
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface RecordVarianceInput {
+  varianceType: 'quantity_variance' | 'price_variance' | 'replacement'
+  severity: 'info' | 'block'
+  invoiceItemId?: string
+  purchaseOrderId?: string
+  poQuantity?: number
+  invoiceQuantity?: number
+  poUnitCost?: number
+  invoiceUnitPrice?: number
+  poDescription?: string
+  invoiceDescription?: string
+  variancePct?: number
+  thresholdPct?: number
+  relatedExceptionId?: string
+}
+
+/**
+ * MOK-122: write a row to invoice_variance_history. Called for every variance
+ * encountered by stage 4, regardless of severity. The history table is the
+ * permanent record — even if the related invoice_exceptions row is dismissed
+ * or resolved later, the history persists for supplier-performance reporting.
+ *
+ * Failures here are logged but non-fatal: a missed history row shouldn't
+ * block the pipeline (the exception itself was already created). MOK-119's
+ * lesson — surface stage 4 failures via createException — applies if the
+ * exception step succeeded but history failed; in that case the user sees
+ * the exception, the history is just incomplete.
+ */
+async function recordVariance(
+  ctx: PipelineContext,
+  input: RecordVarianceInput,
+): Promise<void> {
+  const { error } = await ctx.supabase
+    .from('invoice_variance_history')
+    .insert({
+      tenant_id: ctx.tenantId,
+      invoice_id: ctx.invoiceId,
+      invoice_item_id: input.invoiceItemId ?? null,
+      purchase_order_id: input.purchaseOrderId ?? null,
+      supplier_id: ctx.resolvedSupplierId ?? null,
+      variance_type: input.varianceType,
+      severity: input.severity,
+      po_quantity: input.poQuantity ?? null,
+      invoice_quantity: input.invoiceQuantity ?? null,
+      po_unit_cost: input.poUnitCost ?? null,
+      invoice_unit_price: input.invoiceUnitPrice ?? null,
+      po_description: input.poDescription ?? null,
+      invoice_description: input.invoiceDescription ?? null,
+      variance_pct: input.variancePct ?? null,
+      threshold_pct: input.thresholdPct ?? null,
+      related_exception_id: input.relatedExceptionId ?? null,
+    })
+
+  if (error) {
+    console.warn('[04-match-items] Failed to record variance history:', error.message)
+    // Non-fatal — the related exception (if any) is already created
   }
 }
 
