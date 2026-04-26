@@ -42,7 +42,7 @@ export async function runExtraction(ctx: PipelineContext): Promise<StageResult> 
     file_url: ctx.invoice.file_url,
   }))
 
-  const { file_url, file_type } = ctx.invoice
+  const { file_type } = ctx.invoice
   // Normalize file type: handle both extensions (.pdf) and MIME types (application/pdf)
   const fileTypeLower = file_type
     .toLowerCase()
@@ -51,6 +51,27 @@ export async function runExtraction(ctx: PipelineContext): Promise<StageResult> 
     .replace('.', '')              // Strip dot prefix
 
   try {
+    // ── MOK-131: refresh the storage signed URL ───────────────────────────────
+    // The upload route writes a 24h-expiry signed URL to invoices.file_url.
+    // On Re-run pipeline (MOK-127) for an invoice older than 24h, that URL
+    // returns HTTP 400 and the vision-service download fails. Regenerate from
+    // the stable file_path with a short TTL — one pipeline run is < 10 min.
+    const fileUrl = await refreshSignedUrl(ctx)
+    if (!fileUrl) {
+      await createException(ctx, {
+        type: 'parse_error',
+        message:
+          'Failed to refresh storage signed URL for invoice file. ' +
+          'The file may have been deleted or moved.',
+        context: {
+          stage: STAGE,
+          file_path: ctx.invoice.file_path,
+        },
+        pipelineStage: STAGE,
+      })
+      return { ok: false, fatal: true, error: 'Failed to refresh signed URL' }
+    }
+
     // ── Idempotency: clear any existing invoice_items for this invoice ────────
     // This ensures retries don't create duplicate line items
     const { error: deleteError } = await ctx.supabase
@@ -69,7 +90,7 @@ export async function runExtraction(ctx: PipelineContext): Promise<StageResult> 
     // routes PDFs through OpenRouter's file-parser plugin so any model can
     // process them. pdf2json+text remains as a last-resort fallback inside
     // runVisionExtraction if Vision fails or returns an empty result.
-    return await runVisionExtraction(ctx, file_url, fileTypeLower, false)
+    return await runVisionExtraction(ctx, fileUrl, fileTypeLower, false)
   } catch (err) {
     // Unhandled extraction error
     const errorMessage = sanitizeError(err)
@@ -89,6 +110,99 @@ export async function runExtraction(ctx: PipelineContext): Promise<StageResult> 
 
     return { ok: false, fatal: true, error: errorMessage }
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MOK-132: build the invoice-header UPDATE payload defensively
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Compose the UPDATE payload for `invoices` after a Vision extraction.
+ *
+ * Only writes a column if the parsed value is meaningful — Vision returning
+ * null for `invoice_number` (or any other NOT NULL column) used to clobber
+ * the upload-time placeholder and trip a NOT NULL constraint. Now: the
+ * upload-time value is preserved; the admin can edit it via the review UI.
+ *
+ * Always writes `vision_confidence` and `pipeline_stage` because they're
+ * pipeline-internal bookkeeping, not extracted content.
+ *
+ * Exported for unit tests.
+ */
+export function buildInvoiceHeaderUpdate(
+  parsed: import('../context.ts').ParsedInvoiceResult,
+  overallConfidence: number,
+  stage: string,
+): Record<string, unknown> {
+  const updates: Record<string, unknown> = {
+    vision_confidence: overallConfidence,
+    pipeline_stage: stage,
+  }
+
+  if (parsed.invoice_number != null && parsed.invoice_number.trim() !== '') {
+    updates.invoice_number = parsed.invoice_number
+  }
+  if (parsed.invoice_date != null && parsed.invoice_date.trim() !== '') {
+    updates.invoice_date = parsed.invoice_date
+  }
+  if (parsed.total_amount != null) {
+    updates.total_amount = parsed.total_amount
+  }
+
+  if (parsed.total_fees > 0) {
+    updates.supplier_fees = parsed.supplier_fees
+    updates.total_fees = parsed.total_fees
+    updates.fee_source = 'ai_extracted'
+  }
+
+  return updates
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MOK-131: refresh signed URL from file_path
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** TTL for the per-pipeline-run signed URL. One run is well under 10 min. */
+export const SIGNED_URL_TTL_SECONDS = 600
+
+/**
+ * Mint a fresh 10-minute signed URL from `ctx.invoice.file_path`. Returns
+ * null on failure (caller turns this into a parse_error exception).
+ *
+ * Falls back to the stored `ctx.invoice.file_url` only when `file_path` is
+ * missing — that shouldn't happen post-MOK-120 (every upload writes both),
+ * but the guard keeps the pipeline working on legacy rows.
+ *
+ * Exported for unit tests; not used outside this module in normal flow.
+ */
+export async function refreshSignedUrl(ctx: PipelineContext): Promise<string | null> {
+  const filePath = ctx.invoice.file_path
+  if (!filePath) {
+    if (ctx.invoice.file_url) {
+      console.warn(
+        '[01-extract] No file_path on invoice; falling back to stored file_url. ' +
+          'This will fail if the URL is older than 24h.',
+      )
+      return ctx.invoice.file_url
+    }
+    return null
+  }
+
+  const { data, error } = await ctx.supabase.storage
+    .from('invoices')
+    .createSignedUrl(filePath, SIGNED_URL_TTL_SECONDS)
+
+  if (error || !data) {
+    console.error(
+      '[01-extract] Failed to mint signed URL for',
+      filePath,
+      ':',
+      error?.message ?? 'unknown error',
+    )
+    return null
+  }
+
+  return data.signedUrl
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -257,22 +371,17 @@ async function saveExtractedData(
   const parsed = ctx.parsedData!
 
   // ── Update invoice header ────────────────────────────────────────────────
-  // Include supplier fees if the AI extracted any; mark fee_source accordingly
-  const hasFees = parsed.total_fees > 0
+  // MOK-132: build the UPDATE payload conditionally. The upload route writes
+  // a non-null placeholder for invoice_number (e.g. `${PO_number}-N`); if
+  // Vision can't extract a real value, we keep the placeholder rather than
+  // overwrite it with null and trip the NOT NULL constraint. Same defensive
+  // treatment for invoice_date and total_amount — Vision returning null for
+  // any of them shouldn't fail the pipeline.
+  const updates = buildInvoiceHeaderUpdate(parsed, overallConfidence, STAGE)
+
   const { error: invoiceUpdateError } = await ctx.supabase
     .from('invoices')
-    .update({
-      invoice_number: parsed.invoice_number,
-      invoice_date: parsed.invoice_date,
-      total_amount: parsed.total_amount,
-      vision_confidence: overallConfidence,
-      pipeline_stage: STAGE,
-      ...(hasFees && {
-        supplier_fees: parsed.supplier_fees,
-        total_fees: parsed.total_fees,
-        fee_source: 'ai_extracted',
-      }),
-    })
+    .update(updates)
     .eq('id', ctx.invoiceId)
     .eq('tenant_id', ctx.tenantId)
 

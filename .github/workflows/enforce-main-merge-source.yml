@@ -1,0 +1,45 @@
+name: Enforce main merge source
+
+# Catches a recurring mistake: feature/defect PRs being opened against `main`
+# instead of `staging`. Our flow is:
+#   feature branch (off staging) → staging → tested → release PR → main
+# Direct merges to main from feature branches skip the staging integration step
+# and can land schema / edge-function changes in prod ahead of testing.
+#
+# This workflow fails any PR whose base is `main` and whose head is anything
+# other than `staging`. To make this enforcement effective, mark
+# "Enforce main merge source / verify-source" as a required status check
+# on the `main` branch protection rule.
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, edited, reopened, synchronize]
+
+jobs:
+  verify-source:
+    name: verify-source
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reject PRs to main from non-staging branches
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          if [ "$HEAD_REF" != "staging" ]; then
+            echo "::error::PRs to 'main' must come from 'staging'."
+            echo ""
+            echo "Head branch on this PR: $HEAD_REF"
+            echo ""
+            echo "Required flow:"
+            echo "  1. Open feature/defect branches off 'staging'"
+            echo "  2. Merge feature PRs into 'staging'"
+            echo "  3. Test on 'staging'"
+            echo "  4. When releasing, open a PR from 'staging' to 'main' and tag"
+            echo ""
+            echo "If you intended to land work for the next release, retarget"
+            echo "this PR's base from 'main' to 'staging' via:"
+            echo "  gh pr edit <number> --base staging"
+            exit 1
+          fi
+          echo "✓ Head branch is 'staging' — release PR allowed."
