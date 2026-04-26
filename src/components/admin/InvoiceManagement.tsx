@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Upload, FileText, Clock, CheckCircle, AlertCircle, Eye } from 'lucide-react'
+import { Upload, FileText, Clock, CheckCircle, AlertCircle, Eye, RotateCw } from 'lucide-react'
 import Link from 'next/link'
 import { Invoice } from '@/types/invoice'
 import { InvoiceReviewInterface } from './InvoiceReviewInterface'
@@ -29,14 +29,25 @@ interface InvoicesListProps {
   invoices: Invoice[]
   loading: boolean
   parsing: string | null
+  retrying: string | null
   onReviewInvoice: (invoice: Invoice) => void
   onParseInvoice: (invoiceId: string) => void
+  onRetryPipeline: (invoiceId: string) => void
   onViewDetails: (invoice: Invoice) => void
 }
 
 type TextQueue = 'all' | 'needs-ocr' | 'manual-review' | 'high-confidence' | 'ready-to-match'
 
-function InvoicesList({ invoices, loading, parsing, onReviewInvoice, onParseInvoice, onViewDetails }: InvoicesListProps) {
+function InvoicesList({
+  invoices,
+  loading,
+  parsing,
+  retrying,
+  onReviewInvoice,
+  onParseInvoice,
+  onRetryPipeline,
+  onViewDetails,
+}: InvoicesListProps) {
   const renderTextAnalysisIndicators = (analysis?: Invoice['text_analysis']) => {
     if (!analysis) return null
 
@@ -151,6 +162,21 @@ function InvoicesList({ invoices, loading, parsing, onReviewInvoice, onParseInvo
     onParseInvoice(invoiceId)
   }
 
+  // MOK-127: only post-pipeline rows that aren't actively running can be re-run.
+  // Allowed statuses mirror /api/admin/invoices/[id]/retry-pipeline's retriable set,
+  // minus 'pipeline_running' (already in flight) and 'uploaded' (pre-pipeline:
+  // the trigger will fire on its own).
+  const RERUNNABLE_STATUSES = new Set(['confirmed', 'pending_exceptions', 'error', 'duplicate'])
+
+  const handleRetryPipeline = (invoiceId: string, invoiceNumber: string) => {
+    const confirmed = window.confirm(
+      `Re-run the pipeline for invoice ${invoiceNumber}? This will reset its pipeline state ` +
+        'and re-run extraction → matching → confirmation from scratch.',
+    )
+    if (!confirmed) return
+    onRetryPipeline(invoiceId)
+  }
+
   return (
     <div className="bg-white shadow rounded-lg overflow-hidden">
       <ul className="divide-y divide-gray-200">
@@ -256,6 +282,19 @@ function InvoicesList({ invoices, loading, parsing, onReviewInvoice, onParseInvo
                       Review Matches
                     </button>
                   )}
+                  {RERUNNABLE_STATUSES.has(invoice.status) && (
+                    <button
+                      onClick={() => handleRetryPipeline(invoice.id, invoice.invoice_number)}
+                      disabled={retrying === invoice.id}
+                      className="text-sm text-purple-600 hover:text-purple-900 disabled:opacity-50 inline-flex items-center"
+                      title="Reset pipeline state and re-run extraction → matching → confirmation"
+                    >
+                      <RotateCw
+                        className={`w-4 h-4 inline mr-1 ${retrying === invoice.id ? 'animate-spin' : ''}`}
+                      />
+                      {retrying === invoice.id ? 'Re-running…' : 'Re-run pipeline'}
+                    </button>
+                  )}
                   <button
                     onClick={() => onViewDetails(invoice)}
                     className="text-sm text-indigo-600 hover:text-indigo-900"
@@ -281,6 +320,7 @@ export function InvoiceManagement() {
   const [loading, setLoading] = useState(true)
   // MOK-120: showUploadModal state removed — standalone upload modal no longer rendered
   const [parsing, setParsing] = useState<string | null>(null) // Invoice ID being parsed
+  const [retrying, setRetrying] = useState<string | null>(null) // MOK-127: invoice ID whose pipeline retry is in flight
   const [testingAI, setTestingAI] = useState(false)
   const [testingMatching, setTestingMatching] = useState(false)
   const [reviewingInvoice, setReviewingInvoice] = useState<Invoice | null>(null)
@@ -425,6 +465,28 @@ export function InvoiceManagement() {
       alert('Failed to parse invoice. Please try again.')
     } finally {
       setParsing(null)
+    }
+  }
+
+  const retryPipeline = async (invoiceId: string) => {
+    try {
+      setRetrying(invoiceId)
+      const response = await fetch(`/api/admin/invoices/${invoiceId}/retry-pipeline`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const result = await response.json()
+      if (response.ok && result.success) {
+        await fetchInvoices()
+      } else {
+        alert(`Pipeline retry failed: ${result.error ?? 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Error retrying pipeline:', error)
+      alert('Failed to retry pipeline. Please try again.')
+    } finally {
+      setRetrying(null)
     }
   }
 
@@ -646,12 +708,14 @@ export function InvoiceManagement() {
       </div>
 
       {/* Invoices List */}
-      <InvoicesList 
-        invoices={invoices} 
-        loading={loading} 
+      <InvoicesList
+        invoices={invoices}
+        loading={loading}
         parsing={parsing}
+        retrying={retrying}
         onReviewInvoice={setReviewingInvoice}
         onParseInvoice={parseInvoice}
+        onRetryPipeline={retryPipeline}
         onViewDetails={setDetailsInvoice}
       />
 
