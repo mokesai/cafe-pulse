@@ -1,11 +1,12 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Upload, FileText, Clock, CheckCircle, AlertCircle, Plus, Eye } from 'lucide-react'
+import { Upload, FileText, Clock, CheckCircle, AlertCircle, Eye } from 'lucide-react'
 import Link from 'next/link'
 import { Invoice } from '@/types/invoice'
 import { InvoiceReviewInterface } from './InvoiceReviewInterface'
-import { InvoiceUploadModal } from './InvoiceUploadModal'
+// MOK-120: InvoiceUploadModal import removed — standalone upload no longer rendered here.
+// PO-driven uploads are still handled via PurchaseOrderViewModal.
 import { InvoiceDetailsModal } from './InvoiceDetailsModal'
 import { PipelineStatusBadge } from './invoices/PipelineStatusBadge'
 
@@ -273,9 +274,12 @@ function InvoicesList({ invoices, loading, parsing, onReviewInvoice, onParseInvo
 
 export function InvoiceManagement() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
-  const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  // MOK-120: suppliers state was only used by the standalone upload modal,
+  // which has been removed. Keeping the fetchSuppliers call for now in case
+  // other parts of this component grow to use it.
+  const [, setSuppliers] = useState<Supplier[]>([])
   const [loading, setLoading] = useState(true)
-  const [showUploadModal, setShowUploadModal] = useState(false)
+  // MOK-120: showUploadModal state removed — standalone upload modal no longer rendered
   const [parsing, setParsing] = useState<string | null>(null) // Invoice ID being parsed
   const [testingAI, setTestingAI] = useState(false)
   const [testingMatching, setTestingMatching] = useState(false)
@@ -507,13 +511,10 @@ export function InvoiceManagement() {
             )}
             Test Matching
           </button>
-          <button
-            onClick={() => setShowUploadModal(true)}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Upload Invoice
-          </button>
+          {/*
+            MOK-120: standalone "Upload Invoice" button removed. Invoices must
+            now be uploaded against an existing PO via the PO view modal.
+          */}
         </div>
       </div>
 
@@ -654,13 +655,7 @@ export function InvoiceManagement() {
         onViewDetails={setDetailsInvoice}
       />
 
-      {/* Upload Modal */}
-      <InvoiceUploadModal
-        isOpen={showUploadModal}
-        onClose={() => setShowUploadModal(false)}
-        onUploadComplete={() => void fetchInvoices()}
-        suppliers={suppliers}
-      />
+      {/* MOK-120: standalone upload modal removed — invoices upload from PO view only */}
 
       {/* Review Interface */}
       {reviewingInvoice && (

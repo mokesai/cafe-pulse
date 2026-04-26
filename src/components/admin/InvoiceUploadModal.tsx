@@ -139,12 +139,18 @@ export function InvoiceUploadModal({
         invoice_date: formData.invoice_date
       })
 
-      // Create form data for upload
+      // Create form data for upload.
+      // MOK-120: purchase_order_id is now required by the upload route. The
+      // route creates the manual order_invoice_matches link atomically, so
+      // we no longer make a follow-up POST to link the PO.
       const uploadFormData = new FormData()
       uploadFormData.append('file', file)
       uploadFormData.append('supplier_id', formData.supplier_id)
       uploadFormData.append('invoice_number', formData.invoice_number)
       uploadFormData.append('invoice_date', formData.invoice_date)
+      if (purchaseOrderId) {
+        uploadFormData.append('purchase_order_id', purchaseOrderId)
+      }
 
       const response = await fetch('/api/admin/invoices/upload', {
         method: 'POST',
@@ -159,32 +165,6 @@ export function InvoiceUploadModal({
 
       console.log('✅ Upload successful:', result.data)
 
-      let linkError: string | null = null
-
-      if (purchaseOrderId && result?.data?.id) {
-        try {
-          const linkResponse = await fetch(`/api/admin/purchase-orders/${purchaseOrderId}/invoices`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              invoice_id: result.data.id,
-              match_confidence: 1,
-              match_method: 'manual',
-              status: 'pending'
-            })
-          })
-
-          const linkResult = await linkResponse.json()
-          if (!linkResponse.ok) {
-            linkError = linkResult.error || 'Invoice uploaded, but linking to the purchase order failed.'
-            console.error('Failed to link invoice to purchase order:', linkResult)
-          }
-        } catch (linkErr) {
-          console.error('Error linking invoice to purchase order:', linkErr)
-          linkError = 'Invoice uploaded, but linking to the purchase order failed.'
-        }
-      }
-
       setFile(null)
       setFormData({
         supplier_id: lockSupplier ? (defaultSupplierId || '') : '',
@@ -196,11 +176,7 @@ export function InvoiceUploadModal({
         onUploadComplete(result.data)
       }
 
-      if (linkError) {
-        setError(linkError)
-      } else {
-        onClose()
-      }
+      onClose()
 
     } catch (error: unknown) {
       console.error('Upload failed:', error)
