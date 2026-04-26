@@ -129,14 +129,72 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check for duplicate invoice (only if supplier_id is provided)
+    // MOK-115: detect a prior invoice for this PO. The user-supplied
+    // invoice_number is NOT a stable lookup key — stage 1 extraction overwrites
+    // it with the real number from the PDF, so a re-upload via the PO modal
+    // (which auto-fills `${PO_number}-N`) misses the prior row by the time the
+    // user retries. The PO link, by contrast, is stable for the invoice's
+    // entire lifecycle.
+    //
+    // Policy:
+    //   - Confirmed prior → 409, the row is immutable
+    //   - Non-confirmed prior → re-upload target (DELETE+INSERT below, MOK-109)
+    //   - No PO-link prior → fall back to (supplier_id, invoice_number),
+    //     covering orphans / non-PO-modal paths
+    //
+    // Caveat: a PO can legitimately accumulate sibling invoices (partial
+    // deliveries). We assume the prior must be confirmed before a sibling
+    // arrives — any non-confirmed prior is treated as the re-upload target.
+    // In practice partial-delivery flows wait on confirmation anyway, and an
+    // accidental clobber here is recoverable (the original PDF is in storage).
     let existingInvoice: {
       id: string
       status: string
       file_path: string | null
     } | null = null
 
-    if (supplier_id) {
+    const { data: priorPoMatches } = await supabase
+      .from('order_invoice_matches')
+      .select('invoice_id')
+      .eq('tenant_id', tenantId)
+      .eq('purchase_order_id', purchaseOrder.id)
+
+    if (priorPoMatches && priorPoMatches.length > 0) {
+      const priorInvoiceIds = priorPoMatches.map((m) => m.invoice_id)
+      const { data: priorInvoices } = await supabase
+        .from('invoices')
+        .select('id, status, file_path, invoice_number')
+        .eq('tenant_id', tenantId)
+        .in('id', priorInvoiceIds)
+
+      const confirmedPrior = (priorInvoices ?? []).find(
+        (inv) => inv.status === 'confirmed',
+      )
+      if (confirmedPrior) {
+        return apiError(
+          `Invoice "${confirmedPrior.invoice_number}" for this purchase order has already been ` +
+            'confirmed and cannot be replaced. Contact support if you need to add another invoice.',
+          409,
+          'INVOICE_ALREADY_CONFIRMED',
+        )
+      }
+
+      const replacementCandidate = (priorInvoices ?? []).find(
+        (inv) => inv.status !== 'confirmed',
+      )
+      if (replacementCandidate) {
+        existingInvoice = {
+          id: replacementCandidate.id,
+          status: replacementCandidate.status,
+          file_path: replacementCandidate.file_path,
+        }
+      }
+    }
+
+    // Fallback: legacy (supplier_id, invoice_number) lookup. Covers cases
+    // where the PO link is missing (data from before MOK-120) or the user
+    // typed an invoice_number that already exists under a different PO.
+    if (!existingInvoice && supplier_id) {
       const { data } = await supabase
         .from('invoices')
         .select('id, status, file_path')
@@ -150,9 +208,9 @@ export async function POST(request: NextRequest) {
         if (data.status === 'confirmed') {
           return apiError(
             `Invoice "${invoice_number}" has already been confirmed for this supplier and cannot be replaced. ` +
-            'Use a different invoice number or contact support if this is an error.',
+              'Use a different invoice number or contact support if this is an error.',
             409,
-            'INVOICE_ALREADY_CONFIRMED'
+            'INVOICE_ALREADY_CONFIRMED',
           )
         }
       }
