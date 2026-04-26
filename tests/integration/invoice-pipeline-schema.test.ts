@@ -246,4 +246,22 @@ describe('Invoice pipeline schema contract', () => {
       expect(error).toBeNull()
     })
   })
+
+  describe('variance history (MOK-122)', () => {
+    it('invoice_variance_history INSERT columns match schema', async () => {
+      // 04-match-items.ts recordVariance.
+      const svc = getServiceClient()
+      const { error } = await svc
+        .from('invoice_variance_history')
+        .select(
+          'tenant_id, invoice_id, invoice_item_id, purchase_order_id, ' +
+          'supplier_id, variance_type, severity, po_quantity, invoice_quantity, ' +
+          'po_unit_cost, invoice_unit_price, po_description, invoice_description, ' +
+          'variance_pct, threshold_pct, related_exception_id, ' +
+          'acknowledged_at, acknowledged_by, acknowledgment_notes, created_at'
+        )
+        .limit(1)
+      expect(error).toBeNull()
+    })
+  })
 })
