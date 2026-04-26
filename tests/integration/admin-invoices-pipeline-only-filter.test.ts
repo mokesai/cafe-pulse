@@ -36,16 +36,27 @@ describe('GET /api/admin/invoices — pre-pipeline filter (MOK-127)', () => {
 
     const svc = getServiceClient()
 
-    // Pre-pipeline: status=uploaded, pipeline_started_at NULL
+    // The AFTER INSERT pipeline trigger fires the edge function. The edge
+    // function only claims rows whose status is 'uploaded' (orchestrator.ts
+    // line 70: `.eq('status', 'uploaded')`). So we sidestep the race by
+    // never INSERTING with status='uploaded' — every row is created in a
+    // non-claimable status first, then UPDATEd to the desired test state.
+    // UPDATEs don't fire the trigger.
+
+    // Pre-pipeline: insert as 'confirmed' (edge function short-circuits),
+    // then move to status='uploaded' with pipeline_started_at NULL.
     const pre = await createInvoice(tenant, {
       supplier_id: supplierId,
-      status: 'uploaded',
+      status: 'confirmed',
     })
     prePipelineInvoiceId = pre.id
-    // Confirm the column is null (createInvoice doesn't set it)
     await svc
       .from('invoices')
-      .update({ pipeline_started_at: null })
+      .update({
+        status: 'uploaded',
+        pipeline_started_at: null,
+        pipeline_stage: null,
+      })
       .eq('id', prePipelineInvoiceId)
 
     // Post-pipeline (in flight): pipeline_started_at set, status=pipeline_running
@@ -63,7 +74,7 @@ describe('GET /api/admin/invoices — pre-pipeline filter (MOK-127)', () => {
       .eq('id', postPipelineInvoiceId)
 
     // Terminal post-pipeline: status=confirmed (covers the status-list branch
-    // of the OR filter even when pipeline_started_at happened to be NULL)
+    // of the OR filter even when pipeline_started_at happened to be NULL).
     const done = await createInvoice(tenant, {
       supplier_id: supplierId,
       status: 'confirmed',
