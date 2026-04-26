@@ -168,7 +168,10 @@ export async function runInvoicePipeline(
   await setPipelineStage(ctx, 'matching_po')
   await runPOMatching(ctx)
 
-  // Stage 4: Match Items (never fatal)
+  // Stage 4: Match Items. The return value is intentionally not gated on —
+  // stage 4 must surface its own failures via createException so stage 5 can
+  // route the invoice to pending_exceptions. (MOK-119: previously, stage 4
+  // errors here were silently swallowed and stage 5 auto-confirmed.)
   await setPipelineStage(ctx, 'matching_items')
   await runItemMatching(ctx)
 
