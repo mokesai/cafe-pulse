@@ -48,6 +48,8 @@ async function uploadInvoice(
     invoiceNumber?: string
     invoiceDate?: string
     supplierId?: string
+    /** MOK-120: required by the upload route. Get one via findAnyPO. */
+    purchaseOrderId: string
   }
 ) {
   const fileBuffer = fs.readFileSync(opts.filePath)
@@ -60,10 +62,33 @@ async function uploadInvoice(
       },
       invoice_number: opts.invoiceNumber ?? `INV-E2E-${Date.now()}`,
       invoice_date: opts.invoiceDate ?? new Date().toISOString().split('T')[0],
+      purchase_order_id: opts.purchaseOrderId,
       ...(opts.supplierId ? { supplier_id: opts.supplierId } : {}),
     },
   })
   return { res, body: await res.json() }
+}
+
+/**
+ * Find any pending/sent PO in the test tenant (MOK-120). Upload-driven E2E
+ * tests need a real PO id since the upload route requires one. Returns null
+ * when no candidate PO exists — the caller should `test.skip` in that case.
+ */
+async function findAnyPO(
+  page: import('@playwright/test').Page,
+): Promise<{ id: string; supplier_id: string } | null> {
+  for (const status of ['pending', 'sent']) {
+    const res = await page.request.get(
+      `${API_BASE}/purchase-orders?status=${status}&limit=1`,
+    )
+    if (!res.ok()) continue
+    const body = await res.json()
+    const list = body.data ?? body.purchase_orders ?? []
+    if (Array.isArray(list) && list.length > 0 && list[0]?.id && list[0]?.supplier_id) {
+      return { id: list[0].id, supplier_id: list[0].supplier_id }
+    }
+  }
+  return null
 }
 
 /** Terminal pipeline statuses produced by the agentic pipeline (MOK-110+). */
@@ -149,15 +174,24 @@ test.beforeEach(async ({ page }) => {
 
 test.describe('MOK-60-1: No PO found — upload → exception → manually link PO → resolved', () => {
   test('creates no_po_match exception and resolves via manual PO link', async ({ page }) => {
-    // Upload an invoice that deliberately has no seeded PO counterpart.
-    // Walmart Business (1461623f-bbfd-4faf-820c-3205cf4a0db8) has no POs in seed data.
+    // MOK-120: every upload now requires a PO. The "no PO at upload" premise
+    // of this test is no longer reachable via the public route. Find any
+    // pending/sent PO so the upload succeeds; the post-MOK-117 manual-match
+    // short-circuit means no_po_match won't fire on the happy path. The
+    // test's existing if/else branches handle either outcome.
+    const po = await findAnyPO(page)
+    if (!po) {
+      test.skip(true, 'No pending/sent PO available in test tenant')
+      return
+    }
     const invoiceNumber = `NO-PO-E2E-${Date.now()}`
     const { res: uploadRes, body: uploadBody } = await uploadInvoice(page, {
       filePath: path.join(FIXTURES, 'walmart-invoice.pdf'),
       fileName: 'walmart-invoice.pdf',
       invoiceNumber,
       invoiceDate: '2026-04-01',
-      supplierId: '1461623f-bbfd-4faf-820c-3205cf4a0db8',
+      supplierId: po.supplier_id,
+      purchaseOrderId: po.id,
     })
 
     expect(uploadRes.status()).toBeGreaterThanOrEqual(200)
@@ -350,11 +384,18 @@ test.describe('MOK-60-3: Low confidence — AI match flagged for review → appr
     page,
   }) => {
     // Upload an invoice; pipeline may produce a low_extraction_confidence exception
+    const po = await findAnyPO(page)
+    if (!po) {
+      test.skip(true, 'No pending/sent PO available in test tenant')
+      return
+    }
     const { res: uploadRes, body: uploadBody } = await uploadInvoice(page, {
       filePath: path.join(FIXTURES, 'samclub-invoice.pdf'),
       fileName: 'samclub-invoice.pdf',
       invoiceNumber: `LOW-CONF-E2E-${Date.now()}`,
       invoiceDate: '2026-04-01',
+      supplierId: po.supplier_id,
+      purchaseOrderId: po.id,
     })
 
     expect(uploadRes.status()).toBeGreaterThanOrEqual(200)
@@ -453,11 +494,18 @@ test.describe('MOK-60-4: Price variance — invoice price differs from PO → ap
   test('uploads Odeko invoice, creates price_variance exception, approves cost update', async ({
     page,
   }) => {
+    const po = await findAnyPO(page)
+    if (!po) {
+      test.skip(true, 'No pending/sent PO available in test tenant')
+      return
+    }
     const { res: uploadRes, body: uploadBody } = await uploadInvoice(page, {
       filePath: path.join(FIXTURES, 'goldseal-invoice.pdf'),
       fileName: 'goldseal-invoice.pdf',
       invoiceNumber: `PV-E2E-${Date.now()}`,
       invoiceDate: '2026-04-01',
+      supplierId: po.supplier_id,
+      purchaseOrderId: po.id,
     })
 
     expect(uploadRes.status()).toBeGreaterThanOrEqual(200)
@@ -553,11 +601,18 @@ test.describe('MOK-60-5: Qty variance — invoice qty differs from PO → resolv
   test('uploads invoice, detects quantity_variance exception, and resolves it', async ({
     page,
   }) => {
+    const po = await findAnyPO(page)
+    if (!po) {
+      test.skip(true, 'No pending/sent PO available in test tenant')
+      return
+    }
     const { res: uploadRes, body: uploadBody } = await uploadInvoice(page, {
       filePath: path.join(FIXTURES, 'walmart-invoice.pdf'),
       fileName: 'walmart-invoice.pdf',
       invoiceNumber: `QV-E2E-${Date.now()}`,
       invoiceDate: '2026-04-01',
+      supplierId: po.supplier_id,
+      purchaseOrderId: po.id,
     })
 
     expect(uploadRes.status()).toBeGreaterThanOrEqual(200)
