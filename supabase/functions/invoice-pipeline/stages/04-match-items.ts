@@ -45,7 +45,6 @@ interface InvoiceItem {
 interface InventoryItem {
   id: string
   item_name: string
-  sku: string | null
   unit_cost: number
   tenant_id: string
 }
@@ -74,6 +73,14 @@ export async function runItemMatching(ctx: PipelineContext): Promise<StageResult
     .order('line_number')
 
   if (itemsError) {
+    // MOK-119: surface load failures via exception so stage 5 routes the
+    // invoice to pending_exceptions instead of silently auto-confirming.
+    await createException(ctx, {
+      type: 'parse_error',
+      message: `Item matching could not load invoice line items from the database: ${itemsError.message}`,
+      context: { stage: STAGE, error_message: itemsError.message },
+      pipelineStage: STAGE,
+    })
     return { ok: false, fatal: true, error: `Failed to load invoice items: ${itemsError.message}` }
   }
 
@@ -87,13 +94,22 @@ export async function runItemMatching(ctx: PipelineContext): Promise<StageResult
   }
 
   // ── Load all inventory items for this tenant ──────────────────────────────
+  // MOK-119: inventory_items uses soft-delete (deleted_at IS NULL), not
+  // is_active. Earlier code referenced both `is_active` and `sku` which don't
+  // exist on the schema — the query errored on every run.
   const { data: inventoryItems, error: invError } = await ctx.supabase
     .from('inventory_items')
-    .select('id, item_name, sku, unit_cost, tenant_id')
+    .select('id, item_name, unit_cost, tenant_id')
     .eq('tenant_id', ctx.tenantId)
-    .eq('is_active', true)
+    .is('deleted_at', null)
 
   if (invError) {
+    await createException(ctx, {
+      type: 'parse_error',
+      message: `Item matching could not load inventory items from the database: ${invError.message}`,
+      context: { stage: STAGE, error_message: invError.message },
+      pipelineStage: STAGE,
+    })
     return { ok: false, fatal: true, error: `Failed to load inventory items: ${invError.message}` }
   }
 
@@ -185,27 +201,11 @@ async function processInvoiceItem(
     }
   }
 
-  // ── Step 2: SKU match ──────────────────────────────────────────────────────
-  if (item.supplier_item_code) {
-    const skuMatch = inventory.find(
-      (i) => i.sku && i.sku.toLowerCase() === item.supplier_item_code!.toLowerCase()
-    )
-    if (skuMatch) {
-      await applyItemMatch(ctx, item, skuMatch, 1.0, 'sku')
-      if (ctx.resolvedSupplierId) {
-        await upsertAlias(ctx, {
-          supplierId: ctx.resolvedSupplierId,
-          supplierDescription: item.item_description,
-          inventoryItemId: skuMatch.id,
-          confidence: 1.0,
-          source: 'auto',
-        })
-      }
-      return
-    }
-  }
-
-  // ── Step 3: Exact name match ───────────────────────────────────────────────
+  // ── Step 2: Exact name match ───────────────────────────────────────────────
+  // MOK-119: removed the prior SKU-based match path. inventory_items has no
+  // supplier-SKU column to compare invoice_item.supplier_item_code against.
+  // Supplier→inventory mapping persists via supplier_item_aliases (the alias
+  // path above) plus the AI fuzzy match below.
   const exactNameMatch = inventory.find(
     (i) => i.item_name.toLowerCase() === item.item_description.toLowerCase()
   )
@@ -314,17 +314,23 @@ async function applyItemMatch(
     invoice_id: ctx.invoiceId,
   }))
 
-  // ── Check price variance ──────────────────────────────────────────────────
+  // ── Check price variance (MOK-121: info/block per threshold) ──────────────
   const priceVariancePct = inventoryItem.unit_cost > 0
     ? Math.abs((item.unit_price - inventoryItem.unit_cost) / inventoryItem.unit_cost) * 100
     : 0
 
   const priceThresholdPct = ctx.tenantSettings.priceVarianceThresholdPct
 
-  if (priceVariancePct > priceThresholdPct && inventoryItem.unit_cost > 0) {
-    await createException(ctx, {
+  if (priceVariancePct > 0 && inventoryItem.unit_cost > 0) {
+    const severity = priceVariancePct > priceThresholdPct ? 'block' : 'info'
+    const direction = severity === 'block'
+      ? `Exceeds the ${priceThresholdPct}% threshold.`
+      : `Below the ${priceThresholdPct}% threshold — informational only.`
+
+    const exceptionId = await createException(ctx, {
       type: 'price_variance',
-      message: `Unit price for "${inventoryItem.item_name}" changed ${priceVariancePct > 0 ? '+' : ''}${priceVariancePct.toFixed(1)}% (from $${inventoryItem.unit_cost.toFixed(2)} to $${item.unit_price.toFixed(2)}). Exceeds the ${priceThresholdPct}% threshold.`,
+      severity,
+      message: `Unit price for "${inventoryItem.item_name}" changed ${priceVariancePct > 0 ? '+' : ''}${priceVariancePct.toFixed(1)}% (from $${inventoryItem.unit_cost.toFixed(2)} to $${item.unit_price.toFixed(2)}). ${direction}`,
       context: {
         item_description: item.item_description,
         inventory_item_id: inventoryItem.id,
@@ -338,12 +344,66 @@ async function applyItemMatch(
       invoiceItemId: item.id,
       pipelineStage: STAGE,
     })
+
+    // MOK-122: persist to variance history shadow table
+    await recordVariance(ctx, {
+      varianceType: 'price_variance',
+      severity,
+      invoiceItemId: item.id,
+      poUnitCost: inventoryItem.unit_cost,
+      invoiceUnitPrice: item.unit_price,
+      invoiceDescription: item.item_description,
+      variancePct: priceVariancePct,
+      thresholdPct: priceThresholdPct,
+      relatedExceptionId: exceptionId,
+    })
+  }
+
+  // ── MOK-124: replacement-item detection ───────────────────────────────────
+  // If the invoice line's description differs from the matched inventory
+  // item's canonical name, record a 'replacement' row in variance history.
+  // No exception is created — replacements are routine supplier behavior
+  // (e.g., "Brand A bagels" on the PO, "Brand B bagels" on the invoice).
+  // The history row enables supplier-performance reporting on substitution
+  // rates without flooding the exception queue.
+  if (ctx.poMatchId && isReplacement(item.item_description, inventoryItem.item_name)) {
+    await recordVariance(ctx, {
+      varianceType: 'replacement',
+      severity: 'info',
+      invoiceItemId: item.id,
+      poDescription: inventoryItem.item_name,
+      invoiceDescription: item.item_description,
+    })
   }
 
   // ── Check quantity variance vs PO ─────────────────────────────────────────
   if (ctx.poMatchId) {
     await checkQuantityVariance(ctx, item, inventoryItem)
   }
+}
+
+/**
+ * MOK-124: did the invoice line use a description meaningfully different
+ * from the matched inventory item's canonical name? Heuristic:
+ *   - normalize both sides (lowercase, strip non-alphanumeric)
+ *   - if the normalized strings are identical → not a replacement
+ *   - if either is a substring of the other → not a replacement
+ *     (handles "Bagels" → "Plain bagels" — same product, more detail)
+ *   - otherwise → replacement candidate
+ *
+ * This is the conservative "option a" from the MOK-124 ticket. False
+ * positives are tolerable since replacement rows are informational; we'll
+ * tighten with AI semantic similarity in a follow-up if noise becomes a
+ * problem.
+ */
+function isReplacement(invoiceDescription: string, inventoryItemName: string): boolean {
+  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+  const a = normalize(invoiceDescription)
+  const b = normalize(inventoryItemName)
+  if (a.length === 0 || b.length === 0) return false
+  if (a === b) return false
+  if (a.includes(b) || b.includes(a)) return false
+  return true
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -367,45 +427,134 @@ async function checkQuantityVariance(
 
   if (!poMatch) return
 
-  // Look for a PO line item matching this inventory item
+  // Look for a PO line item matching this inventory item.
+  // MOK-119: column is `quantity_ordered`, not `quantity` — the prior code
+  // would error here even when the column-existence check upstream passed.
   const { data: poItem } = await ctx.supabase
     .from('purchase_order_items')
-    .select('id, quantity, inventory_item_id')
+    .select('id, quantity_ordered, inventory_item_id')
     .eq('purchase_order_id', poMatch.purchase_order_id)
     .eq('inventory_item_id', inventoryItem.id)
     .eq('tenant_id', ctx.tenantId)
     .maybeSingle()
 
-  if (!poItem || !poItem.quantity) return
+  if (!poItem || !poItem.quantity_ordered) return
 
-  const variancePct = Math.abs((item.quantity - poItem.quantity) / poItem.quantity) * 100
+  const variancePct = Math.abs((item.quantity - poItem.quantity_ordered) / poItem.quantity_ordered) * 100
   const thresholdPct = ctx.tenantSettings.totalVarianceThresholdPct
 
-  if (variancePct > thresholdPct) {
+  // MOK-121: any non-zero variance produces an exception. Severity is 'info'
+  // (notify but don't block) below the threshold and 'block' (gate
+  // confirmation) at/above it. Stage 5 only gates on 'block' exceptions.
+  if (variancePct > 0) {
+    const severity = variancePct > thresholdPct ? 'block' : 'info'
+
     // Get PO number for message
     const { data: po } = await ctx.supabase
       .from('purchase_orders')
-      .select('po_number')
+      .select('order_number')
       .eq('id', poMatch.purchase_order_id)
       .eq('tenant_id', ctx.tenantId)
       .maybeSingle()
 
-    await createException(ctx, {
+    const direction = severity === 'block'
+      ? `Exceeds the ${thresholdPct}% threshold.`
+      : `Below the ${thresholdPct}% threshold — informational only.`
+
+    const exceptionId = await createException(ctx, {
       type: 'quantity_variance',
-      message: `Quantity for "${inventoryItem.item_name}" differs from PO by ${variancePct.toFixed(1)}% (PO: ${poItem.quantity}, Invoice: ${item.quantity}). Exceeds the ${thresholdPct}% threshold.`,
+      severity,
+      message: `Quantity for "${inventoryItem.item_name}" differs from PO by ${variancePct.toFixed(1)}% (PO: ${poItem.quantity_ordered}, Invoice: ${item.quantity}). ${direction}`,
       context: {
         item_description: item.item_description,
         inventory_item_id: inventoryItem.id,
-        po_quantity: poItem.quantity,
+        po_quantity: poItem.quantity_ordered,
         invoice_quantity: item.quantity,
         variance_pct: variancePct,
         threshold_pct: thresholdPct,
         purchase_order_id: poMatch.purchase_order_id,
-        purchase_order_number: po?.po_number ?? 'Unknown',
+        purchase_order_number: po?.order_number ?? 'Unknown',
       },
       invoiceItemId: item.id,
       pipelineStage: STAGE,
     })
+
+    // MOK-122: persist to variance history shadow table
+    await recordVariance(ctx, {
+      varianceType: 'quantity_variance',
+      severity,
+      invoiceItemId: item.id,
+      purchaseOrderId: poMatch.purchase_order_id,
+      poQuantity: poItem.quantity_ordered,
+      invoiceQuantity: item.quantity,
+      invoiceDescription: item.item_description,
+      variancePct,
+      thresholdPct,
+      relatedExceptionId: exceptionId,
+    })
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Variance history (MOK-122)
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface RecordVarianceInput {
+  varianceType: 'quantity_variance' | 'price_variance' | 'replacement'
+  severity: 'info' | 'block'
+  invoiceItemId?: string
+  purchaseOrderId?: string
+  poQuantity?: number
+  invoiceQuantity?: number
+  poUnitCost?: number
+  invoiceUnitPrice?: number
+  poDescription?: string
+  invoiceDescription?: string
+  variancePct?: number
+  thresholdPct?: number
+  relatedExceptionId?: string
+}
+
+/**
+ * MOK-122: write a row to invoice_variance_history. Called for every variance
+ * encountered by stage 4, regardless of severity. The history table is the
+ * permanent record — even if the related invoice_exceptions row is dismissed
+ * or resolved later, the history persists for supplier-performance reporting.
+ *
+ * Failures here are logged but non-fatal: a missed history row shouldn't
+ * block the pipeline (the exception itself was already created). MOK-119's
+ * lesson — surface stage 4 failures via createException — applies if the
+ * exception step succeeded but history failed; in that case the user sees
+ * the exception, the history is just incomplete.
+ */
+async function recordVariance(
+  ctx: PipelineContext,
+  input: RecordVarianceInput,
+): Promise<void> {
+  const { error } = await ctx.supabase
+    .from('invoice_variance_history')
+    .insert({
+      tenant_id: ctx.tenantId,
+      invoice_id: ctx.invoiceId,
+      invoice_item_id: input.invoiceItemId ?? null,
+      purchase_order_id: input.purchaseOrderId ?? null,
+      supplier_id: ctx.resolvedSupplierId ?? null,
+      variance_type: input.varianceType,
+      severity: input.severity,
+      po_quantity: input.poQuantity ?? null,
+      invoice_quantity: input.invoiceQuantity ?? null,
+      po_unit_cost: input.poUnitCost ?? null,
+      invoice_unit_price: input.invoiceUnitPrice ?? null,
+      po_description: input.poDescription ?? null,
+      invoice_description: input.invoiceDescription ?? null,
+      variance_pct: input.variancePct ?? null,
+      threshold_pct: input.thresholdPct ?? null,
+      related_exception_id: input.relatedExceptionId ?? null,
+    })
+
+  if (error) {
+    console.warn('[04-match-items] Failed to record variance history:', error.message)
+    // Non-fatal — the related exception (if any) is already created
   }
 }
 
@@ -439,7 +588,7 @@ async function fuzzyMatchItemsWithAI(
   const maxItems = 200
   const inventorySlice = inventory.slice(0, maxItems)
   const inventoryListText = inventorySlice
-    .map((i) => `ID:${i.id}|Name:${i.item_name}|SKU:${i.sku ?? 'none'}|Cost:${i.unit_cost}`)
+    .map((i) => `ID:${i.id}|Name:${i.item_name}|Cost:${i.unit_cost}`)
     .join('\n')
 
   const prompt = `You are an inventory item matching assistant for a coffee shop/cafe.
@@ -448,7 +597,7 @@ Match the invoice line item description to the best inventory items.
 
 Invoice description: "${description}"
 
-Inventory items (ID|Name|SKU|UnitCost):
+Inventory items (ID|Name|UnitCost):
 ${inventoryListText}
 
 Return ONLY a JSON array of the best matches (up to 5), best first:

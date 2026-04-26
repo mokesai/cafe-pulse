@@ -57,6 +57,7 @@ interface UploadResult {
 /**
  * Upload a single invoice via the API, returning status + timing.
  * Uses the authenticated page.request context (inherits session cookies).
+ * MOK-120: purchase_order_id is required by the upload route.
  */
 async function uploadInvoiceAndTime(
   page: import('@playwright/test').Page,
@@ -65,6 +66,10 @@ async function uploadInvoiceAndTime(
     fileName: string
     invoiceNumber?: string
     invoiceDate?: string
+    /** MOK-120: required. Fetch via findAnyPO once per test. */
+    purchaseOrderId: string
+    /** Supplier id matching the PO; passed when known to satisfy the route's supplier check. */
+    supplierId?: string
   }
 ): Promise<UploadResult> {
   const fileBuffer = fs.readFileSync(opts.filePath)
@@ -80,6 +85,8 @@ async function uploadInvoiceAndTime(
         },
         invoice_number: opts.invoiceNumber ?? `PERF-E2E-${Date.now()}-${Math.random().toString(36).slice(2)}`,
         invoice_date: opts.invoiceDate ?? new Date().toISOString().split('T')[0],
+        purchase_order_id: opts.purchaseOrderId,
+        ...(opts.supplierId ? { supplier_id: opts.supplierId } : {}),
       },
       // Override timeout for performance tests — we want to measure, not cut short
       timeout: LARGE_PDF_TIMEOUT_MS,
@@ -135,6 +142,27 @@ function generateSyntheticPdf(targetSizeBytes: number): Buffer {
   return Buffer.from(header + body + padContent + trailer)
 }
 
+/**
+ * Find any pending/sent PO in the test tenant (MOK-120). Returns null when
+ * no candidate PO exists — caller should `test.skip`.
+ */
+async function findAnyPO(
+  page: import('@playwright/test').Page,
+): Promise<{ id: string; supplier_id: string } | null> {
+  for (const status of ['pending', 'sent']) {
+    const res = await page.request.get(
+      `${API_BASE}/purchase-orders?status=${status}&limit=1`,
+    )
+    if (!res.ok()) continue
+    const body = await res.json()
+    const list = body.data ?? body.purchase_orders ?? []
+    if (Array.isArray(list) && list.length > 0 && list[0]?.id && list[0]?.supplier_id) {
+      return { id: list[0].id, supplier_id: list[0].supplier_id }
+    }
+  }
+  return null
+}
+
 // ─── Auth setup ───────────────────────────────────────────────────────────────
 
 test.beforeEach(async ({ page }) => {
@@ -145,10 +173,17 @@ test.beforeEach(async ({ page }) => {
 
 test.describe('MOK-61-1: Baseline — single concurrent upload < 10s', () => {
   test('single invoice upload completes in under 10 seconds', async ({ page }) => {
+    const po = await findAnyPO(page)
+    if (!po) {
+      test.skip(true, 'No pending/sent PO available in test tenant')
+      return
+    }
     const result = await uploadInvoiceAndTime(page, {
       filePath: path.join(FIXTURES, 'bluepoint-invoice.pdf'),
       fileName: 'bluepoint-invoice.pdf',
       invoiceNumber: `BASELINE-E2E-${Date.now()}`,
+      purchaseOrderId: po.id,
+      supplierId: po.supplier_id,
     })
 
     expect(result.status).toBeGreaterThanOrEqual(200)
@@ -162,6 +197,11 @@ test.describe('MOK-61-1: Baseline — single concurrent upload < 10s', () => {
 
 test.describe('MOK-61-2: 5 concurrent uploads — all succeed, response time < 30s', () => {
   test('5 simultaneous invoice uploads all succeed within 30 seconds', async ({ page }) => {
+    const po = await findAnyPO(page)
+    if (!po) {
+      test.skip(true, 'No pending/sent PO available in test tenant')
+      return
+    }
     const CONCURRENCY = 5
     const fixtures = [
       'bluepoint-invoice.pdf',
@@ -180,6 +220,8 @@ test.describe('MOK-61-2: 5 concurrent uploads — all succeed, response time < 3
           filePath: path.join(FIXTURES, fixture),
           fileName: fixture,
           invoiceNumber: `CONC5-E2E-${i}-${Date.now()}`,
+          purchaseOrderId: po.id,
+          supplierId: po.supplier_id,
         })
       })
     )
@@ -209,6 +251,11 @@ test.describe('MOK-61-2: 5 concurrent uploads — all succeed, response time < 3
 
 test.describe('MOK-61-3: 10 concurrent uploads — succeed or fail gracefully (no 500s)', () => {
   test('10 simultaneous uploads do not produce HTTP 500 errors', async ({ page }) => {
+    const po = await findAnyPO(page)
+    if (!po) {
+      test.skip(true, 'No pending/sent PO available in test tenant')
+      return
+    }
     const CONCURRENCY = 10
     const availableFixtures = [
       'bluepoint-invoice.pdf',
@@ -230,6 +277,8 @@ test.describe('MOK-61-3: 10 concurrent uploads — succeed or fail gracefully (n
           filePath: path.join(FIXTURES, fixture),
           fileName: fixture,
           invoiceNumber: `CONC10-E2E-${i}-${Date.now()}`,
+          purchaseOrderId: po.id,
+          supplierId: po.supplier_id,
         })
       })
     )
@@ -269,6 +318,11 @@ test.describe('MOK-61-4: Large PDF upload — 5MB processes without timeout', ()
   test('uploads a ~5MB PDF and receives a non-error response within 2 minutes', async ({
     page,
   }) => {
+    const po = await findAnyPO(page)
+    if (!po) {
+      test.skip(true, 'No pending/sent PO available in test tenant')
+      return
+    }
     const TARGET_SIZE = 5 * 1024 * 1024 // 5MB
     const largePdfBuffer = generateSyntheticPdf(TARGET_SIZE)
 
@@ -282,6 +336,8 @@ test.describe('MOK-61-4: Large PDF upload — 5MB processes without timeout', ()
         filePath: tmpPath,
         fileName: 'large-invoice.pdf',
         invoiceNumber: `LARGE-E2E-${Date.now()}`,
+        purchaseOrderId: po.id,
+        supplierId: po.supplier_id,
       })
     } finally {
       // Clean up temp file
@@ -315,6 +371,11 @@ test.describe('MOK-61-5: Rapid sequential uploads — no state bleed', () => {
   test('5 back-to-back uploads produce 5 distinct invoice records with no shared data', async ({
     page,
   }) => {
+    const po = await findAnyPO(page)
+    if (!po) {
+      test.skip(true, 'No pending/sent PO available in test tenant')
+      return
+    }
     const SEQUENTIAL_COUNT = 5
     const fixtures = [
       'bluepoint-invoice.pdf',
@@ -336,6 +397,8 @@ test.describe('MOK-61-5: Rapid sequential uploads — no state bleed', () => {
         filePath: path.join(FIXTURES, fixture),
         fileName: fixture,
         invoiceNumber,
+        purchaseOrderId: po.id,
+        supplierId: po.supplier_id,
       })
       results.push(result)
 
@@ -379,6 +442,11 @@ test.describe('MOK-61-5: Rapid sequential uploads — no state bleed', () => {
   test('sequential uploads produce isolated parse results — no line-item cross-contamination', async ({
     page,
   }) => {
+    const po = await findAnyPO(page)
+    if (!po) {
+      test.skip(true, 'No pending/sent PO available in test tenant')
+      return
+    }
     // Upload 2 distinct PDFs back-to-back and verify their extracted data doesn't mix
     const fixtures = ['goldseal-invoice.pdf', 'walmart-invoice.pdf']
 
@@ -388,16 +456,11 @@ test.describe('MOK-61-5: Rapid sequential uploads — no state bleed', () => {
         filePath: path.join(FIXTURES, fixture),
         fileName: fixture,
         invoiceNumber: `ISOLATION-E2E-${fixture.replace('.pdf', '')}-${Date.now()}`,
+        purchaseOrderId: po.id,
+        supplierId: po.supplier_id,
       })
       results.push(result)
-
-      // Parse each invoice right after upload (accept 2xx or 409 already-parsing)
-      if (result.invoiceId) {
-        const parseRes = await page.request.post(
-          `${API_BASE}/invoices/${result.invoiceId}/parse`
-        )
-        expect([200, 201, 202, 409]).toContain(parseRes.status())
-      }
+      // MOK-126: pipeline runs automatically on INSERT; no need to call /parse
     }
 
     // Wait briefly for parse to complete, then verify they have distinct line items
@@ -424,6 +487,11 @@ test.describe('MOK-61-5: Rapid sequential uploads — no state bleed', () => {
 
 test.describe('MOK-61-6: Response time distribution — multiple single uploads', () => {
   test('uploads 3 invoices serially and logs individual response times', async ({ page }) => {
+    const po = await findAnyPO(page)
+    if (!po) {
+      test.skip(true, 'No pending/sent PO available in test tenant')
+      return
+    }
     const uploads = [
       { fixture: 'bluepoint-invoice.pdf', label: 'Bluepoint' },
       { fixture: 'odeko-invoice.pdf', label: 'Odeko' },
@@ -437,6 +505,8 @@ test.describe('MOK-61-6: Response time distribution — multiple single uploads'
         filePath: path.join(FIXTURES, fixture),
         fileName: fixture,
         invoiceNumber: `TIMING-E2E-${label}-${Date.now()}`,
+        purchaseOrderId: po.id,
+        supplierId: po.supplier_id,
       })
       timings.push({ label, elapsedMs: result.elapsedMs, status: result.status })
 

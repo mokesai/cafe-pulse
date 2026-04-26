@@ -33,6 +33,8 @@ import { POST as uploadPOST } from '@/app/api/admin/invoices/upload/route'
 import {
   buildAuthedRequest,
   cleanupTenant,
+  createInventoryItem,
+  createPurchaseOrder,
   createSupplier,
   createTenantForTest,
   getServiceClient,
@@ -45,6 +47,7 @@ function makePdfFormData(opts: {
   supplier_id: string
   invoice_number: string
   invoice_date?: string
+  purchase_order_id?: string
 }): FormData {
   const fd = new FormData()
   const pdfBlob = new Blob(['%PDF-1.4\n1 0 obj\n<<\n>>\nendobj\n'], {
@@ -54,7 +57,24 @@ function makePdfFormData(opts: {
   fd.append('supplier_id', opts.supplier_id)
   fd.append('invoice_number', opts.invoice_number)
   fd.append('invoice_date', opts.invoice_date ?? new Date().toISOString().slice(0, 10))
+  if (opts.purchase_order_id) {
+    fd.append('purchase_order_id', opts.purchase_order_id)
+  }
   return fd
+}
+
+/**
+ * Create a complete PO context for upload tests: supplier + inventory item + PO.
+ * MOK-120 requires every invoice upload to pass a valid purchase_order_id.
+ */
+async function createPOForUpload(tenant: TestTenant) {
+  const supplier = await createSupplier(tenant)
+  const inventoryItem = await createInventoryItem(tenant)
+  const po = await createPurchaseOrder(tenant, {
+    supplier_id: supplier.id,
+    inventory_item_id: inventoryItem.id,
+  })
+  return { supplier, inventoryItem, po }
 }
 
 describe('admin invoices/upload — tenant isolation', () => {
@@ -72,14 +92,18 @@ describe('admin invoices/upload — tenant isolation', () => {
 
   it('INSERT path: creates a new invoice under the calling tenant only', async () => {
     if (!tenantA || !tenantB) throw new Error('test setup failed')
-    const supplier = await createSupplier(tenantA)
+    const { supplier, po } = await createPOForUpload(tenantA)
     const invoiceNumber = `UPLOAD-INS-${Date.now()}`
 
     const req = buildAuthedRequest({
       tenant: tenantA,
       method: 'POST',
       url: '/api/admin/invoices/upload',
-      body: makePdfFormData({ supplier_id: supplier.id, invoice_number: invoiceNumber }),
+      body: makePdfFormData({
+        supplier_id: supplier.id,
+        invoice_number: invoiceNumber,
+        purchase_order_id: po.id,
+      }),
     })
     const res = await uploadPOST(req)
     expect(res.status).toBe(201)
@@ -96,7 +120,12 @@ describe('admin invoices/upload — tenant isolation', () => {
     expect(inv!.tenant_id).toBe(tenantA.id)
     expect(inv!.tenant_id).not.toBe(tenantB.id)
     expect(inv!.tenant_id).not.toBe(DEFAULT_TENANT)
-    expect(inv!.status).toBe('uploaded')
+    // Status starts at 'uploaded' but the AFTER INSERT trigger fires the
+    // pipeline immediately. By the time we read it back, status may have
+    // advanced to any pipeline state. Tolerate any post-upload value.
+    expect(['uploaded', 'pipeline_running', 'pending_exceptions', 'confirmed', 'error', 'duplicate']).toContain(
+      inv!.status,
+    )
 
     const { count: countB } = await svc
       .from('invoices')
@@ -108,7 +137,7 @@ describe('admin invoices/upload — tenant isolation', () => {
 
   it('Re-upload (MOK-109): replaces prior invoice with a fresh row, leaves exactly one row under the calling tenant', async () => {
     if (!tenantA || !tenantB) throw new Error('test setup failed')
-    const supplier = await createSupplier(tenantA)
+    const { supplier, po } = await createPOForUpload(tenantA)
     const invoiceNumber = `UPLOAD-UPD-${Date.now()}`
 
     // First upload — creates the invoice
@@ -116,7 +145,11 @@ describe('admin invoices/upload — tenant isolation', () => {
       tenant: tenantA,
       method: 'POST',
       url: '/api/admin/invoices/upload',
-      body: makePdfFormData({ supplier_id: supplier.id, invoice_number: invoiceNumber }),
+      body: makePdfFormData({
+        supplier_id: supplier.id,
+        invoice_number: invoiceNumber,
+        purchase_order_id: po.id,
+      }),
     })
     const firstRes = await uploadPOST(firstReq)
     expect(firstRes.status).toBe(201)
@@ -128,7 +161,11 @@ describe('admin invoices/upload — tenant isolation', () => {
       tenant: tenantA,
       method: 'POST',
       url: '/api/admin/invoices/upload',
-      body: makePdfFormData({ supplier_id: supplier.id, invoice_number: invoiceNumber }),
+      body: makePdfFormData({
+        supplier_id: supplier.id,
+        invoice_number: invoiceNumber,
+        purchase_order_id: po.id,
+      }),
     })
     const secondRes = await uploadPOST(secondReq)
     expect(secondRes.status).toBe(201)
@@ -161,8 +198,8 @@ describe('admin invoices/upload — tenant isolation', () => {
 
   it('tenant B uploading the same invoice_number + supplier_id as tenant A creates a separate row under B', async () => {
     if (!tenantA || !tenantB) throw new Error('test setup failed')
-    const supplierA = await createSupplier(tenantA)
-    const supplierB = await createSupplier(tenantB)
+    const { supplier: supplierA, po: poA } = await createPOForUpload(tenantA)
+    const { supplier: supplierB, po: poB } = await createPOForUpload(tenantB)
     const invoiceNumber = `UPLOAD-X-${Date.now()}`
 
     // A uploads first
@@ -170,7 +207,11 @@ describe('admin invoices/upload — tenant isolation', () => {
       tenant: tenantA,
       method: 'POST',
       url: '/api/admin/invoices/upload',
-      body: makePdfFormData({ supplier_id: supplierA.id, invoice_number: invoiceNumber }),
+      body: makePdfFormData({
+        supplier_id: supplierA.id,
+        invoice_number: invoiceNumber,
+        purchase_order_id: poA.id,
+      }),
     })
     const resA = await uploadPOST(reqA)
     expect(resA.status).toBe(201)
@@ -181,7 +222,11 @@ describe('admin invoices/upload — tenant isolation', () => {
       tenant: tenantB,
       method: 'POST',
       url: '/api/admin/invoices/upload',
-      body: makePdfFormData({ supplier_id: supplierB.id, invoice_number: invoiceNumber }),
+      body: makePdfFormData({
+        supplier_id: supplierB.id,
+        invoice_number: invoiceNumber,
+        purchase_order_id: poB.id,
+      }),
     })
     const resB = await uploadPOST(reqB)
     expect(resB.status).toBe(201)
@@ -201,5 +246,138 @@ describe('admin invoices/upload — tenant isolation', () => {
       .single()
     expect(inA!.tenant_id).toBe(tenantA.id)
     expect(inB!.tenant_id).toBe(tenantB.id)
+  })
+})
+
+// ─── MOK-120: PO is required at upload time ──────────────────────────────────
+
+describe('admin invoices/upload — MOK-120 PO requirement', () => {
+  let tenantA: TestTenant | undefined
+  let tenantB: TestTenant | undefined
+
+  beforeAll(async () => {
+    tenantA = await createTenantForTest()
+    tenantB = await createTenantForTest()
+  })
+
+  afterAll(async () => {
+    await Promise.all([cleanupTenant(tenantA), cleanupTenant(tenantB)])
+  })
+
+  it('rejects upload without purchase_order_id (400 PURCHASE_ORDER_REQUIRED)', async () => {
+    if (!tenantA) throw new Error('test setup failed')
+    const supplier = await createSupplier(tenantA)
+
+    const req = buildAuthedRequest({
+      tenant: tenantA,
+      method: 'POST',
+      url: '/api/admin/invoices/upload',
+      body: makePdfFormData({
+        supplier_id: supplier.id,
+        invoice_number: `NO-PO-${Date.now()}`,
+        // purchase_order_id intentionally omitted
+      }),
+    })
+    const res = await uploadPOST(req)
+    expect(res.status).toBe(400)
+    const json = await res.json()
+    expect(json.code).toBe('PURCHASE_ORDER_REQUIRED')
+  })
+
+  it('rejects upload when purchase_order_id does not exist (404)', async () => {
+    if (!tenantA) throw new Error('test setup failed')
+    const supplier = await createSupplier(tenantA)
+
+    const req = buildAuthedRequest({
+      tenant: tenantA,
+      method: 'POST',
+      url: '/api/admin/invoices/upload',
+      body: makePdfFormData({
+        supplier_id: supplier.id,
+        invoice_number: `BAD-PO-${Date.now()}`,
+        purchase_order_id: '00000000-0000-0000-0000-000000000000',
+      }),
+    })
+    const res = await uploadPOST(req)
+    expect(res.status).toBe(404)
+    const json = await res.json()
+    expect(json.code).toBe('PURCHASE_ORDER_NOT_FOUND')
+  })
+
+  it('rejects upload when purchase_order_id belongs to a different tenant (404 — invisible across tenants)', async () => {
+    if (!tenantA || !tenantB) throw new Error('test setup failed')
+    const { po: poB } = await createPOForUpload(tenantB)
+    const supplierA = await createSupplier(tenantA)
+
+    const req = buildAuthedRequest({
+      tenant: tenantA,
+      method: 'POST',
+      url: '/api/admin/invoices/upload',
+      body: makePdfFormData({
+        supplier_id: supplierA.id,
+        invoice_number: `XTENANT-PO-${Date.now()}`,
+        purchase_order_id: poB.id, // belongs to tenant B
+      }),
+    })
+    const res = await uploadPOST(req)
+    expect(res.status).toBe(404)
+    const json = await res.json()
+    expect(json.code).toBe('PURCHASE_ORDER_NOT_FOUND')
+  })
+
+  it('rejects upload when invoice supplier does not match PO supplier (400 SUPPLIER_MISMATCH)', async () => {
+    if (!tenantA) throw new Error('test setup failed')
+    const { po } = await createPOForUpload(tenantA) // PO is for one supplier
+    const otherSupplier = await createSupplier(tenantA) // unrelated supplier
+
+    const req = buildAuthedRequest({
+      tenant: tenantA,
+      method: 'POST',
+      url: '/api/admin/invoices/upload',
+      body: makePdfFormData({
+        supplier_id: otherSupplier.id, // DIFFERENT from po.supplier_id
+        invoice_number: `MISMATCH-${Date.now()}`,
+        purchase_order_id: po.id,
+      }),
+    })
+    const res = await uploadPOST(req)
+    expect(res.status).toBe(400)
+    const json = await res.json()
+    expect(json.code).toBe('SUPPLIER_MISMATCH')
+  })
+
+  it('successful upload creates the order_invoice_matches link atomically', async () => {
+    if (!tenantA) throw new Error('test setup failed')
+    const { supplier, po } = await createPOForUpload(tenantA)
+    const invoiceNumber = `LINK-${Date.now()}`
+
+    const req = buildAuthedRequest({
+      tenant: tenantA,
+      method: 'POST',
+      url: '/api/admin/invoices/upload',
+      body: makePdfFormData({
+        supplier_id: supplier.id,
+        invoice_number: invoiceNumber,
+        purchase_order_id: po.id,
+      }),
+    })
+    const res = await uploadPOST(req)
+    expect(res.status).toBe(201)
+    const invoiceId: string = (await res.json()).data.id
+
+    // The link should exist immediately (atomic with the invoice INSERT).
+    const svc = getServiceClient()
+    const { data: link } = await svc
+      .from('order_invoice_matches')
+      .select('id, invoice_id, purchase_order_id, match_method, match_confidence, status')
+      .eq('invoice_id', invoiceId)
+      .eq('tenant_id', tenantA.id)
+      .single()
+
+    expect(link).not.toBeNull()
+    expect(link!.purchase_order_id).toBe(po.id)
+    expect(link!.match_method).toBe('manual')
+    expect(Number(link!.match_confidence)).toBe(1)
+    expect(link!.status).toBe('pending')
   })
 })

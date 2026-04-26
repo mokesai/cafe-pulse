@@ -23,7 +23,7 @@ const PO_SEARCH_WINDOW_DAYS = 90
 
 interface PurchaseOrder {
   id: string
-  po_number: string
+  order_number: string
   supplier_id: string
   total_amount: number | null
   status: string
@@ -39,6 +39,29 @@ export async function runPOMatching(ctx: PipelineContext): Promise<StageResult> 
     tenant_id: ctx.tenantId,
     resolved_supplier_id: ctx.resolvedSupplierId,
   }))
+
+  // MOK-117: respect existing manual PO links. The upload route from a PO view
+  // modal creates a manual link in order_invoice_matches at upload time. Without
+  // this short-circuit, the auto-matcher's variance threshold could raise a
+  // false no_po_match exception even when the user explicitly linked a PO.
+  const { data: existingManualMatch } = await ctx.supabase
+    .from('order_invoice_matches')
+    .select('id, purchase_order_id')
+    .eq('tenant_id', ctx.tenantId)
+    .eq('invoice_id', ctx.invoiceId)
+    .eq('match_method', 'manual')
+    .maybeSingle()
+
+  if (existingManualMatch) {
+    ctx.poMatchId = existingManualMatch.id
+    console.log(JSON.stringify({
+      event: 'po_match_existing_manual',
+      invoice_id: ctx.invoiceId,
+      purchase_order_id: existingManualMatch.purchase_order_id,
+      match_id: existingManualMatch.id,
+    }))
+    return { ok: true }
+  }
 
   // No supplier resolved → can't match PO
   if (!ctx.resolvedSupplierId) {
@@ -56,7 +79,7 @@ export async function runPOMatching(ctx: PipelineContext): Promise<StageResult> 
 
   const { data: purchaseOrders, error: poError } = await ctx.supabase
     .from('purchase_orders')
-    .select('id, po_number, supplier_id, total_amount, status, order_date, tenant_id')
+    .select('id, order_number, supplier_id, total_amount, status, order_date, tenant_id')
     .eq('tenant_id', ctx.tenantId)
     .eq('supplier_id', ctx.resolvedSupplierId)
     .in('status', ['pending', 'sent', 'partial']) // open statuses
@@ -157,7 +180,7 @@ export async function runPOMatching(ctx: PipelineContext): Promise<StageResult> 
     event: 'po_matched',
     invoice_id: ctx.invoiceId,
     purchase_order_id: bestPo.id,
-    po_number: bestPo.po_number,
+    order_number: bestPo.order_number,
     match_id: newMatch.id,
     invoice_total: invoiceTotal,
     po_total: bestPo.total_amount,
