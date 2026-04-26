@@ -236,5 +236,14 @@ describe('Invoice pipeline schema contract', () => {
         .limit(1)
       expect(error).toBeNull()
     })
+
+    it('invoice_exceptions has severity column with info/block constraint (MOK-121)', async () => {
+      const svc = getServiceClient()
+      const { error } = await svc
+        .from('invoice_exceptions')
+        .select('id, severity')
+        .limit(1)
+      expect(error).toBeNull()
+    })
   })
 })
