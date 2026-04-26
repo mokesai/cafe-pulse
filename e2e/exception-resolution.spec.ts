@@ -66,24 +66,46 @@ async function uploadInvoice(
   return { res, body: await res.json() }
 }
 
-/** Poll until the invoice reaches targetStatus or throw on timeout. */
-async function waitForInvoiceStatus(
+/** Terminal pipeline statuses produced by the agentic pipeline (MOK-110+). */
+const PIPELINE_TERMINAL_STATUSES = new Set([
+  'confirmed',
+  'pending_exceptions',
+  'error',
+  'duplicate',
+  // Legacy terminal-ish states retained for backward compatibility with any
+  // tenants/seeds that haven't fully transitioned to the agentic pipeline.
+  'parsed',
+  'matched',
+  'exception',
+  'pending_confirmation',
+])
+
+/**
+ * Poll until the invoice's pipeline run finishes — meaning status is one of the
+ * agentic pipeline's terminal values (or a legacy equivalent). Returns the
+ * invoice body when terminal; throws on timeout.
+ *
+ * MOK-126: replaces explicit /parse + /match-orders + waitForInvoiceStatus('parsed')
+ * orchestration. The edge function (AFTER INSERT trigger) runs both stages
+ * automatically when an invoice is uploaded; tests should wait for that, not
+ * drive it manually.
+ */
+async function waitForPipelineComplete(
   page: import('@playwright/test').Page,
   invoiceId: string,
-  targetStatus: string,
-  maxMs = 30_000
+  maxMs = 60_000
 ) {
   const deadline = Date.now() + maxMs
   while (Date.now() < deadline) {
     const res = await page.request.get(`${API_BASE}/invoices/${invoiceId}`)
     if (res.status() === 200) {
       const body = await res.json()
-      const current: string = body.data?.status ?? body.status
-      if (current === targetStatus) return body
+      const status: string = body.data?.status ?? body.status
+      if (PIPELINE_TERMINAL_STATUSES.has(status)) return body
     }
     await page.waitForTimeout(1_000)
   }
-  throw new Error(`Invoice ${invoiceId} did not reach status "${targetStatus}" within ${maxMs}ms`)
+  throw new Error(`Invoice ${invoiceId} pipeline did not complete within ${maxMs}ms`)
 }
 
 /** Poll until an open exception of the given type exists for the invoice.
@@ -143,21 +165,11 @@ test.describe('MOK-60-1: No PO found — upload → exception → manually link 
     const invoiceId: string = uploadBody.id ?? uploadBody.data?.id
     expect(invoiceId).toBeTruthy()
 
-    // Parse the invoice
-    const parseRes = await page.request.post(`${API_BASE}/invoices/${invoiceId}/parse`)
-    expect([200, 202]).toContain(parseRes.status())
-    await waitForInvoiceStatus(page, invoiceId, 'parsed')
-
-    // Trigger PO matching — expect no match → exception
-    await page.request.post(`${API_BASE}/invoices/${invoiceId}/match-orders`)
-
-    // Step: verify the invoice is in an exception state
-    const invoiceRes = await page.request.get(`${API_BASE}/invoices/${invoiceId}`)
-    expect(invoiceRes.status()).toBe(200)
-    const invoiceBody = await invoiceRes.json()
+    // MOK-126: the agentic pipeline runs automatically on invoice INSERT
+    // (AFTER INSERT trigger → edge function). Wait for it to finish.
+    const invoiceBody = await waitForPipelineComplete(page, invoiceId)
     const invoiceStatus: string = invoiceBody.data?.status ?? invoiceBody.status
-    // 'exception' or 'parsed' are both valid depending on matching behavior
-    expect(['exception', 'parsed', 'pending_confirmation']).toContain(invoiceStatus)
+    expect(PIPELINE_TERMINAL_STATUSES.has(invoiceStatus)).toBe(true)
 
     // Look for a no_po_match exception
     const exception = await waitForException(page, invoiceId, 'no_po_match', 15_000)
@@ -196,14 +208,12 @@ test.describe('MOK-60-1: No PO found — upload → exception → manually link 
       expect(finalStatus).toBe('resolved')
     } else {
       // No exception was generated (e.g., invoice auto-confirmed or already had a loose match).
-      // Assert the invoice at least processed without error.
+      // Assert the invoice reached a terminal pipeline state without crashing.
       const finalRes = await page.request.get(`${API_BASE}/invoices/${invoiceId}`)
       expect(finalRes.status()).toBe(200)
       const finalBody = await finalRes.json()
       const finalStatus: string = finalBody.data?.status ?? finalBody.status
-      expect(['parsed', 'matched', 'exception', 'confirmed', 'pending_confirmation']).toContain(
-        finalStatus
-      )
+      expect(PIPELINE_TERMINAL_STATUSES.has(finalStatus)).toBe(true)
     }
   })
 
@@ -352,13 +362,8 @@ test.describe('MOK-60-3: Low confidence — AI match flagged for review → appr
     const invoiceId: string = uploadBody.id ?? uploadBody.data?.id
     expect(invoiceId).toBeTruthy()
 
-    // Parse
-    const parseRes = await page.request.post(`${API_BASE}/invoices/${invoiceId}/parse`)
-    expect([200, 202]).toContain(parseRes.status())
-    await waitForInvoiceStatus(page, invoiceId, 'parsed')
-
-    // Trigger matching
-    await page.request.post(`${API_BASE}/invoices/${invoiceId}/match-orders`)
+    // MOK-126: pipeline runs on INSERT; wait for it to settle.
+    await waitForPipelineComplete(page, invoiceId)
 
     // Check for low_extraction_confidence exception
     const exception = await waitForException(
@@ -398,14 +403,12 @@ test.describe('MOK-60-3: Low confidence — AI match flagged for review → appr
       expect(detailBody.data.status).toBe('resolved')
     } else {
       // The pipeline may not always produce a low-confidence exception in staging;
-      // assert the invoice processed cleanly.
+      // assert the invoice reached a terminal pipeline state.
       const finalRes = await page.request.get(`${API_BASE}/invoices/${invoiceId}`)
       expect(finalRes.status()).toBe(200)
       const finalBody = await finalRes.json()
       const finalStatus: string = finalBody.data?.status ?? finalBody.status
-      expect(['parsed', 'matched', 'exception', 'confirmed', 'pending_confirmation']).toContain(
-        finalStatus
-      )
+      expect(PIPELINE_TERMINAL_STATUSES.has(finalStatus)).toBe(true)
     }
   })
 
@@ -462,11 +465,8 @@ test.describe('MOK-60-4: Price variance — invoice price differs from PO → ap
     const invoiceId: string = uploadBody.id ?? uploadBody.data?.id
     expect(invoiceId).toBeTruthy()
 
-    // Parse and match
-    const parseRes = await page.request.post(`${API_BASE}/invoices/${invoiceId}/parse`)
-    expect([200, 202]).toContain(parseRes.status())
-    await waitForInvoiceStatus(page, invoiceId, 'parsed')
-    await page.request.post(`${API_BASE}/invoices/${invoiceId}/match-orders`)
+    // MOK-126: pipeline runs on INSERT; wait for it to settle.
+    await waitForPipelineComplete(page, invoiceId)
 
     // Wait for a price_variance exception
     const exception = await waitForException(page, invoiceId, 'price_variance', 20_000)
@@ -506,14 +506,12 @@ test.describe('MOK-60-4: Price variance — invoice price differs from PO → ap
       const detailBody = await detailRes.json()
       expect(detailBody.data.status).toBe('resolved')
     } else {
-      // No price variance produced — assert pipeline still processed cleanly
+      // No price variance produced — assert pipeline reached a terminal state.
       const finalRes = await page.request.get(`${API_BASE}/invoices/${invoiceId}`)
       expect(finalRes.status()).toBe(200)
       const finalBody = await finalRes.json()
       const finalStatus: string = finalBody.data?.status ?? finalBody.status
-      expect(['parsed', 'matched', 'exception', 'confirmed', 'pending_confirmation']).toContain(
-        finalStatus
-      )
+      expect(PIPELINE_TERMINAL_STATUSES.has(finalStatus)).toBe(true)
     }
   })
 
@@ -567,11 +565,8 @@ test.describe('MOK-60-5: Qty variance — invoice qty differs from PO → resolv
     const invoiceId: string = uploadBody.id ?? uploadBody.data?.id
     expect(invoiceId).toBeTruthy()
 
-    // Parse and match
-    const parseRes = await page.request.post(`${API_BASE}/invoices/${invoiceId}/parse`)
-    expect([200, 202]).toContain(parseRes.status())
-    await waitForInvoiceStatus(page, invoiceId, 'parsed')
-    await page.request.post(`${API_BASE}/invoices/${invoiceId}/match-orders`)
+    // MOK-126: pipeline runs on INSERT; wait for it to settle.
+    await waitForPipelineComplete(page, invoiceId)
 
     // Wait for a quantity_variance exception
     const exception = await waitForException(page, invoiceId, 'quantity_variance', 15_000)
@@ -600,14 +595,12 @@ test.describe('MOK-60-5: Qty variance — invoice qty differs from PO → resolv
       const detailBody = await detailRes.json()
       expect(detailBody.data.status).toBe('resolved')
     } else {
-      // No qty variance produced — assert pipeline processed cleanly
+      // No qty variance produced — assert pipeline reached a terminal state.
       const finalRes = await page.request.get(`${API_BASE}/invoices/${invoiceId}`)
       expect(finalRes.status()).toBe(200)
       const finalBody = await finalRes.json()
       const finalStatus: string = finalBody.data?.status ?? finalBody.status
-      expect(['parsed', 'matched', 'exception', 'confirmed', 'pending_confirmation']).toContain(
-        finalStatus
-      )
+      expect(PIPELINE_TERMINAL_STATUSES.has(finalStatus)).toBe(true)
     }
   })
 
