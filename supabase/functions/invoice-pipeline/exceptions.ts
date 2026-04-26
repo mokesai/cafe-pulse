@@ -25,6 +25,16 @@ export type ExceptionType =
   | 'duplicate_invoice'
 
 // ============================================================
+// Severity (MOK-121)
+// ============================================================
+
+/**
+ * 'block' (default): exception prevents auto-confirmation; invoice → pending_exceptions.
+ * 'info': informational only; surfaces in queue but does not gate confirmation.
+ */
+export type ExceptionSeverity = 'info' | 'block'
+
+// ============================================================
 // Input shape
 // ============================================================
 
@@ -39,6 +49,8 @@ export interface CreateExceptionInput {
   invoiceItemId?: string
   /** Pipeline stage name when exception was created */
   pipelineStage: string
+  /** MOK-121: severity. Defaults to 'block' if omitted. */
+  severity?: ExceptionSeverity
 }
 
 // ============================================================
@@ -56,6 +68,8 @@ export async function createException(
   ctx: PipelineContext,
   input: CreateExceptionInput
 ): Promise<string> {
+  const severity: ExceptionSeverity = input.severity ?? 'block'
+
   const { data, error } = await ctx.supabase
     .from('invoice_exceptions')
     .insert({
@@ -67,6 +81,7 @@ export async function createException(
       exception_context: input.context,
       pipeline_stage_at_creation: input.pipelineStage,
       status: 'open',
+      severity,
     })
     .select('id')
     .single()
@@ -75,9 +90,13 @@ export async function createException(
     throw new Error(`[exceptions] Failed to create ${input.type} exception: ${error.message}`)
   }
 
-  // Update context counters — used by Stage 5 to gate auto-confirmation
+  // Update context counters — used by Stage 5 to gate auto-confirmation.
+  // MOK-121: only 'block' severity exceptions count toward hasBlockingExceptions.
+  // 'info' exceptions are surfaced in the queue but do not gate confirmation.
   ctx.openExceptionCount++
-  ctx.hasBlockingExceptions = true
+  if (severity === 'block') {
+    ctx.hasBlockingExceptions = true
+  }
 
   console.log(JSON.stringify({
     event: 'exception_created',
@@ -85,6 +104,7 @@ export async function createException(
     tenant_id: ctx.tenantId,
     exception_id: data.id,
     exception_type: input.type,
+    severity,
     pipeline_stage: input.pipelineStage,
     invoice_item_id: input.invoiceItemId ?? null,
   }))

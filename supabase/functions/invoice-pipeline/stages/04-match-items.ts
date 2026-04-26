@@ -314,17 +314,23 @@ async function applyItemMatch(
     invoice_id: ctx.invoiceId,
   }))
 
-  // ── Check price variance ──────────────────────────────────────────────────
+  // ── Check price variance (MOK-121: info/block per threshold) ──────────────
   const priceVariancePct = inventoryItem.unit_cost > 0
     ? Math.abs((item.unit_price - inventoryItem.unit_cost) / inventoryItem.unit_cost) * 100
     : 0
 
   const priceThresholdPct = ctx.tenantSettings.priceVarianceThresholdPct
 
-  if (priceVariancePct > priceThresholdPct && inventoryItem.unit_cost > 0) {
+  if (priceVariancePct > 0 && inventoryItem.unit_cost > 0) {
+    const severity = priceVariancePct > priceThresholdPct ? 'block' : 'info'
+    const direction = severity === 'block'
+      ? `Exceeds the ${priceThresholdPct}% threshold.`
+      : `Below the ${priceThresholdPct}% threshold — informational only.`
+
     await createException(ctx, {
       type: 'price_variance',
-      message: `Unit price for "${inventoryItem.item_name}" changed ${priceVariancePct > 0 ? '+' : ''}${priceVariancePct.toFixed(1)}% (from $${inventoryItem.unit_cost.toFixed(2)} to $${item.unit_price.toFixed(2)}). Exceeds the ${priceThresholdPct}% threshold.`,
+      severity,
+      message: `Unit price for "${inventoryItem.item_name}" changed ${priceVariancePct > 0 ? '+' : ''}${priceVariancePct.toFixed(1)}% (from $${inventoryItem.unit_cost.toFixed(2)} to $${item.unit_price.toFixed(2)}). ${direction}`,
       context: {
         item_description: item.item_description,
         inventory_item_id: inventoryItem.id,
@@ -383,7 +389,12 @@ async function checkQuantityVariance(
   const variancePct = Math.abs((item.quantity - poItem.quantity_ordered) / poItem.quantity_ordered) * 100
   const thresholdPct = ctx.tenantSettings.totalVarianceThresholdPct
 
-  if (variancePct > thresholdPct) {
+  // MOK-121: any non-zero variance produces an exception. Severity is 'info'
+  // (notify but don't block) below the threshold and 'block' (gate
+  // confirmation) at/above it. Stage 5 only gates on 'block' exceptions.
+  if (variancePct > 0) {
+    const severity = variancePct > thresholdPct ? 'block' : 'info'
+
     // Get PO number for message
     const { data: po } = await ctx.supabase
       .from('purchase_orders')
@@ -392,9 +403,14 @@ async function checkQuantityVariance(
       .eq('tenant_id', ctx.tenantId)
       .maybeSingle()
 
+    const direction = severity === 'block'
+      ? `Exceeds the ${thresholdPct}% threshold.`
+      : `Below the ${thresholdPct}% threshold — informational only.`
+
     await createException(ctx, {
       type: 'quantity_variance',
-      message: `Quantity for "${inventoryItem.item_name}" differs from PO by ${variancePct.toFixed(1)}% (PO: ${poItem.quantity_ordered}, Invoice: ${item.quantity}). Exceeds the ${thresholdPct}% threshold.`,
+      severity,
+      message: `Quantity for "${inventoryItem.item_name}" differs from PO by ${variancePct.toFixed(1)}% (PO: ${poItem.quantity_ordered}, Invoice: ${item.quantity}). ${direction}`,
       context: {
         item_description: item.item_description,
         inventory_item_id: inventoryItem.id,
