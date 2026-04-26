@@ -2,6 +2,21 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Git Workflow (READ FIRST)
+
+This repo uses **staging-first** branching. **`main` is the production-deploy branch** — Vercel auto-deploys it, and merges to main land in prod immediately. Never target `main` for feature/defect work.
+
+```
+feature branch (off staging) → PR to staging → tested → release PR (staging → main) → tag
+```
+
+Rules:
+- **Always branch off `staging`**, never `main`. `git checkout staging && git pull && git checkout -b <branch>`.
+- **Always open feature/defect PRs against `staging`**: `gh pr create --base staging ...`. Default GitHub UI base is also `staging`; do not change it for feature work.
+- **Only release PRs (head = `staging`) target `main`.** A workflow check (`Enforce main merge source / verify-source`) fails any PR to main from a non-staging head, and that check is required by branch protection.
+- **Don't push directly to main.** Branch protection blocks it. Don't try to bypass.
+- If you accidentally open a PR to main, retarget the base instead of closing/reopening: `gh pr edit <number> --base staging`.
+
 ## Commands
 
 ### Development
