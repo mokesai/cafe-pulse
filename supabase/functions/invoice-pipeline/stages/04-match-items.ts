@@ -359,10 +359,51 @@ async function applyItemMatch(
     })
   }
 
+  // ── MOK-124: replacement-item detection ───────────────────────────────────
+  // If the invoice line's description differs from the matched inventory
+  // item's canonical name, record a 'replacement' row in variance history.
+  // No exception is created — replacements are routine supplier behavior
+  // (e.g., "Brand A bagels" on the PO, "Brand B bagels" on the invoice).
+  // The history row enables supplier-performance reporting on substitution
+  // rates without flooding the exception queue.
+  if (ctx.poMatchId && isReplacement(item.item_description, inventoryItem.item_name)) {
+    await recordVariance(ctx, {
+      varianceType: 'replacement',
+      severity: 'info',
+      invoiceItemId: item.id,
+      poDescription: inventoryItem.item_name,
+      invoiceDescription: item.item_description,
+    })
+  }
+
   // ── Check quantity variance vs PO ─────────────────────────────────────────
   if (ctx.poMatchId) {
     await checkQuantityVariance(ctx, item, inventoryItem)
   }
+}
+
+/**
+ * MOK-124: did the invoice line use a description meaningfully different
+ * from the matched inventory item's canonical name? Heuristic:
+ *   - normalize both sides (lowercase, strip non-alphanumeric)
+ *   - if the normalized strings are identical → not a replacement
+ *   - if either is a substring of the other → not a replacement
+ *     (handles "Bagels" → "Plain bagels" — same product, more detail)
+ *   - otherwise → replacement candidate
+ *
+ * This is the conservative "option a" from the MOK-124 ticket. False
+ * positives are tolerable since replacement rows are informational; we'll
+ * tighten with AI semantic similarity in a follow-up if noise becomes a
+ * problem.
+ */
+function isReplacement(invoiceDescription: string, inventoryItemName: string): boolean {
+  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+  const a = normalize(invoiceDescription)
+  const b = normalize(inventoryItemName)
+  if (a.length === 0 || b.length === 0) return false
+  if (a === b) return false
+  if (a.includes(b) || b.includes(a)) return false
+  return true
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
