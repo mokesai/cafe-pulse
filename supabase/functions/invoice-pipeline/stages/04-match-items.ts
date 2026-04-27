@@ -47,6 +47,10 @@ interface InventoryItem {
   item_name: string
   unit_cost: number
   tenant_id: string
+  /** MOK-133: pack-aware variance. Inventory has unit_cost (per individual);
+   *  the implied pack price is unit_cost * pack_size. pack_size > 1 means
+   *  invoice lines might be priced per-pack instead of per-unit. */
+  pack_size: number
 }
 
 interface FuzzyItemMatch {
@@ -99,7 +103,7 @@ export async function runItemMatching(ctx: PipelineContext): Promise<StageResult
   // exist on the schema — the query errored on every run.
   const { data: inventoryItems, error: invError } = await ctx.supabase
     .from('inventory_items')
-    .select('id, item_name, unit_cost, tenant_id')
+    .select('id, item_name, unit_cost, tenant_id, pack_size')
     .eq('tenant_id', ctx.tenantId)
     .is('deleted_at', null)
 
@@ -314,46 +318,68 @@ async function applyItemMatch(
     invoice_id: ctx.invoiceId,
   }))
 
-  // ── Check price variance (MOK-121: info/block per threshold) ──────────────
-  const priceVariancePct = inventoryItem.unit_cost > 0
-    ? Math.abs((item.unit_price - inventoryItem.unit_cost) / inventoryItem.unit_cost) * 100
-    : 0
-
+  // ── Check price variance (MOK-121 severity, MOK-133 pack-aware) ───────────
+  // detectPriceMode picks the smaller of two interpretations: invoice
+  // unit_price as per-individual cost vs as per-pack cost. For packed
+  // inventory items this kills the "$1.50 → $6.19, +312.7%" false alarm
+  // when the supplier prices in packs.
+  const priceMode = detectPriceMode(
+    item.unit_price,
+    inventoryItem.unit_cost,
+    inventoryItem.pack_size,
+  )
   const priceThresholdPct = ctx.tenantSettings.priceVarianceThresholdPct
 
-  if (priceVariancePct > 0 && inventoryItem.unit_cost > 0) {
-    const severity = priceVariancePct > priceThresholdPct ? 'block' : 'info'
+  if (priceMode.variancePct > 0 && inventoryItem.unit_cost > 0) {
+    const severity = priceMode.variancePct > priceThresholdPct ? 'block' : 'info'
     const direction = severity === 'block'
       ? `Exceeds the ${priceThresholdPct}% threshold.`
       : `Below the ${priceThresholdPct}% threshold — informational only.`
+    const modeNote = priceMode.mode === 'per_pack'
+      ? ` (matched per pack of ${priceMode.packSize}: $${item.unit_price.toFixed(2)}/pack vs $${priceMode.comparatorCost.toFixed(2)}/pack)`
+      : ''
+
+    const signedVariance = (item.unit_price - priceMode.comparatorCost) / priceMode.comparatorCost * 100
 
     const exceptionId = await createException(ctx, {
       type: 'price_variance',
       severity,
-      message: `Unit price for "${inventoryItem.item_name}" changed ${priceVariancePct > 0 ? '+' : ''}${priceVariancePct.toFixed(1)}% (from $${inventoryItem.unit_cost.toFixed(2)} to $${item.unit_price.toFixed(2)}). ${direction}`,
+      message:
+        `${priceMode.mode === 'per_pack' ? 'Pack' : 'Unit'} price for "${inventoryItem.item_name}" ` +
+        `changed ${signedVariance > 0 ? '+' : ''}${priceMode.variancePct.toFixed(1)}% ` +
+        `(from $${priceMode.comparatorCost.toFixed(2)} to $${item.unit_price.toFixed(2)})${modeNote}. ${direction}`,
       context: {
         item_description: item.item_description,
         inventory_item_id: inventoryItem.id,
         inventory_item_name: inventoryItem.item_name,
         previous_unit_cost: inventoryItem.unit_cost,
         invoice_unit_price: item.unit_price,
-        variance_pct: ((item.unit_price - inventoryItem.unit_cost) / inventoryItem.unit_cost) * 100,
+        variance_pct: signedVariance,
         threshold_pct: priceThresholdPct,
-        po_unit_cost: null, // Could be enriched from PO match if available
+        po_unit_cost: null,
+        // MOK-133: surface the mode + derived per-unit price so downstream
+        // consumers (resolve route, COGS report) don't have to re-derive.
+        price_mode: priceMode.mode,
+        pack_size: priceMode.packSize,
+        comparator_cost: priceMode.comparatorCost,
+        effective_unit_price: priceMode.effectiveUnitPrice,
       },
       invoiceItemId: item.id,
       pipelineStage: STAGE,
     })
 
-    // MOK-122: persist to variance history shadow table
+    // MOK-122: persist to variance history shadow table.
+    // poUnitCost reflects the comparator (unit_cost in per-unit mode,
+    // pack_cost in per-pack mode). invoiceUnitPrice is the raw invoice
+    // value so historic queries can re-derive whichever they need.
     await recordVariance(ctx, {
       varianceType: 'price_variance',
       severity,
       invoiceItemId: item.id,
-      poUnitCost: inventoryItem.unit_cost,
+      poUnitCost: priceMode.comparatorCost,
       invoiceUnitPrice: item.unit_price,
       invoiceDescription: item.item_description,
-      variancePct: priceVariancePct,
+      variancePct: priceMode.variancePct,
       thresholdPct: priceThresholdPct,
       relatedExceptionId: exceptionId,
     })
@@ -377,8 +403,103 @@ async function applyItemMatch(
   }
 
   // ── Check quantity variance vs PO ─────────────────────────────────────────
+  // MOK-133: pass priceMode so quantity comparison can normalize. When the
+  // invoice is per-pack, item.quantity is in pack count and the PO's
+  // quantity_ordered is in individuals — they need a × pack_size to align.
   if (ctx.poMatchId) {
-    await checkQuantityVariance(ctx, item, inventoryItem)
+    await checkQuantityVariance(ctx, item, inventoryItem, priceMode)
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MOK-133: pack-aware price-mode detection
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type PriceMode = 'per_unit' | 'per_pack'
+
+export interface PriceModeResult {
+  /** Whether the invoice line is priced per individual unit or per pack. */
+  mode: PriceMode
+  /** The inventory-side comparator used: unit_cost (per_unit) or
+   *  unit_cost * pack_size (per_pack). */
+  comparatorCost: number
+  /** |invoice_unit_price - comparatorCost| / comparatorCost * 100 */
+  variancePct: number
+  /** Resolved per-individual-unit price for the invoice line — useful for
+   *  COGS / cost-history writes that always want the canonical per-unit value.
+   *  In per_pack mode this is invoice_unit_price / pack_size. */
+  effectiveUnitPrice: number
+  /** The pack size used in the calculation (≥ 1). */
+  packSize: number
+}
+
+/**
+ * Decide whether the invoice line's `unit_price` represents a per-individual
+ * cost or a per-pack cost, by picking whichever interpretation produces the
+ * smaller variance against the matched inventory item.
+ *
+ * Inventory has `unit_cost` (per individual) and `pack_size`. The implied
+ * pack price is `unit_cost * pack_size`. If the invoice's unit_price is
+ * closer to the pack price, the invoice is priced per-pack — typical for
+ * bakeries (a "4-pack croissant @ $6.19" invoice line vs an inventory item
+ * with unit_cost=$1.55, pack_size=4).
+ *
+ * Caveats:
+ *   - Returns mode='per_unit' when pack_size ≤ 1 (no pack interpretation
+ *     possible).
+ *   - When unit_cost ≤ 0, mode is forced to 'per_unit' and variancePct is
+ *     0 (avoid division-by-zero; can't sensibly compare).
+ *
+ * Pure function — exported for unit tests.
+ */
+export function detectPriceMode(
+  invoiceUnitPrice: number,
+  inventoryUnitCost: number,
+  inventoryPackSize: number,
+): PriceModeResult {
+  const packSize = Math.max(1, inventoryPackSize || 1)
+
+  if (inventoryUnitCost <= 0) {
+    return {
+      mode: 'per_unit',
+      comparatorCost: 0,
+      variancePct: 0,
+      effectiveUnitPrice: invoiceUnitPrice,
+      packSize,
+    }
+  }
+
+  const variancePerUnit = Math.abs(invoiceUnitPrice - inventoryUnitCost) / inventoryUnitCost * 100
+
+  if (packSize === 1) {
+    return {
+      mode: 'per_unit',
+      comparatorCost: inventoryUnitCost,
+      variancePct: variancePerUnit,
+      effectiveUnitPrice: invoiceUnitPrice,
+      packSize: 1,
+    }
+  }
+
+  const inventoryPackCost = inventoryUnitCost * packSize
+  const variancePerPack = Math.abs(invoiceUnitPrice - inventoryPackCost) / inventoryPackCost * 100
+
+  if (variancePerPack < variancePerUnit) {
+    return {
+      mode: 'per_pack',
+      comparatorCost: inventoryPackCost,
+      variancePct: variancePerPack,
+      effectiveUnitPrice: invoiceUnitPrice / packSize,
+      packSize,
+    }
+  }
+
+  return {
+    mode: 'per_unit',
+    comparatorCost: inventoryUnitCost,
+    variancePct: variancePerUnit,
+    effectiveUnitPrice: invoiceUnitPrice,
+    packSize,
   }
 }
 
@@ -413,7 +534,8 @@ function isReplacement(invoiceDescription: string, inventoryItemName: string): b
 async function checkQuantityVariance(
   ctx: PipelineContext,
   item: InvoiceItem,
-  inventoryItem: InventoryItem
+  inventoryItem: InventoryItem,
+  priceMode: PriceModeResult,
 ): Promise<void> {
   if (!ctx.poMatchId) return
 
@@ -440,7 +562,15 @@ async function checkQuantityVariance(
 
   if (!poItem || !poItem.quantity_ordered) return
 
-  const variancePct = Math.abs((item.quantity - poItem.quantity_ordered) / poItem.quantity_ordered) * 100
+  // MOK-133: normalize invoice quantity to individuals when priced per-pack.
+  // PO `quantity_ordered` is canonically in individuals; invoice quantity
+  // mirrors the priced unit. When matched per-pack, multiply through.
+  const effectiveInvoiceQty = priceMode.mode === 'per_pack'
+    ? item.quantity * priceMode.packSize
+    : item.quantity
+
+  const variancePct =
+    Math.abs((effectiveInvoiceQty - poItem.quantity_ordered) / poItem.quantity_ordered) * 100
   const thresholdPct = ctx.tenantSettings.totalVarianceThresholdPct
 
   // MOK-121: any non-zero variance produces an exception. Severity is 'info'
@@ -460,33 +590,44 @@ async function checkQuantityVariance(
     const direction = severity === 'block'
       ? `Exceeds the ${thresholdPct}% threshold.`
       : `Below the ${thresholdPct}% threshold — informational only.`
+    const packNote = priceMode.mode === 'per_pack'
+      ? ` (invoice ${item.quantity} packs × ${priceMode.packSize} = ${effectiveInvoiceQty} units)`
+      : ''
 
     const exceptionId = await createException(ctx, {
       type: 'quantity_variance',
       severity,
-      message: `Quantity for "${inventoryItem.item_name}" differs from PO by ${variancePct.toFixed(1)}% (PO: ${poItem.quantity_ordered}, Invoice: ${item.quantity}). ${direction}`,
+      message:
+        `Quantity for "${inventoryItem.item_name}" differs from PO by ${variancePct.toFixed(1)}% ` +
+        `(PO: ${poItem.quantity_ordered}, Invoice: ${effectiveInvoiceQty})${packNote}. ${direction}`,
       context: {
         item_description: item.item_description,
         inventory_item_id: inventoryItem.id,
         po_quantity: poItem.quantity_ordered,
-        invoice_quantity: item.quantity,
+        invoice_quantity: effectiveInvoiceQty,
+        invoice_quantity_raw: item.quantity,
         variance_pct: variancePct,
         threshold_pct: thresholdPct,
         purchase_order_id: poMatch.purchase_order_id,
         purchase_order_number: po?.order_number ?? 'Unknown',
+        // MOK-133: surface the normalization for downstream consumers.
+        price_mode: priceMode.mode,
+        pack_size: priceMode.packSize,
       },
       invoiceItemId: item.id,
       pipelineStage: STAGE,
     })
 
-    // MOK-122: persist to variance history shadow table
+    // MOK-122: persist to variance history shadow table.
+    // invoice_quantity is stored in the same canonical unit (individuals)
+    // as po_quantity so analytics queries can compare them directly.
     await recordVariance(ctx, {
       varianceType: 'quantity_variance',
       severity,
       invoiceItemId: item.id,
       purchaseOrderId: poMatch.purchase_order_id,
       poQuantity: poItem.quantity_ordered,
-      invoiceQuantity: item.quantity,
+      invoiceQuantity: effectiveInvoiceQty,
       invoiceDescription: item.item_description,
       variancePct,
       thresholdPct,
