@@ -103,15 +103,27 @@ export async function runConfirmation(ctx: PipelineContext): Promise<StageResult
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * For each matched invoice item that had no price_variance exception,
- * update the inventory item's unit_cost to the invoice price.
- * This keeps inventory costs current without requiring manual updates.
+ * For each matched invoice item that had no open price_variance exception,
+ * write the invoice price back to inventory_items.unit_cost. Keeps inventory
+ * costs current without manual updates.
+ *
+ * MOK-133: pack-aware. invoice_items.unit_price might be the per-pack
+ * price (e.g. a 4-pack croissant at $6.19) when the matched inventory item
+ * has pack_size > 1. The canonical inventory.unit_cost is per-individual,
+ * so we re-derive the price mode (same logic as stage 4) and divide by
+ * pack_size when the invoice was per-pack. Without this, a per-pack
+ * invoice would silently overwrite unit_cost to the pack price ($6.19
+ * instead of $1.55), corrupting future variance checks and COGS.
  */
 async function updateInventoryCosts(ctx: PipelineContext): Promise<void> {
-  // Get all confirmed invoice items with matches
+  // Get all confirmed invoice items with matches. Pull the joined
+  // inventory unit_cost + pack_size so we can re-detect the price mode.
   const { data: matchedItems, error } = await ctx.supabase
     .from('invoice_items')
-    .select('matched_item_id, unit_price, id')
+    .select(
+      'id, matched_item_id, unit_price, ' +
+        'inventory_items:matched_item_id(unit_cost, pack_size)',
+    )
     .eq('invoice_id', ctx.invoiceId)
     .eq('tenant_id', ctx.tenantId)
     .not('matched_item_id', 'is', null)
@@ -128,19 +140,53 @@ async function updateInventoryCosts(ctx: PipelineContext): Promise<void> {
     .eq('status', 'open')
 
   const priceExceptionItemIds = new Set(
-    (priceExceptions ?? []).map((e: { invoice_item_id: string }) => e.invoice_item_id)
+    (priceExceptions ?? []).map((e: { invoice_item_id: string }) => e.invoice_item_id),
   )
 
-  // Update costs for items without price variance exceptions
-  for (const item of matchedItems as Array<{ matched_item_id: string; unit_price: number; id: string }>) {
-    if (!priceExceptionItemIds.has(item.id) && item.matched_item_id) {
-      await ctx.supabase
-        .from('inventory_items')
-        .update({ unit_cost: item.unit_price })
-        .eq('id', item.matched_item_id)
-        .eq('tenant_id', ctx.tenantId)
-    }
+  type MatchedRow = {
+    id: string
+    matched_item_id: string
+    unit_price: number
+    inventory_items: { unit_cost: number | null; pack_size: number | null } | null
   }
+
+  for (const item of matchedItems as MatchedRow[]) {
+    if (priceExceptionItemIds.has(item.id) || !item.matched_item_id) continue
+
+    const inv = item.inventory_items
+    const invUnitCost = Number(inv?.unit_cost ?? 0)
+    const invPackSize = Number(inv?.pack_size ?? 1)
+
+    const mode = detectPriceModeForCostUpdate(item.unit_price, invUnitCost, invPackSize)
+    const newUnitCost = mode === 'per_pack' ? item.unit_price / Math.max(1, invPackSize) : item.unit_price
+
+    await ctx.supabase
+      .from('inventory_items')
+      .update({ unit_cost: newUnitCost })
+      .eq('id', item.matched_item_id)
+      .eq('tenant_id', ctx.tenantId)
+  }
+}
+
+/**
+ * MOK-133: same logic as stages/04-match-items.ts:detectPriceMode but
+ * scoped to the cost-update decision (we only need the mode, not the
+ * variance). Inlined here to avoid a cross-stage import; the math is
+ * tiny and stable. Tested via 04-extract-detect-price-mode.test.ts and
+ * exercised end-to-end by integration tests.
+ */
+function detectPriceModeForCostUpdate(
+  invoiceUnitPrice: number,
+  inventoryUnitCost: number,
+  inventoryPackSize: number,
+): 'per_unit' | 'per_pack' {
+  const packSize = Math.max(1, inventoryPackSize || 1)
+  if (inventoryUnitCost <= 0 || packSize === 1) return 'per_unit'
+
+  const variancePerUnit = Math.abs(invoiceUnitPrice - inventoryUnitCost) / inventoryUnitCost
+  const inventoryPackCost = inventoryUnitCost * packSize
+  const variancePerPack = Math.abs(invoiceUnitPrice - inventoryPackCost) / inventoryPackCost
+  return variancePerPack < variancePerUnit ? 'per_pack' : 'per_unit'
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
