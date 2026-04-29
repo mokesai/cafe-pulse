@@ -103,17 +103,22 @@ export async function runConfirmation(ctx: PipelineContext): Promise<StageResult
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * For each matched invoice item that had no open price_variance exception,
- * write the invoice price back to inventory_items.unit_cost. Keeps inventory
- * costs current without manual updates.
+ * For each matched invoice item that has no open BLOCK-severity price_variance
+ * exception, write the invoice price back to inventory_items.unit_cost.
+ *
+ * MOK-130: only block-severity opens gate the cost write. Info-severity
+ * exceptions ("below threshold, informational only") let the cost flow
+ * through. Pre-MOK-130 every open price_variance exception (including info)
+ * blocked the write, leaving inventory costs stale on auto-confirmed
+ * invoices and silently desyncing COGS. Block-severity still gates because
+ * an admin needs to choose Approve/Reject/Acknowledge before that price
+ * lands.
  *
  * MOK-133: pack-aware. invoice_items.unit_price might be the per-pack
  * price (e.g. a 4-pack croissant at $6.19) when the matched inventory item
  * has pack_size > 1. The canonical inventory.unit_cost is per-individual,
  * so we re-derive the price mode (same logic as stage 4) and divide by
- * pack_size when the invoice was per-pack. Without this, a per-pack
- * invoice would silently overwrite unit_cost to the pack price ($6.19
- * instead of $1.55), corrupting future variance checks and COGS.
+ * pack_size when the invoice was per-pack.
  */
 async function updateInventoryCosts(ctx: PipelineContext): Promise<void> {
   // Get all confirmed invoice items with matches. Pull the joined
@@ -130,7 +135,8 @@ async function updateInventoryCosts(ctx: PipelineContext): Promise<void> {
 
   if (error || !matchedItems) return
 
-  // Get invoice items that have NO open price_variance exception
+  // Get invoice items that have an open BLOCK-severity price_variance
+  // exception. Info-severity opens do NOT gate the cost write (MOK-130).
   const { data: priceExceptions } = await ctx.supabase
     .from('invoice_exceptions')
     .select('invoice_item_id')
@@ -138,6 +144,7 @@ async function updateInventoryCosts(ctx: PipelineContext): Promise<void> {
     .eq('tenant_id', ctx.tenantId)
     .eq('exception_type', 'price_variance')
     .eq('status', 'open')
+    .eq('severity', 'block')
 
   const priceExceptionItemIds = new Set(
     (priceExceptions ?? []).map((e: { invoice_item_id: string }) => e.invoice_item_id),
