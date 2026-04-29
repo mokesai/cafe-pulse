@@ -154,6 +154,31 @@ export function ExceptionRow({ exception, selected, onSelect, onResolved, onDism
     }
   }
 
+  // MOK-123 + MOK-136: acknowledge resolves the exception as 'acknowledged'
+  // (distinct from resolved/dismissed). For price_variance the acknowledge
+  // route also writes the accepted price to inventory (MOK-130).
+  const handleAcknowledge = async (notes?: string) => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/admin/invoice-exceptions/${exception.id}/acknowledge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error ?? 'Failed to acknowledge')
+      }
+      // Treat acknowledged the same as resolved for the parent's
+      // open-list purge — both transitions remove the row from the queue.
+      onResolved(exception.id)
+    } catch (err: unknown) {
+      console.error('Acknowledge failed:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const isResolved = exception.status !== 'open'
 
   return (
@@ -213,7 +238,7 @@ export function ExceptionRow({ exception, selected, onSelect, onResolved, onDism
             <div className="text-xs text-gray-500 mb-3">
               Invoice #{invoiceNumber} · {supplierName}
             </div>
-            {renderForm(exception, handleResolve, handleDismiss, loading, () => setDrawerOpen(true))}
+            {renderForm(exception, handleResolve, handleDismiss, handleAcknowledge, loading, () => setDrawerOpen(true))}
           </div>
         )}
       </div>
@@ -235,6 +260,7 @@ function renderForm(
   exception: InvoiceException,
   onResolve: (action: Record<string, unknown>) => Promise<void>,
   onDismiss: (notes?: string) => Promise<void>,
+  onAcknowledge: (notes?: string) => Promise<void>,
   loading: boolean,
   onCreateNewItem?: () => void
 ) {
@@ -250,7 +276,7 @@ function renderForm(
     case 'no_item_match':
       return <NoItemMatchForm exception={exception} onResolve={resolveTyped} onDismiss={onDismiss} loading={loading} onCreateNewItem={onCreateNewItem} />
     case 'price_variance':
-      return <PriceVarianceForm exception={exception} onResolve={resolveTyped} onDismiss={onDismiss} loading={loading} />
+      return <PriceVarianceForm exception={exception} onResolve={resolveTyped} onDismiss={onDismiss} onAcknowledge={onAcknowledge} loading={loading} />
     case 'quantity_variance':
       return <QuantityVarianceForm exception={exception} onResolve={resolveTyped} onDismiss={onDismiss} loading={loading} />
     case 'parse_error':

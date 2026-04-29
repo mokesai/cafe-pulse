@@ -4,6 +4,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrentTenantId } from '@/lib/tenant/context'
 import type { ExceptionResolutionAction } from '@/types/invoice-exceptions'
 import { formatApiError, apiError, unexpectedError } from '@/lib/api/errors'
+import { applyPriceVarianceCostUpdate } from '@/lib/invoice-exceptions/apply-price-variance-cost'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -376,33 +377,25 @@ export async function POST(request: NextRequest, context: RouteContext) {
         }
 
         case 'approve_cost_update': {
-          // Apply the new unit price to inventory
+          // MOK-130: apply the accepted price to inventory using the shared
+          // helper. The helper is pack-aware (prefers `effective_unit_price`
+          // when MOK-133's pack-mode context is present) and writes a
+          // correctly-shaped cost_history row. Pre-MOK-130 this branch
+          // wrote `unit_cost` and `source_invoice_id` to cost_history —
+          // neither column exists; the audit row failed silently.
           if (exception.invoice_item_id) {
-            const ctx = exception.exception_context as Record<string, unknown>
-            if (ctx.inventory_item_id && ctx.invoice_unit_price) {
-              // Update inventory item unit cost
-              await supabase
-                .from('inventory_items')
-                .update({
-                  unit_cost: ctx.invoice_unit_price as number,
-                  updated_at: new Date().toISOString()
-                })
-                .eq('id', ctx.inventory_item_id as string)
-                .eq('tenant_id', tenantId)
-
-              // Write cost history
-              await supabase
-                .from('inventory_item_cost_history')
-                .insert({
-                  tenant_id: tenantId,
-                  inventory_item_id: ctx.inventory_item_id as string,
-                  unit_cost: ctx.invoice_unit_price as number,
-                  previous_unit_cost: ctx.previous_unit_cost as number | null,
-                  source: 'invoice',
-                  source_invoice_id: exception.invoice_id
-                })
-                .select()
-                .maybeSingle() // Non-fatal if table doesn't exist yet
+            const result = await applyPriceVarianceCostUpdate(supabase, tenantId, {
+              invoiceId: exception.invoice_id,
+              invoiceItemId: exception.invoice_item_id,
+              exceptionContext: exception.exception_context as Record<string, unknown>,
+              source: 'approve_cost_update',
+              changedBy: adminAuth.userId,
+            })
+            if (result.error) {
+              console.warn(
+                `[resolve] approve_cost_update issue (applied=${result.applied}):`,
+                result.error,
+              )
             }
           }
           pipelineContinued = true

@@ -13,9 +13,18 @@ export type InvoiceExceptionType =
   | 'duplicate_invoice'          // invoice_number already confirmed for this supplier
 
 export type InvoiceExceptionStatus =
-  | 'open'       // awaiting human review
-  | 'resolved'   // human resolved; may have triggered downstream pipeline action
-  | 'dismissed'  // human dismissed; no pipeline action taken
+  | 'open'         // awaiting human review
+  | 'resolved'     // human resolved; may have triggered downstream pipeline action
+  | 'dismissed'    // human dismissed; no pipeline action taken
+  | 'acknowledged' // MOK-123: human accepted the variance as-is, signal logged in history
+
+/**
+ * MOK-121: severity classifies exceptions as either gating ('block', default)
+ * or notify-only ('info'). Stage 5 only routes invoices to pending_exceptions
+ * on block-severity opens; info-severity exceptions never gate auto-confirm
+ * but still appear in the queue for review/acknowledgment.
+ */
+export type InvoiceExceptionSeverity = 'info' | 'block'
 
 export interface InvoiceException {
   id: string
@@ -26,6 +35,8 @@ export interface InvoiceException {
   exception_message: string
   exception_context: Record<string, unknown>
   status: InvoiceExceptionStatus
+  /** MOK-121: 'block' (default) gates auto-confirm; 'info' is notify-only. */
+  severity?: InvoiceExceptionSeverity
   resolution_notes: string | null
   resolved_by: string | null
   resolved_at: string | null
@@ -171,6 +182,15 @@ export interface PriceVarianceContext {
   variance_pct: number   // positive = increase, negative = decrease
   threshold_pct: number
   po_unit_cost: number | null
+  /** MOK-133: pack-mode metadata. All optional for backward compat with
+   *  exceptions written before MOK-133. When `price_mode === 'per_pack'`,
+   *  comparator_cost is the inventory pack price (unit_cost × pack_size)
+   *  and effective_unit_price is invoice_unit_price ÷ pack_size — the
+   *  per-individual value to write back to inventory_items.unit_cost. */
+  price_mode?: 'per_unit' | 'per_pack'
+  pack_size?: number
+  comparator_cost?: number
+  effective_unit_price?: number
 }
 
 export interface QuantityVarianceContext {
