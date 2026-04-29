@@ -118,7 +118,9 @@ export async function runConfirmation(ctx: PipelineContext): Promise<StageResult
  * price (e.g. a 4-pack croissant at $6.19) when the matched inventory item
  * has pack_size > 1. The canonical inventory.unit_cost is per-individual,
  * so we re-derive the price mode (same logic as stage 4) and divide by
- * pack_size when the invoice was per-pack.
+ * pack_size when the invoice was per-pack. Without this, a per-pack
+ * invoice would silently overwrite unit_cost to the pack price ($6.19
+ * instead of $1.55), corrupting future variance checks and COGS.
  */
 async function updateInventoryCosts(ctx: PipelineContext): Promise<void> {
   // Get all confirmed invoice items with matches. Pull the joined
