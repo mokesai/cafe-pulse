@@ -210,10 +210,21 @@ async function processInvoiceItem(
   // supplier-SKU column to compare invoice_item.supplier_item_code against.
   // Supplier→inventory mapping persists via supplier_item_aliases (the alias
   // path above) plus the AI fuzzy match below.
-  const exactNameMatch = inventory.find(
-    (i) => i.item_name.toLowerCase() === item.item_description.toLowerCase()
+  //
+  // MOK-134: when multiple inventory rows share a name (e.g. the pack-pair
+  // pattern: a pack_size=4 row plus a paired pack_size=1 row sharing the same
+  // square_item_id), pick the candidate whose detectPriceMode variance is
+  // smallest against the invoice's unit_price. Without this, we'd take the
+  // first row (often the per-individual one) and produce false +N00%
+  // variances on per-pack invoices. $0 unit_cost stubs are excluded — they're
+  // skeleton/legacy rows, never legitimate match candidates.
+  const exactNameCandidates = inventory.filter(
+    (i) =>
+      i.item_name.toLowerCase() === item.item_description.toLowerCase() &&
+      i.unit_cost > 0,
   )
-  if (exactNameMatch) {
+  if (exactNameCandidates.length > 0) {
+    const exactNameMatch = pickBestPackAwareMatch(exactNameCandidates, item.unit_price)
     await applyItemMatch(ctx, item, exactNameMatch, 1.0, 'exact')
     if (ctx.resolvedSupplierId) {
       await upsertAlias(ctx, {
@@ -501,6 +512,38 @@ export function detectPriceMode(
     effectiveUnitPrice: invoiceUnitPrice,
     packSize,
   }
+}
+
+/**
+ * MOK-134: among multiple same-name inventory candidates, pick the one whose
+ * `detectPriceMode` variance is smallest against the invoice's unit_price.
+ *
+ * Domain invariant (per `project_inventory_pack_pair_invariant.md`): for every
+ * inventory item with `pack_size > 1`, the tenant's catalog has a paired
+ * `pack_size = 1` row sharing the same `square_item_id`. So when an invoice
+ * line description matches multiple inventory rows by name, the right pick
+ * is whichever row's price interpretation (per-unit or per-pack) lands
+ * closest to the invoice's unit_price.
+ *
+ * Pure function — exported for unit tests. Caller filters out unsuitable
+ * candidates ($0 stubs etc.); this function always returns one.
+ */
+export function pickBestPackAwareMatch<T extends { unit_cost: number; pack_size: number }>(
+  candidates: T[],
+  invoiceUnitPrice: number,
+): T {
+  if (candidates.length === 1) return candidates[0]
+  let best = candidates[0]
+  let bestVariance = detectPriceMode(invoiceUnitPrice, best.unit_cost, best.pack_size).variancePct
+  for (let i = 1; i < candidates.length; i++) {
+    const c = candidates[i]
+    const v = detectPriceMode(invoiceUnitPrice, c.unit_cost, c.pack_size).variancePct
+    if (v < bestVariance) {
+      best = c
+      bestVariance = v
+    }
+  }
+  return best
 }
 
 /**
