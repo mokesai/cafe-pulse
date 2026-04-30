@@ -139,3 +139,71 @@ describe('detectPriceMode (MOK-133, vitest mirror)', () => {
     expect(r.mode).toBe('per_unit')
   })
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MOK-134 — pickBestPackAwareMatch (mirror of supabase/functions/.../04-pick-best-pack-aware-match.test.ts)
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface Cand {
+  id: string
+  unit_cost: number
+  pack_size: number
+}
+
+function pickBestPackAwareMatch<T extends { unit_cost: number; pack_size: number }>(
+  candidates: T[],
+  invoiceUnitPrice: number,
+): T {
+  if (candidates.length === 1) return candidates[0]
+  let best = candidates[0]
+  let bestVariance = detectPriceMode(invoiceUnitPrice, best.unit_cost, best.pack_size).variancePct
+  for (let i = 1; i < candidates.length; i++) {
+    const c = candidates[i]
+    const v = detectPriceMode(invoiceUnitPrice, c.unit_cost, c.pack_size).variancePct
+    if (v < bestVariance) {
+      best = c
+      bestVariance = v
+    }
+  }
+  return best
+}
+
+describe('pickBestPackAwareMatch (MOK-134, vitest mirror)', () => {
+  it('single candidate is returned as-is', () => {
+    const c: Cand = { id: 'a', unit_cost: 1.55, pack_size: 4 }
+    expect(pickBestPackAwareMatch([c], 6.19).id).toBe('a')
+  })
+
+  it('pack-pair: picks the pack candidate when invoice is per-pack priced (BP repro)', () => {
+    const candidates: Cand[] = [
+      { id: 'butter-1pk', unit_cost: 1.50, pack_size: 1 },
+      { id: 'butter-4pk', unit_cost: 1.55, pack_size: 4 },
+    ]
+    expect(pickBestPackAwareMatch(candidates, 6.19).id).toBe('butter-4pk')
+  })
+
+  it('pack-pair: picks the per-unit candidate when invoice is per-unit priced', () => {
+    const candidates: Cand[] = [
+      { id: 'butter-1pk', unit_cost: 1.55, pack_size: 1 },
+      { id: 'butter-4pk', unit_cost: 1.55, pack_size: 4 },
+    ]
+    expect(pickBestPackAwareMatch(candidates, 1.55).id).toBe('butter-1pk')
+  })
+
+  it('three candidates: picks smallest variance', () => {
+    const candidates: Cand[] = [
+      { id: 'single', unit_cost: 0.85, pack_size: 1 },
+      { id: '4pk', unit_cost: 0.85, pack_size: 4 },
+      { id: '12pk', unit_cost: 0.85, pack_size: 12 },
+    ]
+    expect(pickBestPackAwareMatch(candidates, 10.30).id).toBe('12pk')
+  })
+
+  it('first candidate wins on tie (stable)', () => {
+    const candidates: Cand[] = [
+      { id: 'a', unit_cost: 2.0, pack_size: 1 },
+      { id: 'b', unit_cost: 2.0, pack_size: 1 },
+    ]
+    expect(pickBestPackAwareMatch(candidates, 2.5).id).toBe('a')
+  })
+})
