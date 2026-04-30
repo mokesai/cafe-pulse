@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrentTenantId } from '@/lib/tenant/context'
+import { applyPriceVarianceCostUpdate } from '@/lib/invoice-exceptions/apply-price-variance-cost'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -50,10 +51,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
       // Notes are optional
     }
 
-    // Fetch the exception to verify it exists and is open
+    // Fetch the exception to verify it exists and is open. Pull the type +
+    // context too so we can apply the price-variance cost update for
+    // price_variance acknowledgments (MOK-130).
     const { data: exception, error: fetchError } = await supabase
       .from('invoice_exceptions')
-      .select('id, status, invoice_id')
+      .select('id, status, invoice_id, invoice_item_id, exception_type, exception_context')
       .eq('id', id)
       .eq('tenant_id', tenantId)
       .single()
@@ -118,12 +121,38 @@ export async function POST(request: NextRequest, context: RouteContext) {
       )
     }
 
+    // MOK-130: when acknowledging a price-variance, apply the new price to
+    // inventory. Acknowledge means "accepted as-is, log it" — the natural
+    // companion is to make sure inventory cost reflects the accepted price.
+    let costApplied: { applied: boolean; new_unit_cost?: number; error?: string } | null = null
+    if (exception.exception_type === 'price_variance') {
+      const result = await applyPriceVarianceCostUpdate(supabase, tenantId, {
+        invoiceId: exception.invoice_id,
+        invoiceItemId: exception.invoice_item_id,
+        exceptionContext: exception.exception_context as Record<string, unknown>,
+        source: 'acknowledge',
+        changedBy: adminAuth.userId,
+      })
+      costApplied = {
+        applied: result.applied,
+        new_unit_cost: result.newUnitCost,
+        error: result.error,
+      }
+      if (result.error) {
+        console.warn(
+          `[acknowledge] price-variance cost update issue (applied=${result.applied}):`,
+          result.error,
+        )
+      }
+    }
+
     console.log(`✅ Exception ${id} acknowledged`)
 
     return NextResponse.json({
       success: true,
       exception_id: id,
       status: 'acknowledged',
+      cost_update: costApplied,
     })
   } catch (error) {
     console.error('Failed to acknowledge exception:', error)

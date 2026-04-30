@@ -50,6 +50,7 @@ export async function GET(request: NextRequest) {
       exception_message,
       exception_context,
       status,
+      severity,
       resolution_notes,
       resolved_by,
       resolved_at,

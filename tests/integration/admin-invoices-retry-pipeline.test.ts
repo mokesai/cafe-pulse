@@ -7,11 +7,19 @@
  *   - Rejects 422 on a non-retriable status
  *   - Returns 404 cross-tenant
  *
- * The route also pings the Edge Function. That call is best-effort
- * (wrapped in try/catch, non-fatal) so we don't assert on it here — the
- * edge function isn't running in the integration test environment.
+ * The route also pings the Edge Function via `fetch`. The dev edge function
+ * IS reachable from CI, and when it answers fast it actually claims the
+ * invoice (UPDATE status='pipeline_running' WHERE status='uploaded') and
+ * then errors out because the seeded invoice has no file_url — leaving
+ * status='error' instead of 'uploaded' and breaking the reset assertions
+ * below. The race is non-deterministic; CI saw it pass for weeks before it
+ * fired on PR #85.
+ *
+ * Fix: stub the global fetch JUST for the edge-function URL so the route's
+ * outbound call is a no-op in tests. Supabase-js DB calls go through their
+ * own SDK and are unaffected.
  */
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { POST as retryPOST } from '@/app/api/admin/invoices/[id]/retry-pipeline/route'
 
@@ -24,6 +32,22 @@ import {
   getServiceClient,
   type TestTenant,
 } from './helpers/tenant'
+
+const realFetch = global.fetch
+beforeEach(() => {
+  vi.spyOn(global, 'fetch').mockImplementation(async (input, init) => {
+    const url = typeof input === 'string' ? input : (input as URL | Request).toString()
+    if (url.includes('/functions/v1/invoice-pipeline')) {
+      // Pretend the edge function accepted the call but did nothing — matches
+      // the route's "best-effort, non-fatal" expectation.
+      return new Response(JSON.stringify({ ok: true, mocked: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+    return realFetch(input, init)
+  })
+})
 
 describe('POST /api/admin/invoices/[id]/retry-pipeline (MOK-127)', () => {
   let tenantA: TestTenant | undefined
