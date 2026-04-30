@@ -286,10 +286,22 @@ export async function POST(request: NextRequest, context: RouteContext) {
               .eq('id', exception.invoice_item_id)
               .eq('invoice_id', exception.invoice_id)
 
-            // Upsert alias for future use
-            const ctx = exception.exception_context as Record<string, unknown>
-            if (ctx.invoice_description) {
-              // Get supplier_id from invoice
+            // MOK-135: write a supplier_item_alias so future invoices auto-match.
+            // The supplier_description for the alias is the invoice line's
+            // item_description. We pull it from invoice_items directly rather
+            // than the exception context — context-shape varies by exception
+            // type (no_item_match has `invoice_description`, price_variance
+            // has `item_description`, etc.) and depending on context-shape
+            // silently dropped the alias write before.
+            const { data: invoiceItemRow } = await supabase
+              .from('invoice_items')
+              .select('item_description, invoice_id')
+              .eq('id', exception.invoice_item_id)
+              .eq('tenant_id', tenantId)
+              .single()
+
+            const supplierDescription = invoiceItemRow?.item_description?.trim()
+            if (supplierDescription) {
               const { data: inv } = await supabase
                 .from('invoices')
                 .select('supplier_id')
@@ -303,7 +315,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
                   .upsert({
                     tenant_id: tenantId,
                     supplier_id: inv.supplier_id,
-                    supplier_description: ctx.invoice_description as string,
+                    supplier_description: supplierDescription,
                     inventory_item_id: action.inventory_item_id,
                     confidence: 1.0,
                     source: 'manual',

@@ -33,7 +33,8 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     const supabase = createServiceClient()
     const tenantId = await getCurrentTenantId()
 
-    // Verify the invoice item exists
+    // Verify the invoice item exists. Pull invoice_id so we can look up the
+    // supplier for the alias write below (MOK-135).
     const { data: invoiceItem, error: fetchError } = await supabase
       .from('invoice_items')
       .select('id, invoice_id, item_description')
@@ -98,11 +99,62 @@ export async function PUT(request: NextRequest, context: RouteContext) {
       return formatApiError('match invoice item to inventory', updateError)
     }
 
-    console.log(`✅ Updated item match: ${invoiceItem.item_description} -> ${inventoryItem.item_name}`)
+    // MOK-135: teach the pipeline. When the admin manually re-matches an
+    // invoice line, write a supplier_item_alias so future invoices from the
+    // same supplier with the same description auto-match to the chosen
+    // inventory row. Manual aliases are sticky — pipeline auto-aliases never
+    // overwrite them (alias-service.ts:upsertAlias short-circuits on
+    // source='manual').
+    //
+    // Failures here are non-fatal: the invoice line is correctly matched
+    // either way; only the future-invoice optimization is lost. Surface as
+    // a warning in the response so the UI can flag persistent issues.
+    let aliasResult: { upserted: boolean; error?: string } = { upserted: false }
+    if (invoiceItem.item_description?.trim()) {
+      const { data: invoice } = await supabase
+        .from('invoices')
+        .select('supplier_id')
+        .eq('id', invoiceItem.invoice_id)
+        .eq('tenant_id', tenantId)
+        .single()
+
+      if (invoice?.supplier_id) {
+        const { error: aliasError } = await supabase
+          .from('supplier_item_aliases')
+          .upsert(
+            {
+              tenant_id: tenantId,
+              supplier_id: invoice.supplier_id,
+              supplier_description: invoiceItem.item_description,
+              inventory_item_id: matched_item_id,
+              confidence: 1.0,
+              source: 'manual',
+              last_seen_invoice_id: invoiceItem.invoice_id,
+              last_seen_at: new Date().toISOString(),
+            },
+            { onConflict: 'tenant_id,supplier_id,supplier_description' },
+          )
+        if (aliasError) {
+          console.warn(
+            `[match] alias upsert failed for "${invoiceItem.item_description}":`,
+            aliasError.message,
+          )
+          aliasResult = { upserted: false, error: aliasError.message }
+        } else {
+          aliasResult = { upserted: true }
+        }
+      }
+    }
+
+    console.log(
+      `✅ Updated item match: ${invoiceItem.item_description} -> ${inventoryItem.item_name}` +
+        (aliasResult.upserted ? ' (alias upserted)' : ''),
+    )
 
     return NextResponse.json({
       success: true,
       data: updatedItem,
+      alias: aliasResult,
       message: 'Item match updated successfully'
     })
 

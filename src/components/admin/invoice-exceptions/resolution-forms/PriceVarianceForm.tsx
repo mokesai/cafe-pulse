@@ -1,8 +1,15 @@
 'use client'
 
-import { useState } from 'react'
-import { TrendingUp, TrendingDown } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Search, TrendingUp, TrendingDown } from 'lucide-react'
 import type { InvoiceException, PriceVarianceContext } from '@/types/invoice-exceptions'
+
+interface InventorySearchHit {
+  id: string
+  item_name: string
+  unit_cost: number | null
+  pack_size: number | null
+}
 
 interface Props {
   exception: InvoiceException
@@ -31,9 +38,41 @@ export function PriceVarianceForm({
   loading,
 }: Props) {
   const ctx = exception.exception_context as unknown as PriceVarianceContext
-  const [choice, setChoice] = useState<'approve' | 'reject' | 'acknowledge' | null>(null)
+  const [choice, setChoice] = useState<
+    'approve' | 'reject' | 'acknowledge' | 'rematch' | null
+  >(null)
   const [notes, setNotes] = useState('')
   const [notesError, setNotesError] = useState('')
+
+  // ── MOK-135: re-match UI state ────────────────────────────────────────────
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<InventorySearchHit[]>([])
+  const [searching, setSearching] = useState(false)
+  const [rematchSelectedId, setRematchSelectedId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (choice !== 'rematch' || searchQuery.length < 2) {
+      setSearchResults([])
+      return
+    }
+    const timer = setTimeout(async () => {
+      setSearching(true)
+      try {
+        const res = await fetch(
+          `/api/admin/inventory?search=${encodeURIComponent(searchQuery)}&limit=10`,
+        )
+        if (res.ok) {
+          const data = await res.json()
+          setSearchResults((data.data ?? []) as InventorySearchHit[])
+        }
+      } catch {
+        // ignore — empty results UI is sufficient feedback
+      } finally {
+        setSearching(false)
+      }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [choice, searchQuery])
 
   // ── Resolve render anchors (MOK-136) ───────────────────────────────────────
   const isPerPack = ctx.price_mode === 'per_pack'
@@ -72,6 +111,10 @@ export function PriceVarianceForm({
       setNotesError('Notes are required when rejecting a price change.')
       return
     }
+    if (choice === 'rematch' && !rematchSelectedId) {
+      setNotesError('Pick an inventory item to re-match to.')
+      return
+    }
     setNotesError('')
 
     if (choice === 'approve') {
@@ -80,6 +123,15 @@ export function PriceVarianceForm({
       await onResolve({ type: 'reject_cost_update', resolution_notes: notes })
     } else if (choice === 'acknowledge' && onAcknowledge) {
       await onAcknowledge(notes || undefined)
+    } else if (choice === 'rematch' && rematchSelectedId) {
+      await onResolve({
+        type: 'match_item',
+        // Cast through unknown — the action prop signature is permissive on
+        // extra keys; the resolve route's match_item handler reads
+        // inventory_item_id off the action.
+        ...({ inventory_item_id: rematchSelectedId } as unknown as Record<string, never>),
+        resolution_notes: notes || 'Re-matched to a different inventory item',
+      })
     }
   }
 
@@ -202,6 +254,19 @@ export function PriceVarianceForm({
             <input
               type="radio"
               name="price-choice"
+              value="rematch"
+              checked={choice === 'rematch'}
+              onChange={() => setChoice('rematch')}
+              className="mt-0.5"
+            />
+            <span className="text-sm text-gray-700">
+              Match to a different inventory item — pipeline picked the wrong row
+            </span>
+          </label>
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="price-choice"
               value="reject"
               checked={choice === 'reject'}
               onChange={() => setChoice('reject')}
@@ -222,6 +287,62 @@ export function PriceVarianceForm({
           </label>
         </div>
       </div>
+
+      {/* MOK-135: re-match search/results, only when 'rematch' is selected */}
+      {choice === 'rematch' && (
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-gray-700">Search inventory:</p>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Type to search inventory items…"
+              className="w-full pl-8 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          {searching && (
+            <p className="text-xs text-gray-500">Searching…</p>
+          )}
+          {!searching && searchQuery.length >= 2 && searchResults.length === 0 && (
+            <p className="text-xs text-gray-500 italic">No matches.</p>
+          )}
+          {searchResults.length > 0 && (
+            <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-md divide-y divide-gray-100">
+              {searchResults.map((item) => {
+                const packDisplay =
+                  item.pack_size && item.pack_size > 1 ? ` · pack of ${item.pack_size}` : ''
+                return (
+                  <label
+                    key={item.id}
+                    className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                  >
+                    <input
+                      type="radio"
+                      name="rematch-target"
+                      value={item.id}
+                      checked={rematchSelectedId === item.id}
+                      onChange={() => setRematchSelectedId(item.id)}
+                    />
+                    <div className="flex-1 flex items-center justify-between">
+                      <span className="text-sm text-gray-700">{item.item_name}</span>
+                      <span className="text-xs text-gray-400">
+                        ${(item.unit_cost ?? 0).toFixed(2)}/unit
+                        {packDisplay}
+                      </span>
+                    </div>
+                  </label>
+                )
+              })}
+            </div>
+          )}
+          <p className="text-xs text-gray-500">
+            Re-matching writes a manual supplier alias so the next invoice from this
+            supplier with the same description auto-matches the chosen item.
+          </p>
+        </div>
+      )}
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -268,6 +389,15 @@ export function PriceVarianceForm({
             className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:opacity-50"
           >
             Acknowledge
+          </button>
+        )}
+        {choice === 'rematch' && (
+          <button
+            onClick={handleSubmit}
+            disabled={loading || !rematchSelectedId}
+            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 disabled:opacity-50"
+          >
+            Re-match Item
           </button>
         )}
         {choice === 'reject' && (
