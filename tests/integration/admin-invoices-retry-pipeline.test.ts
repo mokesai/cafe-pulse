@@ -160,4 +160,194 @@ describe('POST /api/admin/invoices/[id]/retry-pipeline (MOK-127)', () => {
       .single()
     expect(data!.status).toBe('error')
   })
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // MOK-128: retry dismisses stale open exceptions for the invoice
+  // ───────────────────────────────────────────────────────────────────────────
+
+  it('MOK-128: dismisses open exceptions on the invoice when pipeline is retried', async () => {
+    if (!tenantA) throw new Error('test setup failed')
+    const invoice = await createInvoice(tenantA, {
+      supplier_id: supplierAId,
+      status: 'pending_exceptions' as never,
+    })
+    const svc = getServiceClient()
+
+    // Seed three open exceptions (mix of types and severities) and one
+    // already-resolved exception (control: should NOT be touched).
+    await svc.from('invoice_exceptions').insert([
+      {
+        tenant_id: tenantA.id,
+        invoice_id: invoice.id,
+        exception_type: 'price_variance',
+        exception_message: 'stale price var',
+        exception_context: {},
+        status: 'open',
+        severity: 'block',
+        pipeline_stage_at_creation: 'matching_items',
+      },
+      {
+        tenant_id: tenantA.id,
+        invoice_id: invoice.id,
+        exception_type: 'no_item_match',
+        exception_message: 'stale no_item',
+        exception_context: {},
+        status: 'open',
+        severity: 'block',
+        pipeline_stage_at_creation: 'matching_items',
+      },
+      {
+        tenant_id: tenantA.id,
+        invoice_id: invoice.id,
+        exception_type: 'quantity_variance',
+        exception_message: 'stale info qty',
+        exception_context: {},
+        status: 'open',
+        severity: 'info',
+        pipeline_stage_at_creation: 'matching_items',
+      },
+      {
+        tenant_id: tenantA.id,
+        invoice_id: invoice.id,
+        exception_type: 'price_variance',
+        exception_message: 'previously resolved',
+        exception_context: {},
+        status: 'resolved',
+        severity: 'block',
+        pipeline_stage_at_creation: 'matching_items',
+        resolved_at: new Date().toISOString(),
+      },
+    ])
+
+    // Defensive re-pin (AFTER INSERT trigger races as in the other tests).
+    await svc
+      .from('invoices')
+      .update({ status: 'pending_exceptions', pipeline_stage: 'matching_items' })
+      .eq('id', invoice.id)
+
+    const req = buildAuthedRequest({
+      tenant: tenantA,
+      method: 'POST',
+      url: `/api/admin/invoices/${invoice.id}/retry-pipeline`,
+      body: {},
+    })
+    const res = await retryPOST(req, { params: Promise.resolve({ id: invoice.id }) })
+    expect(res.status).toBe(202)
+    const body = await res.json()
+    // The 3 open exceptions are dismissed; the previously-resolved one isn't counted.
+    expect(body.stale_exceptions_dismissed).toBe(3)
+
+    // All open exceptions are now dismissed with notes; resolved one is unchanged.
+    const { data: rows } = await svc
+      .from('invoice_exceptions')
+      .select('exception_message, status, resolution_notes')
+      .eq('invoice_id', invoice.id)
+      .eq('tenant_id', tenantA.id)
+      .order('exception_message')
+
+    const messageStatus = Object.fromEntries(
+      (rows ?? []).map((r) => [r.exception_message, { status: r.status, notes: r.resolution_notes }]),
+    )
+    expect(messageStatus['stale price var'].status).toBe('dismissed')
+    expect(messageStatus['stale no_item'].status).toBe('dismissed')
+    expect(messageStatus['stale info qty'].status).toBe('dismissed')
+    expect(messageStatus['stale price var'].notes).toMatch(/Superseded by pipeline re-run/)
+    // The pre-resolved exception is untouched
+    expect(messageStatus['previously resolved'].status).toBe('resolved')
+    expect(messageStatus['previously resolved'].notes).toBeNull()
+  })
+
+  it('MOK-128: zero stale exceptions on a clean retry (no pre-existing open ones)', async () => {
+    if (!tenantA) throw new Error('test setup failed')
+    const invoice = await createInvoice(tenantA, {
+      supplier_id: supplierAId,
+      status: 'error' as never,
+    })
+    const svc = getServiceClient()
+    await svc.from('invoices').update({ status: 'error' }).eq('id', invoice.id)
+
+    const req = buildAuthedRequest({
+      tenant: tenantA,
+      method: 'POST',
+      url: `/api/admin/invoices/${invoice.id}/retry-pipeline`,
+      body: {},
+    })
+    const res = await retryPOST(req, { params: Promise.resolve({ id: invoice.id }) })
+    expect(res.status).toBe(202)
+    const body = await res.json()
+    expect(body.stale_exceptions_dismissed).toBe(0)
+  })
+
+  it("MOK-128: tenant isolation — retry on tenant A's invoice doesn't touch tenant B's exceptions", async () => {
+    if (!tenantA || !tenantB) throw new Error('test setup failed')
+    // Tenant A invoice + open exception
+    const invoiceA = await createInvoice(tenantA, {
+      supplier_id: supplierAId,
+      status: 'pending_exceptions' as never,
+    })
+    // Tenant B invoice + open exception (control)
+    const supplierB = await createSupplier(tenantB)
+    const invoiceB = await createInvoice(tenantB, {
+      supplier_id: supplierB.id,
+      status: 'pending_exceptions' as never,
+    })
+
+    const svc = getServiceClient()
+    await svc.from('invoice_exceptions').insert([
+      {
+        tenant_id: tenantA.id,
+        invoice_id: invoiceA.id,
+        exception_type: 'price_variance',
+        exception_message: 'tenant A exception',
+        exception_context: {},
+        status: 'open',
+        severity: 'block',
+        pipeline_stage_at_creation: 'matching_items',
+      },
+      {
+        tenant_id: tenantB.id,
+        invoice_id: invoiceB.id,
+        exception_type: 'price_variance',
+        exception_message: 'tenant B exception',
+        exception_context: {},
+        status: 'open',
+        severity: 'block',
+        pipeline_stage_at_creation: 'matching_items',
+      },
+    ])
+    await svc
+      .from('invoices')
+      .update({ status: 'pending_exceptions' })
+      .eq('id', invoiceA.id)
+    await svc
+      .from('invoices')
+      .update({ status: 'pending_exceptions' })
+      .eq('id', invoiceB.id)
+
+    // Tenant A retries A's invoice
+    const req = buildAuthedRequest({
+      tenant: tenantA,
+      method: 'POST',
+      url: `/api/admin/invoices/${invoiceA.id}/retry-pipeline`,
+      body: {},
+    })
+    const res = await retryPOST(req, { params: Promise.resolve({ id: invoiceA.id }) })
+    expect(res.status).toBe(202)
+    expect((await res.json()).stale_exceptions_dismissed).toBe(1)
+
+    // Tenant A's exception is dismissed; tenant B's stays open.
+    const { data: aException } = await svc
+      .from('invoice_exceptions')
+      .select('status')
+      .eq('exception_message', 'tenant A exception')
+      .single()
+    expect(aException!.status).toBe('dismissed')
+
+    const { data: bException } = await svc
+      .from('invoice_exceptions')
+      .select('status')
+      .eq('exception_message', 'tenant B exception')
+      .single()
+    expect(bException!.status).toBe('open')
+  })
 })
