@@ -196,12 +196,23 @@ export interface PriceVarianceContext {
 export interface QuantityVarianceContext {
   item_description: string
   inventory_item_id: string
+  /** Always in individual units (canonical PO unit). */
   po_quantity: number
+  /** In individual units. When `price_mode === 'per_pack'`, this equals
+   *  `invoice_quantity_raw × pack_size` so it's directly comparable to
+   *  `po_quantity`. */
   invoice_quantity: number
   variance_pct: number
   threshold_pct: number
   purchase_order_id: string
   purchase_order_number: string
+  /** MOK-133: pack-mode metadata. Optional for backward compat with
+   *  exceptions written before MOK-133. */
+  price_mode?: 'per_unit' | 'per_pack'
+  pack_size?: number
+  /** Raw invoice quantity as Vision extracted it. In per-pack mode this is
+   *  the pack count (e.g. 2), and `invoice_quantity` above is `2 × pack_size`. */
+  invoice_quantity_raw?: number
 }
 
 export interface ParseErrorContext {
