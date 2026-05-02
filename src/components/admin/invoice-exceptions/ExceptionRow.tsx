@@ -278,7 +278,7 @@ function renderForm(
     case 'price_variance':
       return <PriceVarianceForm exception={exception} onResolve={resolveTyped} onDismiss={onDismiss} onAcknowledge={onAcknowledge} loading={loading} />
     case 'quantity_variance':
-      return <QuantityVarianceForm exception={exception} onResolve={resolveTyped} onDismiss={onDismiss} loading={loading} />
+      return <QuantityVarianceForm exception={exception} onResolve={resolveTyped} onDismiss={onDismiss} onAcknowledge={onAcknowledge} loading={loading} />
     case 'parse_error':
       return <ParseErrorForm exception={exception} onResolve={resolveTyped} onDismiss={onDismiss} loading={loading} />
     case 'duplicate_invoice':

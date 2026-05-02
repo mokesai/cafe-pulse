@@ -63,3 +63,24 @@ jobs:
 
       - name: Run integration tests
         run: npm run test:integration
+
+  edge-fn:
+    name: Edge function tests (Deno)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          # v2.x to match the lockfile format (deno.lock version 5).
+          # Pin to v2.x rather than a specific minor so we get patch updates
+          # without surprise majors.
+          deno-version: v2.x
+
+      - name: Run Deno tests for invoice-pipeline
+        working-directory: supabase/functions/invoice-pipeline
+        run: deno test __tests__/ --allow-env --allow-net
