@@ -93,6 +93,37 @@ export async function POST(request: NextRequest, context: RouteContext) {
       )
     }
 
+    // MOK-128: dismiss any open exceptions from the previous run. The new
+    // pipeline run will create fresh exceptions for whatever issues remain;
+    // leaving the old ones as `open` clutters the queue and conflates
+    // pre-retry vs post-retry signals. Stage 1's idempotency already deletes
+    // existing invoice_items for the invoice — exceptions deserve the same
+    // treatment for the same reason.
+    //
+    // Non-fatal: an exception cleanup failure shouldn't block the retry; the
+    // worst case is the admin sees stale exceptions in the queue and has to
+    // dismiss them manually (the pre-MOK-128 behavior).
+    const dismissalNote = `Superseded by pipeline re-run on ${new Date().toISOString().slice(0, 10)}`
+    const { count: staleExceptionsDismissed, error: cleanupError } = await supabase
+      .from('invoice_exceptions')
+      .update({
+        status: 'dismissed',
+        resolution_notes: dismissalNote,
+        resolved_by: authResult.userId,
+        resolved_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }, { count: 'exact' })
+      .eq('invoice_id', id)
+      .eq('tenant_id', tenantId)
+      .eq('status', 'open')
+
+    if (cleanupError) {
+      console.warn(
+        `[retry-pipeline] Failed to dismiss stale exceptions for invoice ${id}:`,
+        cleanupError.message,
+      )
+    }
+
     // Directly call the Edge Function since DB webhooks only fire on INSERT, not UPDATE.
     // We mimic the webhook payload format so the Edge Function handles it identically.
     const edgeFunctionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/invoice-pipeline`
@@ -129,7 +160,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
         success: true,
         message: 'Pipeline retry initiated',
         invoice_id: id,
-        from_stage
+        from_stage,
+        stale_exceptions_dismissed: staleExceptionsDismissed ?? 0,
       },
       { status: 202 }
     )
