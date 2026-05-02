@@ -590,6 +590,90 @@ function getMimeType(fileType: string): string {
 /**
  * Normalize raw Vision API response into a validated ParsedInvoiceResult.
  */
+// ─────────────────────────────────────────────────────────────────────────────
+// MOK-129: classify line-item descriptions that are actually fees
+// ─────────────────────────────────────────────────────────────────────────────
+
+const FEE_CLASSIFIERS: Array<{ pattern: RegExp; category: keyof SupplierFees }> = [
+  // Delivery-shaped charges
+  { pattern: /^delivery\b/i, category: 'delivery' },
+  { pattern: /^fuel\s*surcharge\b/i, category: 'delivery' },
+  { pattern: /^drop\s*(fee|charge)\b/i, category: 'delivery' },
+  // Shipping
+  { pattern: /^shipping\b/i, category: 'shipping' },
+  { pattern: /^freight\b/i, category: 'shipping' },
+  { pattern: /^postage\b/i, category: 'shipping' },
+  // Processing / service / convenience
+  { pattern: /^processing\s*(fee|charge)\b/i, category: 'processing' },
+  { pattern: /^service\s*(fee|charge)\b/i, category: 'processing' },
+  { pattern: /^convenience\s*(fee|charge)\b/i, category: 'processing' },
+  { pattern: /^handling\s*(fee|charge)\b/i, category: 'processing' },
+  { pattern: /^transaction\s*(fee|charge)\b/i, category: 'processing' },
+]
+
+/**
+ * Determine whether a line-item description is actually a supplier fee
+ * miscategorized by Vision. Returns the matching `supplier_fees` key, or
+ * null when the description isn't fee-shaped.
+ *
+ * Patterns are anchored at the start with `\b` boundaries so "Delivery Fee"
+ * and "Delivery charge" both match `delivery`, but "Delivery special
+ * croissant" (a hypothetical product name) does not. Pure function — exported
+ * for unit tests.
+ */
+export function classifyFeeLineItem(description: string): keyof SupplierFees | null {
+  const trimmed = description?.trim() ?? ''
+  if (!trimmed) return null
+  for (const { pattern, category } of FEE_CLASSIFIERS) {
+    if (pattern.test(trimmed)) return category
+  }
+  return null
+}
+
+interface FeeExtractionResult {
+  /** Line items minus any rows that were reclassified as fees. */
+  cleanedLineItems: ParsedLineItem[]
+  /** Per-bucket sum of total_price values for reclassified rows. */
+  reclassifiedFees: SupplierFees
+  /** Descriptions of rows that were reclassified — for logging / debugging. */
+  reclassifiedDescriptions: string[]
+}
+
+/**
+ * Walk line_items, separate fee-shaped rows (Delivery/Shipping/etc.), and
+ * sum their total_price into the matching `supplier_fees` bucket. Pure;
+ * exported for unit tests.
+ */
+export function extractFeesFromLineItems(items: ParsedLineItem[]): FeeExtractionResult {
+  const reclassified: SupplierFees = { delivery: 0, shipping: 0, processing: 0, other: 0 }
+  const cleaned: ParsedLineItem[] = []
+  const reclassifiedDescriptions: string[] = []
+
+  for (const item of items) {
+    const category = classifyFeeLineItem(item.description)
+    if (category) {
+      reclassified[category] += Math.max(0, item.total_price)
+      reclassifiedDescriptions.push(item.description)
+    } else {
+      cleaned.push(item)
+    }
+  }
+
+  // Round to cents to match what Vision would have produced if it classified
+  // correctly upstream.
+  const round2 = (n: number) => Math.round(n * 100) / 100
+  return {
+    cleanedLineItems: cleaned,
+    reclassifiedFees: {
+      delivery: round2(reclassified.delivery),
+      shipping: round2(reclassified.shipping),
+      processing: round2(reclassified.processing),
+      other: round2(reclassified.other),
+    },
+    reclassifiedDescriptions,
+  }
+}
+
 function normalizeVisionResponse(
   raw: RawVisionResponse,
   fileUrl: string
@@ -597,7 +681,7 @@ function normalizeVisionResponse(
   void fileUrl // reserved for future use
 
   // Normalize line items
-  const lineItems: ParsedLineItem[] = (raw.line_items ?? []).map((item, index) => ({
+  const rawLineItems: ParsedLineItem[] = (raw.line_items ?? []).map((item, index) => ({
     line_number: Number(item.line_number ?? index + 1),
     description: String(item.description ?? 'Unknown Item').trim(),
     supplier_item_code: item.supplier_item_code ?? null,
@@ -608,6 +692,25 @@ function normalizeVisionResponse(
     unit_type: item.unit_type ?? null,
     confidence: Math.min(1, Math.max(0, Number(item.confidence ?? 0.5))),
   }))
+
+  // MOK-129: Vision occasionally classifies a fee row (e.g. Odeko's "Delivery
+  // Fee") as a line_item instead of putting it in supplier_fees. Pre-MOK-129,
+  // those rows survived into invoice_items and stage 4 raised a
+  // no_item_match exception trying to match "Delivery Fee" against inventory.
+  // Now we partition fee-shaped rows out before passing line_items downstream
+  // and merge their totals into supplier_fees.
+  const feeExtraction = extractFeesFromLineItems(rawLineItems)
+  const lineItems = feeExtraction.cleanedLineItems
+  if (feeExtraction.reclassifiedDescriptions.length > 0) {
+    console.log(JSON.stringify({
+      event: 'fees_reclassified_from_line_items',
+      reclassified_descriptions: feeExtraction.reclassifiedDescriptions,
+      delivery: feeExtraction.reclassifiedFees.delivery,
+      shipping: feeExtraction.reclassifiedFees.shipping,
+      processing: feeExtraction.reclassifiedFees.processing,
+      other: feeExtraction.reclassifiedFees.other,
+    }))
+  }
 
   // Clamp overall confidence
   const overallConfidence = Math.min(
@@ -622,10 +725,14 @@ function normalizeVisionResponse(
   const rawFees: NonNullable<RawVisionResponse['supplier_fees']> =
     raw.supplier_fees ?? { delivery: null, shipping: null, processing: null, other: null }
   const supplierFees: SupplierFees = {
-    delivery:   Math.max(0, Number(rawFees.delivery   ?? 0)),
-    shipping:   Math.max(0, Number(rawFees.shipping   ?? 0)),
-    processing: Math.max(0, Number(rawFees.processing ?? 0)),
-    other:      Math.max(0, Number(rawFees.other      ?? 0)),
+    // MOK-129: sum Vision's own supplier_fees with anything we reclassified
+    // out of line_items above. If Vision somehow surfaced a fee in BOTH
+    // places (rare), the sum here over-counts — accepted as a small noise
+    // tradeoff vs. the bigger problem of fees being silently lost.
+    delivery:   Math.max(0, Number(rawFees.delivery   ?? 0)) + feeExtraction.reclassifiedFees.delivery,
+    shipping:   Math.max(0, Number(rawFees.shipping   ?? 0)) + feeExtraction.reclassifiedFees.shipping,
+    processing: Math.max(0, Number(rawFees.processing ?? 0)) + feeExtraction.reclassifiedFees.processing,
+    other:      Math.max(0, Number(rawFees.other      ?? 0)) + feeExtraction.reclassifiedFees.other,
   }
   const totalFees = Math.round(
     (supplierFees.delivery + supplierFees.shipping + supplierFees.processing + supplierFees.other) * 100
