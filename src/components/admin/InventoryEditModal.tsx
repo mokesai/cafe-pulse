@@ -352,7 +352,10 @@ export default function InventoryEditModal({ item, suppliers, isOpen, onClose }:
                   setFormData(prev => ({
                     ...prev,
                     pack_size: newSize,
-                    unit_cost: Number.isFinite(newUnit) ? Number(newUnit.toFixed(2)) : prev.unit_cost
+                    // MOK-139: 4dp precision matches the inventory_items.unit_cost
+                    // column type (numeric(12,4)) and prevents pack-divided unit
+                    // costs (e.g. $6.19 / 4 = $1.5475) from being silently rounded.
+                    unit_cost: Number.isFinite(newUnit) ? Number(newUnit.toFixed(4)) : prev.unit_cost
                   }))
                 }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
@@ -415,7 +418,10 @@ export default function InventoryEditModal({ item, suppliers, isOpen, onClose }:
                   setPackPrice(val)
                   setFormData(prev => ({
                     ...prev,
-                    unit_cost: packSize > 0 ? Number((packCost / packSize).toFixed(2)) : prev.unit_cost
+                    // MOK-139: 4dp to match the column type. Pack price ÷ pack
+                    // size for non-trivial pack sizes (e.g. 4) gives a non-2dp
+                    // value that 2dp rounding loses.
+                    unit_cost: packSize > 0 ? Number((packCost / packSize).toFixed(4)) : prev.unit_cost
                   }))
                 }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
