@@ -128,7 +128,9 @@ export default function InventoryCreateModal({ suppliers, isOpen, onClose }: Inv
   }
 
   const handleApplyUnitCost = (value: number) => {
-    const rounded = Number(value.toFixed(2))
+    // MOK-139: 4dp matches the column type (numeric(12,4)) so pack-divided
+    // unit costs aren't silently rounded.
+    const rounded = Number(value.toFixed(4))
     setFormData(prev => ({ ...prev, unit_cost: rounded.toString() }))
     toast.success('Unit cost applied from calculator')
   }
@@ -141,7 +143,8 @@ export default function InventoryCreateModal({ suppliers, isOpen, onClose }: Inv
       const parsedCurrentStock = formData.current_stock === '' ? 0 : Number(formData.current_stock)
       const parsedMinThreshold = formData.minimum_threshold === '' ? 0 : Number(formData.minimum_threshold)
       const parsedReorderPoint = formData.reorder_point === '' ? 0 : Number(formData.reorder_point)
-      const parsedUnitCost = formData.unit_cost === '' ? 0 : Number(parseFloat(formData.unit_cost).toFixed(2))
+      // MOK-139: 4dp precision matches the inventory_items.unit_cost column type.
+      const parsedUnitCost = formData.unit_cost === '' ? 0 : Number(parseFloat(formData.unit_cost).toFixed(4))
       const parsedPackSize = formData.pack_size === '' ? 1 : Number(formData.pack_size)
       const derivedIsIngredient = formData.item_type === 'ingredient'
 
@@ -335,7 +338,7 @@ export default function InventoryCreateModal({ suppliers, isOpen, onClose }: Inv
               <input
                 type="number"
                 min="0"
-                step="0.01"
+                step="0.0001"
                 value={formData.unit_cost}
                 onChange={(e) => setFormData((prev) => ({ ...prev, unit_cost: e.target.value }))}
                 className="w-full rounded-lg border px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
