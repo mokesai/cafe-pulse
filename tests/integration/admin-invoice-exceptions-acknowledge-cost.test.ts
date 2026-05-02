@@ -168,11 +168,9 @@ describe('POST /api/admin/invoice-exceptions/[id]/acknowledge — cost applicati
       .select('unit_cost')
       .eq('id', inventoryItem.id)
       .single()
-    // inventory_items.unit_cost is NUMERIC(10,2) — Postgres rounds to 2 dp
-    // on store. The helper still passes the precise value; the column
-    // schema is what truncates. (Precision tracked separately — pack-aware
-    // cost write deserves a numeric(12,4) column upgrade.)
-    expect(Number(inv!.unit_cost)).toBeCloseTo(1.55, 2)
+    // MOK-139: inventory_items.unit_cost is now NUMERIC(12,4), so the precise
+    // per-individual price ($1.5475) is stored exactly — no rounding.
+    expect(Number(inv!.unit_cost)).toBeCloseTo(1.5475, 4)
     // NOT the pack price; would be 6.19 if MOK-130 weren't pack-aware.
     expect(Number(inv!.unit_cost)).toBeLessThan(2)
 
