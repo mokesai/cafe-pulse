@@ -14,8 +14,36 @@ Rules:
 - **Always branch off `staging`**, never `main`. `git checkout staging && git pull && git checkout -b <branch>`.
 - **Always open feature/defect PRs against `staging`**: `gh pr create --base staging ...`. Default GitHub UI base is also `staging`; do not change it for feature work.
 - **Only release PRs (head = `staging`) target `main`.** A workflow check (`Enforce main merge source / verify-source`) fails any PR to main from a non-staging head, and that check is required by branch protection.
+- **Use "Create a merge commit" when merging release PRs to main** — squash and rebase are disabled / will fail on the staging↔main divergence. Repo settings reflect this (squash-merge is off).
 - **Don't push directly to main.** Branch protection blocks it. Don't try to bypass.
 - If you accidentally open a PR to main, retarget the base instead of closing/reopening: `gh pr edit <number> --base staging`.
+- **Tag main after every release.** Once a release PR (e.g. `release: v0.4.4 — ...`) merges to main AND the prod edge function deploy completes, create and push the tag at the merge commit:
+  ```
+  git fetch origin
+  git tag -a v0.4.X <merge-commit-sha> -m "release: v0.4.X — <one-line summary>"
+  git push origin v0.4.X
+  ```
+  The tag is the canonical reference for "what was released" — without it the version label only lives in the PR title and merge message, which makes rollbacks and changelog tooling harder.
+
+## Domain Invariants
+
+These rules are about how data is shaped, not about how to work with the repo. Read before touching matching, inventory, or pricing logic.
+
+### Pack-pair invariant
+
+For every inventory item with `pack_size > 1`, the tenant's catalog has a paired `pack_size = 1` row sharing the **same `square_item_id`**.
+
+- The pack row is supplier-facing: POs and invoices reference it. A 4-pack croissant inventory row with `unit_cost=$1.55, pack_size=4` represents what suppliers ship.
+- The single row is customer-facing: Square POS sells individuals. Receiving the pack increments the single row's `current_stock` by `pack_size`.
+- Both rows share `square_item_id` because they represent the same Square POS item, distinguished only by pack size.
+
+Implications for code:
+
+- **Stage 4 matching** (`supabase/functions/invoice-pipeline/stages/04-match-items.ts`) — when an invoice line description matches multiple inventory rows by name, the right pick is whichever row's price interpretation (per-unit or per-pack) lands closest to the invoice's `unit_price`. The helper `pickBestPackAwareMatch` does this. Don't bypass it; don't pick the first hit.
+- **Variance comparisons** — invoice `unit_price` may be the per-pack price or per-individual price. `detectPriceMode` resolves which; downstream code (cost-update writes, COGS feed, exception display) must use `effective_unit_price` (per-individual) for inventory writes, not the raw invoice value.
+- **Don't deduplicate or merge pack/single pairs** — they're intentional. Came from MOK-63.
+- **Stubs to filter**: a `unit_cost = 0` row with the same name as a real inventory item is a skeleton, not a legitimate pack pair. Exclude from match candidates.
+- **Stale `inventory.supplier_id`** can happen after a supplier acquisition (e.g., Aspen Bakery → Bluepoint Bakery). The pipeline doesn't currently use `inventory.supplier_id` for matching, so it doesn't break stage 4, but be aware if you touch supplier-resolution code.
 
 ## Commands
 

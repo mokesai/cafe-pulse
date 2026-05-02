@@ -159,7 +159,7 @@ async function updateInventoryCosts(ctx: PipelineContext): Promise<void> {
     inventory_items: { unit_cost: number | null; pack_size: number | null } | null
   }
 
-  for (const item of matchedItems as MatchedRow[]) {
+  for (const item of matchedItems as unknown as MatchedRow[]) {
     if (priceExceptionItemIds.has(item.id) || !item.matched_item_id) continue
 
     const inv = item.inventory_items

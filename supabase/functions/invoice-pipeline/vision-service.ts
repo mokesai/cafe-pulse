@@ -615,8 +615,12 @@ function normalizeVisionResponse(
     Math.max(0, Number(raw.overall_confidence ?? 0.5))
   )
 
-  // Normalize supplier fees — default missing keys to 0, clamp negatives to 0
-  const rawFees = raw.supplier_fees ?? {}
+  // Normalize supplier fees — default missing keys to 0, clamp negatives to 0.
+  // Type the empty fallback to match raw.supplier_fees so the property
+  // accesses below type-check (Deno strict TS narrows `?? {}` to {} with
+  // no fields).
+  const rawFees: NonNullable<RawVisionResponse['supplier_fees']> =
+    raw.supplier_fees ?? { delivery: null, shipping: null, processing: null, other: null }
   const supplierFees: SupplierFees = {
     delivery:   Math.max(0, Number(rawFees.delivery   ?? 0)),
     shipping:   Math.max(0, Number(rawFees.shipping   ?? 0)),
