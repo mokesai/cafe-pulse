@@ -162,6 +162,43 @@ export function buildInvoiceHeaderUpdate(
 // MOK-131: refresh signed URL from file_path
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * MOK-143 — find any prior invoice for this tenant with the same
+ * `invoice_number`, excluding rows in non-canonical terminal states
+ * (`error`, `duplicate`) and the invoice currently being processed.
+ *
+ * Caller short-circuits stage 1 with a `duplicate_invoice` exception when
+ * this returns a row, so the unique-constraint UPDATE that previously
+ * crashed the pipeline never executes.
+ *
+ * Exported for unit tests; called internally from `saveExtractedData`.
+ */
+export interface DuplicateInvoiceMatch {
+  id: string
+  invoice_number: string | null
+  total_amount: number | null
+  updated_at: string
+  status: string
+}
+
+export async function findDuplicateInvoice(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  tenantId: string,
+  invoiceNumber: string,
+  currentInvoiceId: string,
+): Promise<DuplicateInvoiceMatch | null> {
+  const { data } = await supabase
+    .from('invoices')
+    .select('id, invoice_number, total_amount, updated_at, status')
+    .eq('tenant_id', tenantId)
+    .eq('invoice_number', invoiceNumber)
+    .not('status', 'in', '("error","duplicate")')
+    .neq('id', currentInvoiceId)
+    .maybeSingle()
+  return (data ?? null) as DuplicateInvoiceMatch | null
+}
+
 /** TTL for the per-pipeline-run signed URL. One run is well under 10 min. */
 export const SIGNED_URL_TTL_SECONDS = 600
 
@@ -370,6 +407,53 @@ async function saveExtractedData(
 ): Promise<StageResult> {
   const parsed = ctx.parsedData!
 
+  // ── Duplicate-invoice check (BEFORE the header UPDATE) ───────────────────
+  // MOK-143: detect a prior row with the same (tenant_id, invoice_number)
+  // BEFORE the UPDATE so the unique constraint
+  // `invoices_supplier_id_invoice_number_key` doesn't fire and trash the
+  // pipeline. Pre-MOK-143 the check ran AFTER the UPDATE and only matched
+  // status='confirmed', so a re-upload that extracted the same number from
+  // an invoice already in `pending_exceptions` / `error` / `pipeline_running`
+  // tripped the constraint and left a zombie row in `status='error'`.
+  // Widen the filter to "any live row" — only `error` and `duplicate` are
+  // excluded, since those represent failed/superseded uploads not real
+  // invoices.
+  if (parsed.invoice_number) {
+    const existingInvoice = await findDuplicateInvoice(
+      ctx.supabase,
+      ctx.tenantId,
+      parsed.invoice_number,
+      ctx.invoiceId,
+    )
+
+    if (existingInvoice) {
+      await createException(ctx, {
+        type: 'duplicate_invoice',
+        message:
+          `Invoice number ${parsed.invoice_number} already exists for this tenant ` +
+          `(prior status: ${existingInvoice.status}). ` +
+          'Review to determine if this is a re-submission or a different invoice.',
+        context: {
+          existing_invoice_id: existingInvoice.id,
+          existing_invoice_number: existingInvoice.invoice_number,
+          existing_invoice_status: existingInvoice.status,
+          existing_confirmed_at: existingInvoice.updated_at,
+          existing_total_amount: existingInvoice.total_amount ?? 0,
+          new_total_amount: parsed.total_amount ?? 0,
+        },
+        pipelineStage: STAGE,
+      })
+
+      await ctx.supabase
+        .from('invoices')
+        .update({ status: 'duplicate', pipeline_stage: 'failed' })
+        .eq('id', ctx.invoiceId)
+        .eq('tenant_id', ctx.tenantId)
+
+      return { ok: false, fatal: true, error: 'Duplicate invoice detected' }
+    }
+  }
+
   // ── Update invoice header ────────────────────────────────────────────────
   // MOK-132: build the UPDATE payload conditionally. The upload route writes
   // a non-null placeholder for invoice_number (e.g. `${PO_number}-N`); if
@@ -464,41 +548,7 @@ async function saveExtractedData(
     return { ok: false, fatal: false, error: 'Low extraction confidence — pipeline halted pending human review' }
   }
 
-  // ── Check for duplicate invoice ──────────────────────────────────────────
-  if (parsed.invoice_number) {
-    const { data: existingInvoice } = await ctx.supabase
-      .from('invoices')
-      .select('id, invoice_number, total_amount, updated_at')
-      .eq('tenant_id', ctx.tenantId)
-      .eq('invoice_number', parsed.invoice_number)
-      .eq('status', 'confirmed')
-      .neq('id', ctx.invoiceId)
-      .maybeSingle()
-
-    if (existingInvoice) {
-      await createException(ctx, {
-        type: 'duplicate_invoice',
-        message: `Invoice number ${parsed.invoice_number} was already confirmed. Please review to determine if this is a re-submission or a different invoice.`,
-        context: {
-          existing_invoice_id: existingInvoice.id,
-          existing_invoice_number: existingInvoice.invoice_number,
-          existing_confirmed_at: existingInvoice.updated_at,
-          existing_total_amount: existingInvoice.total_amount ?? 0,
-          new_total_amount: parsed.total_amount ?? 0,
-        },
-        pipelineStage: STAGE,
-      })
-
-      // Mark invoice as duplicate
-      await ctx.supabase
-        .from('invoices')
-        .update({ status: 'duplicate', pipeline_stage: 'failed' })
-        .eq('id', ctx.invoiceId)
-        .eq('tenant_id', ctx.tenantId)
-
-      return { ok: false, fatal: true, error: 'Duplicate invoice detected' }
-    }
-  }
+  // (Duplicate-invoice check moved above the UPDATE — see MOK-143 comment.)
 
   console.log(JSON.stringify({
     event: 'stage_complete',

@@ -51,6 +51,15 @@ interface InventoryItem {
    *  the implied pack price is unit_cost * pack_size. pack_size > 1 means
    *  invoice lines might be priced per-pack instead of per-unit. */
   pack_size: number
+  /** MOK-144: pack-pair sibling lookup. Pack pairs share the same
+   *  square_item_id (e.g. a pack_size=4 row + its pack_size=1 sibling). */
+  square_item_id: string | null
+  /** MOK-144: supplier preference tiebreaker — when multiple pack-pair
+   *  siblings tie on price-mode variance, prefer the one whose supplier
+   *  matches the invoice's resolved supplier (handles Aspen→Bluepoint
+   *  transitions where the pack=1 sits on the old supplier and pack=4 on
+   *  the new one). */
+  supplier_id: string | null
 }
 
 interface FuzzyItemMatch {
@@ -103,7 +112,7 @@ export async function runItemMatching(ctx: PipelineContext): Promise<StageResult
   // exist on the schema — the query errored on every run.
   const { data: inventoryItems, error: invError } = await ctx.supabase
     .from('inventory_items')
-    .select('id, item_name, unit_cost, tenant_id, pack_size')
+    .select('id, item_name, unit_cost, tenant_id, pack_size, square_item_id, supplier_id')
     .eq('tenant_id', ctx.tenantId)
     .is('deleted_at', null)
 
@@ -200,7 +209,16 @@ async function processInvoiceItem(
   if (cachedAlias) {
     const inventoryItem = inventory.find((i) => i.id === cachedAlias.inventory_item_id)
     if (inventoryItem) {
-      await applyItemMatch(ctx, item, inventoryItem, cachedAlias.confidence, 'alias')
+      // MOK-144: alias may point to a stale sibling after a supplier
+      // transition (e.g. Aspen → Bluepoint). Promote to the better pack-pair
+      // sibling before recording the match.
+      const promoted = promoteToPackPairSibling(
+        inventoryItem,
+        inventory,
+        item.unit_price,
+        ctx.resolvedSupplierId ?? null,
+      )
+      await applyItemMatch(ctx, item, promoted, cachedAlias.confidence, 'alias')
       return
     }
   }
@@ -225,12 +243,20 @@ async function processInvoiceItem(
   )
   if (exactNameCandidates.length > 0) {
     const exactNameMatch = pickBestPackAwareMatch(exactNameCandidates, item.unit_price)
-    await applyItemMatch(ctx, item, exactNameMatch, 1.0, 'exact')
+    // MOK-144: exact-name match may not include the pack-pair sibling
+    // (different name). Promote across siblings before recording.
+    const promoted = promoteToPackPairSibling(
+      exactNameMatch,
+      inventory,
+      item.unit_price,
+      ctx.resolvedSupplierId ?? null,
+    )
+    await applyItemMatch(ctx, item, promoted, 1.0, 'exact')
     if (ctx.resolvedSupplierId) {
       await upsertAlias(ctx, {
         supplierId: ctx.resolvedSupplierId,
         supplierDescription: item.item_description,
-        inventoryItemId: exactNameMatch.id,
+        inventoryItemId: promoted.id,
         confidence: 1.0,
         source: 'auto',
       })
@@ -278,14 +304,25 @@ async function processInvoiceItem(
   const topMatch = fuzzyMatches[0]
   const matchedInventoryItem = inventory.find((i) => i.id === topMatch.inventory_item_id)!
 
-  await applyItemMatch(ctx, item, matchedInventoryItem, topMatch.confidence, 'fuzzy')
+  // MOK-144: fuzzy match almost certainly returned the named-similar row
+  // (e.g. "Butter Croissant") not the pack-pair sibling ("Croissant 3oz 4pk").
+  // Promote across siblings + supplier preference before recording.
+  const promoted = promoteToPackPairSibling(
+    matchedInventoryItem,
+    inventory,
+    item.unit_price,
+    ctx.resolvedSupplierId ?? null,
+  )
 
-  // Upsert alias for future fast lookups
+  await applyItemMatch(ctx, item, promoted, topMatch.confidence, 'fuzzy')
+
+  // Upsert alias for future fast lookups — point at the promoted row so
+  // subsequent invoices skip the fuzzy step entirely.
   if (ctx.resolvedSupplierId) {
     await upsertAlias(ctx, {
       supplierId: ctx.resolvedSupplierId,
       supplierDescription: item.item_description,
-      inventoryItemId: matchedInventoryItem.id,
+      inventoryItemId: promoted.id,
       confidence: topMatch.confidence,
       source: 'auto',
     })
@@ -544,6 +581,69 @@ export function pickBestPackAwareMatch<T extends { unit_cost: number; pack_size:
     }
   }
   return best
+}
+
+/**
+ * MOK-144: after the initial alias/exact/fuzzy match picks an inventory row,
+ * promote to a pack-pair sibling (rows sharing the matched row's
+ * `square_item_id`) when a sibling is a strictly better price-mode match.
+ * Optional supplier-match tiebreaker resolves ties in favor of the row whose
+ * supplier matches the invoice's resolved supplier — important after a
+ * supplier transition (Aspen→Bluepoint) where the pack=1 sibling lives on
+ * the old supplier and the pack=4 on the new one.
+ *
+ * Returns the original row when:
+ *   - no `square_item_id` (no group to promote within)
+ *   - no other live pack-pair siblings exist
+ *   - the original is already the lowest-variance member
+ *
+ * Pure function — exported for unit tests. Caller is responsible for filtering
+ * the inventory list (deleted_at IS NULL is applied at load).
+ */
+export interface PackPairCandidate {
+  id: string
+  unit_cost: number
+  pack_size: number
+  square_item_id: string | null
+  supplier_id: string | null
+}
+
+export function promoteToPackPairSibling<T extends PackPairCandidate>(
+  initial: T,
+  inventory: T[],
+  invoiceUnitPrice: number,
+  invoiceSupplierId: string | null,
+): T {
+  if (!initial.square_item_id) return initial
+
+  const siblings = inventory.filter(
+    (i) =>
+      i.square_item_id === initial.square_item_id &&
+      i.unit_cost > 0 && // skeleton/legacy stubs (MOK-110) excluded
+      i.id !== initial.id,
+  )
+  if (siblings.length === 0) return initial
+
+  const group: T[] = [initial, ...siblings]
+
+  // Score each by detectPriceMode variance.
+  const scored = group.map((row) => ({
+    row,
+    variance: detectPriceMode(invoiceUnitPrice, row.unit_cost, row.pack_size).variancePct,
+  }))
+
+  // Within numerical noise (0.001%), treat variances as tied.
+  const minVariance = Math.min(...scored.map((s) => s.variance))
+  const tied = scored.filter((s) => Math.abs(s.variance - minVariance) < 0.001)
+
+  // Tiebreaker: prefer supplier match if the invoice resolved a supplier.
+  if (invoiceSupplierId && tied.length > 1) {
+    const supplierMatch = tied.find((s) => s.row.supplier_id === invoiceSupplierId)
+    if (supplierMatch) return supplierMatch.row
+  }
+
+  // No tie or no supplier preference resolved — return the lowest-variance row.
+  return tied[0].row
 }
 
 /**
