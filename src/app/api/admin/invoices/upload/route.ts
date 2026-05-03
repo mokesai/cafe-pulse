@@ -129,24 +129,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // MOK-115: detect a prior invoice for this PO. The user-supplied
+    // MOK-115 + MOK-147: detect a prior invoice for this PO. The user-supplied
     // invoice_number is NOT a stable lookup key — stage 1 extraction overwrites
     // it with the real number from the PDF, so a re-upload via the PO modal
     // (which auto-fills `${PO_number}-N`) misses the prior row by the time the
     // user retries. The PO link, by contrast, is stable for the invoice's
     // entire lifecycle.
     //
-    // Policy:
-    //   - Confirmed prior → 409, the row is immutable
-    //   - Non-confirmed prior → re-upload target (DELETE+INSERT below, MOK-109)
-    //   - No PO-link prior → fall back to (supplier_id, invoice_number),
-    //     covering orphans / non-PO-modal paths
+    // Policy (post-MOK-147 to support multi-invoice POs like Odeko):
+    //   - Same `file_name` as a confirmed prior → 409 (re-upload of the same
+    //     invoice; data integrity)
+    //   - Confirmed prior with DIFFERENT file_name → fall through, treat as
+    //     a NEW sibling invoice (Odeko-style multi-invoice POs)
+    //   - Non-confirmed prior → existing MOK-109 DELETE+INSERT replacement
+    //   - No PO-link prior → fall back to (supplier_id, invoice_number)
     //
-    // Caveat: a PO can legitimately accumulate sibling invoices (partial
-    // deliveries). We assume the prior must be confirmed before a sibling
-    // arrives — any non-confirmed prior is treated as the re-upload target.
-    // In practice partial-delivery flows wait on confirmation anyway, and an
-    // accidental clobber here is recoverable (the original PDF is in storage).
+    // Why filename and not invoice_number: at upload time the user-supplied
+    // invoice_number is a `${PO}-N` placeholder; the real value is set by
+    // stage 1 extraction. Filename is the only stable upload-time key that
+    // distinguishes re-upload from sibling.
     let existingInvoice: {
       id: string
       status: string
@@ -163,22 +164,27 @@ export async function POST(request: NextRequest) {
       const priorInvoiceIds = priorPoMatches.map((m) => m.invoice_id)
       const { data: priorInvoices } = await supabase
         .from('invoices')
-        .select('id, status, file_path, invoice_number')
+        .select('id, status, file_path, invoice_number, file_name')
         .eq('tenant_id', tenantId)
         .in('id', priorInvoiceIds)
 
-      const confirmedPrior = (priorInvoices ?? []).find(
-        (inv) => inv.status === 'confirmed',
+      // MOK-147: only block when re-uploading the SAME file. Different
+      // filenames are sibling invoices (Odeko's multi-invoice pattern).
+      const sameFileConfirmedPrior = (priorInvoices ?? []).find(
+        (inv) => inv.status === 'confirmed' && inv.file_name === file.name,
       )
-      if (confirmedPrior) {
+      if (sameFileConfirmedPrior) {
         return apiError(
-          `Invoice "${confirmedPrior.invoice_number}" for this purchase order has already been ` +
-            'confirmed and cannot be replaced. Contact support if you need to add another invoice.',
+          `An invoice for this purchase order has already been confirmed using "${file.name}". ` +
+            'If this is a different invoice, rename the file and re-upload.',
           409,
           'INVOICE_ALREADY_CONFIRMED',
         )
       }
 
+      // Replacement target: the existing MOK-109 DELETE+INSERT path picks
+      // up non-confirmed priors. Confirmed priors with different filenames
+      // are intentionally NOT replaced — they coexist as siblings.
       const replacementCandidate = (priorInvoices ?? []).find(
         (inv) => inv.status !== 'confirmed',
       )
