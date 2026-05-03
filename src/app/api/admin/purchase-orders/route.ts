@@ -4,6 +4,7 @@ import type { AdminAuthSuccess } from '@/lib/admin/middleware'
 import { createServiceClient } from '@/lib/supabase/server'
 import { canonicalStatus, insertStatusHistory } from './status-utils'
 import { getCurrentTenantId } from '@/lib/tenant/context'
+import { todayLocalDateString } from '@/lib/purchase-orders/is-overdue'
 
 interface SupplierProfileInfo {
   full_name?: string | null
@@ -167,9 +168,12 @@ export async function GET(request: NextRequest) {
           query = query.gte('order_date', startDate.toISOString())
           break
         case 'overdue':
+          // MOK-146: exclude `confirmed` (terminal post-reconciliation status)
+          // and compare against the local YYYY-MM-DD so a delivery scheduled
+          // for "today" doesn't flip overdue at UTC midnight.
           query = query
-            .lt('expected_delivery_date', new Date().toISOString())
-            .not('status', 'in', '("received", "cancelled")')
+            .lt('expected_delivery_date', todayLocalDateString())
+            .not('status', 'in', '("received", "confirmed", "cancelled")')
           break
       }
     }

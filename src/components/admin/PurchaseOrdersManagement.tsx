@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button, Modal } from '@/components/ui'
+import { isPurchaseOrderOverdue } from '@/lib/purchase-orders/is-overdue'
 import { 
   ClipboardList,
   Plus,
@@ -593,12 +594,7 @@ const PurchaseOrdersManagement = ({
     }).format(amount)
   }
 
-  const isOverdue = (order: PurchaseOrder) => {
-    if (!order.expected_delivery_date || order.status === 'received' || order.status === 'cancelled') {
-      return false
-    }
-    return new Date(order.expected_delivery_date) < new Date()
-  }
+  const isOverdue = (order: PurchaseOrder) => isPurchaseOrderOverdue(order)
 
   if (isLoading) {
     return (
