@@ -38,6 +38,33 @@ Deno.test('classifyFeeLineItem — Shipping patterns route to shipping', () => {
   assertEquals(classifyFeeLineItem('Postage'), 'shipping')
 })
 
+// MOK-141 — shipping insurance / package protection add-ons.
+Deno.test('classifyFeeLineItem — generic package/shipping protection routes to shipping', () => {
+  assertEquals(classifyFeeLineItem('Package Protection'), 'shipping')
+  assertEquals(classifyFeeLineItem('package protection'), 'shipping')
+  assertEquals(classifyFeeLineItem('Shipping Insurance'), 'shipping')
+  assertEquals(classifyFeeLineItem('Order Protection'), 'shipping')
+  assertEquals(classifyFeeLineItem('Delivery Guarantee'), 'shipping')
+})
+
+Deno.test('classifyFeeLineItem — branded shipping-insurance prefixes route to shipping', () => {
+  assertEquals(classifyFeeLineItem('ShipInsure Package Protection'), 'shipping')
+  assertEquals(classifyFeeLineItem('shipinsure'), 'shipping')
+  assertEquals(classifyFeeLineItem('Route Package Protection'), 'shipping')
+  assertEquals(classifyFeeLineItem('Route Shipping Protection'), 'shipping')
+  assertEquals(classifyFeeLineItem('Route Order Protection'), 'shipping')
+})
+
+Deno.test('classifyFeeLineItem — protection patterns do not false-positive on real products', () => {
+  // Brand-prefix patterns are anchored at start, so a product whose description
+  // merely contains the brand word later (uncommon but possible) won't match.
+  assertEquals(classifyFeeLineItem('Croissant 4pk'), null)
+  assertEquals(classifyFeeLineItem('Cleaning supplies — route stop kit'), null)
+  // The "package protection" pattern uses word boundaries — substrings inside
+  // unrelated phrases shouldn't trigger.
+  assertEquals(classifyFeeLineItem('Bulk packaging'), null)
+})
+
 Deno.test('classifyFeeLineItem — Processing/service patterns route to processing', () => {
   assertEquals(classifyFeeLineItem('Service Fee'), 'processing')
   assertEquals(classifyFeeLineItem('Processing Fee'), 'processing')
@@ -148,6 +175,23 @@ Deno.test('extractFeesFromLineItems — negative total_price is clamped to 0 (de
   ]
   const result = extractFeesFromLineItems(items)
   assertEquals(result.reclassifiedFees.delivery, 0)
+})
+
+Deno.test('extractFeesFromLineItems — branded ShipInsure row partitions to shipping', () => {
+  const items = [
+    makeItem({ description: 'Croissant 4pk', total_price: 24.0 }),
+    makeItem({ description: 'ShipInsure Package Protection', total_price: 1.5 }),
+    makeItem({ description: 'Route Package Protection', total_price: 1.0 }),
+  ]
+  const result = extractFeesFromLineItems(items)
+  assertEquals(result.cleanedLineItems.length, 1)
+  assertEquals(result.cleanedLineItems[0].description, 'Croissant 4pk')
+  assertEquals(result.reclassifiedFees.shipping, 2.5)
+  assertEquals(result.reclassifiedFees.delivery, 0)
+  assertEquals(result.reclassifiedDescriptions, [
+    'ShipInsure Package Protection',
+    'Route Package Protection',
+  ])
 })
 
 Deno.test('extractFeesFromLineItems — empty input returns empty result', () => {
