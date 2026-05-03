@@ -16,6 +16,14 @@ export async function GET(request: NextRequest) {
     const supabase = createServiceClient()
     const { searchParams } = new URL(request.url)
     const includeArchived = searchParams.get('includeArchived') === '1'
+    // MOK-142: search and limit support — used by NoItemMatchForm's
+    // "search all inventory items" autocomplete. Pre-MOK-142 these query
+    // params were silently dropped, and the form read response.data
+    // (undefined since the route returns `items`), so the search input
+    // appeared to do nothing.
+    const search = searchParams.get('search')?.trim() ?? ''
+    const limitRaw = parseInt(searchParams.get('limit') ?? '0', 10)
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 100) : null
 
     // Get tenant ID
     const tenantId = await getCurrentTenantId()
@@ -37,6 +45,14 @@ export async function GET(request: NextRequest) {
       query = query.is('deleted_at', null)
     }
 
+    if (search.length > 0) {
+      query = query.ilike('item_name', `%${search}%`)
+    }
+
+    if (limit) {
+      query = query.limit(limit)
+    }
+
     const { data: inventoryItems, error } = await query
 
     if (error) {
@@ -54,6 +70,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       items: processedItems,
+      // MOK-142: alias under `data` for form callers (NoItemMatchForm)
+      // reading `data.data ?? []`. Existing callers reading `items`
+      // continue to work.
+      data: processedItems,
       total: processedItems.length,
       message: 'Inventory items fetched successfully'
     })
