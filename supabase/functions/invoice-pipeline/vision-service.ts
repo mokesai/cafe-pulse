@@ -595,6 +595,19 @@ function getMimeType(fileType: string): string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const FEE_CLASSIFIERS: Array<{ pattern: RegExp; category: keyof SupplierFees }> = [
+  // MOK-141: shipping-insurance / package-protection add-ons. Listed first
+  // so the specific "Delivery Guarantee" pattern beats the generic "^delivery"
+  // rule below. Two shapes — generic ("Package Protection", "Shipping
+  // Insurance") which can match anywhere in the description, and brand
+  // prefixes ("ShipInsure Package Protection", "Route Package Protection")
+  // which need to anchor at the start so they don't false-positive on real
+  // product names.
+  { pattern: /\bpackage\s*protection\b/i, category: 'shipping' },
+  { pattern: /\bshipping\s*insurance\b/i, category: 'shipping' },
+  { pattern: /\border\s*protection\b/i, category: 'shipping' },
+  { pattern: /\bdelivery\s*guarantee\b/i, category: 'shipping' },
+  { pattern: /^shipinsure\b/i, category: 'shipping' },
+  { pattern: /^route\s*(package|shipping|order)/i, category: 'shipping' },
   // Delivery-shaped charges
   { pattern: /^delivery\b/i, category: 'delivery' },
   { pattern: /^fuel\s*surcharge\b/i, category: 'delivery' },
