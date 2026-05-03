@@ -95,6 +95,13 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
     const dateFilter = searchParams.get('dateFilter')
+    // MOK-142: search and limit support — used by NoPOMatchForm's "link to a
+    // PO" autocomplete. Pre-MOK-142 these query params were silently
+    // dropped; the form returned the entire PO list keyed under the wrong
+    // response field, so it always rendered as empty.
+    const search = searchParams.get('search')?.trim() ?? ''
+    const limitRaw = parseInt(searchParams.get('limit') ?? '0', 10)
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 100) : null
 
     const supabase = createServiceClient()
 
@@ -130,6 +137,16 @@ export async function GET(request: NextRequest) {
       `)
       .eq('tenant_id', tenantId)
 
+    // MOK-142: ILIKE on order_number (case-insensitive substring match).
+    // The form's typical search term is a partial PO number ("PO-033"), so
+    // matching order_number alone covers the dominant use case. Searching
+    // joined supplier name via PostgREST .or() requires foreign-table
+    // syntax that's brittle; if needed in the future, do it via a separate
+    // pre-query for matching supplier_ids.
+    if (search.length > 0) {
+      query = query.ilike('order_number', `%${search}%`)
+    }
+
     // Filter by status
     if (status && status !== 'all') {
       query = query.eq('status', status)
@@ -158,7 +175,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch purchase orders
-    const { data: orders, error } = await query.order('created_at', { ascending: false })
+    const ordered = query.order('created_at', { ascending: false })
+    const { data: orders, error } = limit ? await ordered.limit(limit) : await ordered
 
     if (error) {
       console.error('Database error fetching purchase orders:', error)
@@ -230,6 +248,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       orders: transformedOrders,
+      // MOK-142: alias under `data` for form callers that follow the
+      // /api/admin/inventory + invoices conventions. Existing callers
+      // reading `orders` continue to work.
+      data: transformedOrders,
       total: transformedOrders.length,
       message: 'Purchase orders fetched successfully'
     })
