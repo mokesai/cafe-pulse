@@ -164,9 +164,12 @@ describe('admin invoices/upload — MOK-115 PO-link re-upload detection', () => 
     expect(linkedInvoices![0].invoice_id).toBe(secondInvoiceId)
   })
 
-  it('blocks re-upload with 409 when the prior invoice for the same PO is confirmed', async () => {
+  // MOK-147: 409 narrowed from "any confirmed prior" to "confirmed prior
+  // with the same file_name". This test covers the same-file path.
+  it('blocks re-upload with 409 when the prior is confirmed AND has the same filename', async () => {
     if (!tenant) throw new Error('test setup failed')
     const { supplier, po } = await createPOForUpload(tenant)
+    const sameFile = `same-${Date.now()}.pdf`
 
     const req1 = buildAuthedRequest({
       tenant,
@@ -176,6 +179,7 @@ describe('admin invoices/upload — MOK-115 PO-link re-upload detection', () => 
         supplier_id: supplier.id,
         invoice_number: `${po.order_number}-1`,
         purchase_order_id: po.id,
+        file_name: sameFile,
       }),
     })
     const res1 = await uploadPOST(req1)
@@ -187,6 +191,7 @@ describe('admin invoices/upload — MOK-115 PO-link re-upload detection', () => 
     const svc = getServiceClient()
     await svc.from('invoices').update({ status: 'confirmed' }).eq('id', firstInvoiceId)
 
+    // Re-upload with the SAME filename → 409.
     const req2 = buildAuthedRequest({
       tenant,
       method: 'POST',
@@ -195,6 +200,7 @@ describe('admin invoices/upload — MOK-115 PO-link re-upload detection', () => 
         supplier_id: supplier.id,
         invoice_number: `${po.order_number}-2`,
         purchase_order_id: po.id,
+        file_name: sameFile,
       }),
     })
     const res2 = await uploadPOST(req2)
@@ -209,6 +215,68 @@ describe('admin invoices/upload — MOK-115 PO-link re-upload detection', () => 
       .eq('id', firstInvoiceId)
       .single()
     expect(priorRow!.status).toBe('confirmed')
+  })
+
+  // MOK-147: Odeko / multi-invoice POs send a 2nd invoice (different file)
+  // after the 1st has confirmed. Pre-MOK-147 this 409'd; now it succeeds and
+  // both invoices coexist on the PO.
+  it('allows a sibling upload when the prior is confirmed but filename differs', async () => {
+    if (!tenant) throw new Error('test setup failed')
+    const { supplier, po } = await createPOForUpload(tenant)
+
+    // First upload + mark confirmed.
+    const req1 = buildAuthedRequest({
+      tenant,
+      method: 'POST',
+      url: '/api/admin/invoices/upload',
+      body: makePdfFormData({
+        supplier_id: supplier.id,
+        invoice_number: `${po.order_number}-1`,
+        purchase_order_id: po.id,
+        file_name: `odeko-delivery-${Date.now()}.pdf`,
+      }),
+    })
+    const res1 = await uploadPOST(req1)
+    expect(res1.status).toBe(201)
+    const firstInvoiceId: string = (await res1.json()).data.id
+
+    const svc = getServiceClient()
+    await svc.from('invoices').update({ status: 'confirmed' }).eq('id', firstInvoiceId)
+
+    // Second upload — DIFFERENT filename → sibling, allowed.
+    const req2 = buildAuthedRequest({
+      tenant,
+      method: 'POST',
+      url: '/api/admin/invoices/upload',
+      body: makePdfFormData({
+        supplier_id: supplier.id,
+        invoice_number: `${po.order_number}-2`,
+        purchase_order_id: po.id,
+        file_name: `odeko-supplemental-${Date.now()}.pdf`,
+      }),
+    })
+    const res2 = await uploadPOST(req2)
+    expect(res2.status).toBe(201)
+    const secondInvoiceId: string = (await res2.json()).data.id
+    expect(secondInvoiceId).not.toBe(firstInvoiceId)
+
+    // Both rows exist; original is still confirmed.
+    const { data: rows } = await svc
+      .from('invoices')
+      .select('id, status')
+      .in('id', [firstInvoiceId, secondInvoiceId])
+    expect(rows).toHaveLength(2)
+    const first = rows!.find((r) => r.id === firstInvoiceId)
+    expect(first?.status).toBe('confirmed')
+
+    // Both linked to the PO.
+    const { data: links } = await svc
+      .from('order_invoice_matches')
+      .select('invoice_id')
+      .eq('tenant_id', tenant.id)
+      .eq('purchase_order_id', po.id)
+    const linkedIds = links!.map((l) => l.invoice_id).sort()
+    expect(linkedIds).toEqual([firstInvoiceId, secondInvoiceId].sort())
   })
 
   it('first upload (no prior PO link) inserts a fresh row', async () => {
