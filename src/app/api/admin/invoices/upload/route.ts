@@ -216,6 +216,29 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // MOK-143: same-file fallback. Catches re-upload when the prior invoice
+    // has no PO link (pre-MOK-120 data) AND the user-supplied invoice_number
+    // doesn't match the prior (e.g. the upload form auto-fills a synthetic
+    // ${PO}-N placeholder while the prior was named after the parsed value).
+    // Match on (supplier_id, file_name, status != confirmed) — the user
+    // picking the same PDF a second time is the dominant repro.
+    if (!existingInvoice && supplier_id && file.name) {
+      const { data } = await supabase
+        .from('invoices')
+        .select('id, status, file_path')
+        .eq('tenant_id', tenantId)
+        .eq('supplier_id', supplier_id)
+        .eq('file_name', file.name)
+        .neq('status', 'confirmed')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (data) {
+        existingInvoice = data
+      }
+    }
+
 
     // Generate unique file name
     const fileExtension = fileName.split('.').pop()
