@@ -24,9 +24,31 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search')?.trim() ?? ''
     const limitRaw = parseInt(searchParams.get('limit') ?? '0', 10)
     const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 100) : null
+    // MOK-144: re-match panel needs to surface pack-pair siblings of the
+    // currently-matched row. Two query modes:
+    //   ?square_item_id=…  → return all rows sharing that square_item_id
+    //   ?siblings_of=<id>  → resolve the row's square_item_id then return its
+    //                        pack-pair group (excluding the row itself)
+    // Both ignore the search box; they're the "pinned siblings" payload the
+    // form merges with typed-search results.
+    const siblingsSquareItemId = searchParams.get('square_item_id')?.trim() ?? ''
+    const siblingsOfId = searchParams.get('siblings_of')?.trim() ?? ''
 
     // Get tenant ID
     const tenantId = await getCurrentTenantId()
+
+    // Resolve `siblings_of=<id>` → the row's square_item_id, so the form can
+    // pass just the matched item id without a second round-trip.
+    let resolvedSquareId = siblingsSquareItemId
+    if (!resolvedSquareId && siblingsOfId) {
+      const { data: anchorRow } = await supabase
+        .from('inventory_items')
+        .select('square_item_id')
+        .eq('id', siblingsOfId)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      resolvedSquareId = anchorRow?.square_item_id ?? ''
+    }
 
     // Fetch inventory items with supplier information (excluding archived)
     let query = supabase
@@ -45,7 +67,14 @@ export async function GET(request: NextRequest) {
       query = query.is('deleted_at', null)
     }
 
-    if (search.length > 0) {
+    if (resolvedSquareId) {
+      // Sibling-group lookup wins over the search box — the form uses this
+      // path for the "pack-pair siblings" panel and applies search separately.
+      query = query.eq('square_item_id', resolvedSquareId)
+      if (siblingsOfId) {
+        query = query.neq('id', siblingsOfId)
+      }
+    } else if (search.length > 0) {
       query = query.ilike('item_name', `%${search}%`)
     }
 

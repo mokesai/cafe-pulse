@@ -49,6 +49,34 @@ export function PriceVarianceForm({
   const [searchResults, setSearchResults] = useState<InventorySearchHit[]>([])
   const [searching, setSearching] = useState(false)
   const [rematchSelectedId, setRematchSelectedId] = useState<string | null>(null)
+  // MOK-144: pack-pair siblings of the currently-matched row, fetched on
+  // rematch open. Pre-MOK-144 the operator had to guess the sibling's
+  // item_name (e.g. "Croissant 3oz 4pk" when the matched row was
+  // "Butter Croissant"); the panel now surfaces siblings automatically.
+  const [packPairSiblings, setPackPairSiblings] = useState<InventorySearchHit[]>([])
+
+  useEffect(() => {
+    if (choice !== 'rematch' || !ctx.inventory_item_id) {
+      setPackPairSiblings([])
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(
+          `/api/admin/inventory?siblings_of=${encodeURIComponent(ctx.inventory_item_id!)}&limit=10`,
+        )
+        if (cancelled || !res.ok) return
+        const data = await res.json()
+        setPackPairSiblings((data.data ?? data.items ?? []) as InventorySearchHit[])
+      } catch {
+        // non-fatal — siblings panel just stays empty
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [choice, ctx.inventory_item_id])
 
   useEffect(() => {
     if (choice !== 'rematch' || searchQuery.length < 2) {
@@ -63,7 +91,7 @@ export function PriceVarianceForm({
         )
         if (res.ok) {
           const data = await res.json()
-          setSearchResults((data.data ?? []) as InventorySearchHit[])
+          setSearchResults((data.data ?? data.items ?? []) as InventorySearchHit[])
         }
       } catch {
         // ignore — empty results UI is sufficient feedback
@@ -291,6 +319,49 @@ export function PriceVarianceForm({
       {/* MOK-135: re-match search/results, only when 'rematch' is selected */}
       {choice === 'rematch' && (
         <div className="space-y-2">
+          {/* MOK-144: pack-pair siblings, surfaced automatically. Pack pairs
+              share square_item_id but not item_name (e.g. "Butter Croissant"
+              pairs with "Croissant 3oz 4pk"), so the typed search can miss
+              them. Pinned at the top so the operator picks the sibling
+              without guessing its name. */}
+          {packPairSiblings.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-gray-700">
+                Pack-pair siblings:
+              </p>
+              <div className="border border-amber-200 bg-amber-50 rounded-md divide-y divide-amber-100">
+                {packPairSiblings.map((item) => {
+                  const packDisplay =
+                    item.pack_size && item.pack_size > 1 ? ` · pack of ${item.pack_size}` : ''
+                  return (
+                    <label
+                      key={item.id}
+                      className="flex items-center gap-2 px-3 py-2 hover:bg-amber-100 cursor-pointer"
+                    >
+                      <input
+                        type="radio"
+                        name="rematch-target"
+                        value={item.id}
+                        checked={rematchSelectedId === item.id}
+                        onChange={() => setRematchSelectedId(item.id)}
+                      />
+                      <div className="flex-1 flex items-center justify-between">
+                        <span className="text-sm text-gray-700">{item.item_name}</span>
+                        <span className="text-xs text-gray-500">
+                          ${(item.unit_cost ?? 0).toFixed(2)}/unit
+                          {packDisplay}
+                        </span>
+                      </div>
+                    </label>
+                  )
+                })}
+              </div>
+              <p className="text-xs text-gray-500">
+                Rows sharing the matched item&apos;s Square catalog ID — same product, different pack size.
+              </p>
+            </div>
+          )}
+
           <p className="text-sm font-medium text-gray-700">Search inventory:</p>
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400" />
