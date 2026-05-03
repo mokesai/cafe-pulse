@@ -5,6 +5,7 @@ import { getCurrentTenantId } from '@/lib/tenant/context'
 import type { ExceptionResolutionAction } from '@/types/invoice-exceptions'
 import { formatApiError, apiError, unexpectedError } from '@/lib/api/errors'
 import { applyPriceVarianceCostUpdate } from '@/lib/invoice-exceptions/apply-price-variance-cost'
+import { promoteLinkedPo } from '@/lib/invoice-confirmation/promote-linked-po'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -76,6 +77,15 @@ async function tryAutoConfirmInvoice(
     } catch (feeErr) {
       console.error('[auto-confirm] Fee distribution failed (non-fatal):', feeErr)
     }
+  }
+
+  // MOK-145: promote the linked PO + match rows to `confirmed`. Mirrors what
+  // stage 5 does on the happy path; ensures invoices that clear via exception
+  // resolution don't leave their PO stuck at `received`.
+  try {
+    await promoteLinkedPo(supabase, invoiceId, tenantId)
+  } catch (promoteErr) {
+    console.error('[auto-confirm] PO promotion failed (non-fatal):', promoteErr)
   }
 
   console.log(`✅ Auto-confirmed invoice ${invoiceId} after last exception resolved`)

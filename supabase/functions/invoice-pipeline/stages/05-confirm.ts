@@ -11,6 +11,7 @@
 
 import type { PipelineContext } from '../context.ts'
 import type { StageResult } from '../orchestrator.ts'
+import { promoteLinkedPo } from '../lib/promote-linked-po.ts'
 
 const STAGE = 'confirming'
 
@@ -69,14 +70,10 @@ export async function runConfirmation(ctx: PipelineContext): Promise<StageResult
     return { ok: false, fatal: false, error: confirmError.message }
   }
 
-  // ── Update PO match status if matched ────────────────────────────────────
-  if (ctx.poMatchId) {
-    await ctx.supabase
-      .from('order_invoice_matches')
-      .update({ status: 'confirmed' })
-      .eq('id', ctx.poMatchId)
-      .eq('tenant_id', ctx.tenantId)
-  }
+  // ── Promote linked PO + match rows to confirmed (MOK-145) ────────────────
+  // Pre-MOK-145 only the match row was updated, leaving the PO stuck at
+  // `received`. The shared helper updates both, idempotently.
+  await promoteLinkedPo(ctx.supabase, ctx.invoiceId, ctx.tenantId)
 
   // ── Update inventory costs for matched items ──────────────────────────────
   // Update unit_cost on inventory_items where price changed (if no price_variance exception)
