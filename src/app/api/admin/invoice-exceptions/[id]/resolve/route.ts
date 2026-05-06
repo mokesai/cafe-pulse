@@ -6,6 +6,7 @@ import type { ExceptionResolutionAction } from '@/types/invoice-exceptions'
 import { formatApiError, apiError, unexpectedError } from '@/lib/api/errors'
 import { applyPriceVarianceCostUpdate } from '@/lib/invoice-exceptions/apply-price-variance-cost'
 import { promoteLinkedPo } from '@/lib/invoice-confirmation/promote-linked-po'
+import { checkQuantityVarianceForRematch } from '@/lib/invoice-exceptions/check-quantity-variance-for-rematch'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -334,6 +335,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
                   }, { onConflict: 'tenant_id,supplier_id,supplier_description' })
               }
             }
+
+            // MOK-150: re-run quantity variance against the corrected match.
+            // Pre-MOK-150 the operator could re-match a wrongly-matched item
+            // and the PO's qty discrepancy stayed silent — checkQuantityVariance
+            // only ran during initial pipeline processing.
+            try {
+              await checkQuantityVarianceForRematch(
+                supabase,
+                tenantId,
+                exception.invoice_item_id,
+                action.inventory_item_id,
+              )
+            } catch (qvErr) {
+              console.error('[resolve] match_item quantity revalidation failed (non-fatal):', qvErr)
+            }
           }
           pipelineContinued = true
           break
@@ -390,6 +406,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
                       last_seen_invoice_id: exception.invoice_id,
                       last_seen_at: new Date().toISOString()
                     }, { onConflict: 'tenant_id,supplier_id,supplier_description' })
+                }
+              }
+
+              // MOK-150: re-run quantity variance against the newly-created
+              // inventory match. Same rationale as the `match_item` branch.
+              if (exception.invoice_item_id) {
+                try {
+                  await checkQuantityVarianceForRematch(
+                    supabase,
+                    tenantId,
+                    exception.invoice_item_id,
+                    newItem.id,
+                  )
+                } catch (qvErr) {
+                  console.error('[resolve] create_and_match_item quantity revalidation failed (non-fatal):', qvErr)
                 }
               }
             }
