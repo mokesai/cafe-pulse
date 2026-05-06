@@ -126,7 +126,17 @@ export async function runItemMatching(ctx: PipelineContext): Promise<StageResult
     return { ok: false, fatal: true, error: `Failed to load inventory items: ${invError.message}` }
   }
 
-  const inventory = (inventoryItems ?? []) as InventoryItem[]
+  const inventoryAll = (inventoryItems ?? []) as InventoryItem[]
+
+  // MOK-149: scope the matcher's candidate pool to the invoice's supplier.
+  // Pre-MOK-149 the matcher fuzzy-matched against the entire tenant inventory,
+  // so a Lulala "Bacon" line could land on Odeko's "Sammies Bacon Sandwich"
+  // purely on literal word overlap — supplier-blind. Filtering up front means
+  // short-form descriptions resolve correctly within their own supplier's
+  // catalog. The full inventory list is preserved separately for
+  // `promoteToPackPairSibling` (MOK-144), since a pack-pair sibling can
+  // legitimately live on a different supplier (Aspen→Bluepoint transitions).
+  const inventory = selectCandidatePool(inventoryAll, ctx.resolvedSupplierId ?? null)
 
   // ── Pre-load alias map (avoid N+1 queries) ────────────────────────────────
   let aliasMap = new Map<string, Awaited<ReturnType<typeof getAllAliasesForSupplier>> extends Map<string, infer V> ? V : never>()
@@ -141,7 +151,7 @@ export async function runItemMatching(ctx: PipelineContext): Promise<StageResult
   // ── Process each invoice item ─────────────────────────────────────────────
   for (const item of items) {
     try {
-      await processInvoiceItem(ctx, item, inventory, aliasMap, matchThreshold)
+      await processInvoiceItem(ctx, item, inventory, inventoryAll, aliasMap, matchThreshold)
       matchedCount++
     } catch (err) {
       // Item-level exception — create exception and continue
@@ -181,6 +191,17 @@ export async function runItemMatching(ctx: PipelineContext): Promise<StageResult
   ctx.matchedItemCount = matchedCount
   ctx.skippedItemCount = skippedCount
 
+  // MOK-150: PO-completeness audit. The per-invoice-item loop above only
+  // checks the invoice→PO direction (does this invoice line have a matching
+  // PO line). The PO→invoice direction was silent — items on the PO that
+  // never appeared on the invoice (entirely skipped / short-shipped) gave
+  // no signal to the operator. Audit the linked PO's lines and raise a
+  // block-severity exception for any inventory_item_id that wasn't matched
+  // by any invoice item on this invoice.
+  if (ctx.poMatchId) {
+    await checkPoCompleteness(ctx)
+  }
+
   console.log(JSON.stringify({
     event: 'stage_complete',
     stage: STAGE,
@@ -194,13 +215,170 @@ export async function runItemMatching(ctx: PipelineContext): Promise<StageResult
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// MOK-150: PO-completeness audit
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Pure function — given a list of PO line items and the set of inventory
+ * item ids the invoice already matched, return the PO lines that have no
+ * matching invoice line. Skips PO lines with no `inventory_item_id`
+ * (free-text or unattached lines that we can't audit).
+ *
+ * Exported for unit tests.
+ */
+export interface PoLineForCompleteness {
+  id: string
+  inventory_item_id: string | null
+  quantity_ordered: number | null
+}
+
+export function findMissingPoLines<T extends PoLineForCompleteness>(
+  poLines: T[],
+  matchedInventoryIds: Set<string>,
+): T[] {
+  return poLines.filter(
+    (po) => po.inventory_item_id !== null && !matchedInventoryIds.has(po.inventory_item_id),
+  )
+}
+
+/**
+ * After the per-invoice-item match loop completes, identify PO line items
+ * that were ordered but never matched on this invoice. Raise one
+ * block-severity quantity_variance exception per missing PO line so the
+ * operator must acknowledge the gap before stage 5 auto-confirms.
+ *
+ * Pre-MOK-150 the pipeline only audited invoice→PO. Live repro 2026-05-03 on
+ * PO-752389: 2 sauces ordered but missing from the invoice silently
+ * auto-confirmed.
+ */
+async function checkPoCompleteness(ctx: PipelineContext): Promise<void> {
+  const { data: poMatch } = await ctx.supabase
+    .from('order_invoice_matches')
+    .select('purchase_order_id')
+    .eq('id', ctx.poMatchId!)
+    .eq('tenant_id', ctx.tenantId)
+    .maybeSingle()
+
+  if (!poMatch) return
+
+  const { data: poItems } = await ctx.supabase
+    .from('purchase_order_items')
+    .select('id, inventory_item_id, quantity_ordered')
+    .eq('purchase_order_id', poMatch.purchase_order_id)
+    .eq('tenant_id', ctx.tenantId)
+
+  if (!poItems || poItems.length === 0) return
+
+  const { data: invoiceItems } = await ctx.supabase
+    .from('invoice_items')
+    .select('matched_item_id')
+    .eq('invoice_id', ctx.invoiceId)
+    .eq('tenant_id', ctx.tenantId)
+    .not('matched_item_id', 'is', null)
+
+  const matchedInventoryIds = new Set(
+    (invoiceItems ?? []).map(
+      (ii: { matched_item_id: string | null }) => ii.matched_item_id,
+    ),
+  )
+
+  const missingLines = findMissingPoLines(
+    poItems as PoLineForCompleteness[],
+    matchedInventoryIds as Set<string>,
+  )
+  if (missingLines.length === 0) return
+
+  // Load PO number + inventory item names for human-readable messages.
+  const { data: po } = await ctx.supabase
+    .from('purchase_orders')
+    .select('order_number')
+    .eq('id', poMatch.purchase_order_id)
+    .eq('tenant_id', ctx.tenantId)
+    .maybeSingle()
+  const poNumber = po?.order_number ?? 'Unknown'
+
+  const inventoryIds = missingLines
+    .map((po) => po.inventory_item_id)
+    .filter((id): id is string => Boolean(id))
+  const { data: invRows } = await ctx.supabase
+    .from('inventory_items')
+    .select('id, item_name')
+    .in('id', inventoryIds)
+    .eq('tenant_id', ctx.tenantId)
+  const nameById = new Map<string, string>(
+    (invRows ?? []).map((r: { id: string; item_name: string }) => [r.id, r.item_name]),
+  )
+
+  for (const line of missingLines) {
+    const itemName = nameById.get(line.inventory_item_id!) ?? 'Unknown item'
+    const poQuantity = Number(line.quantity_ordered ?? 0)
+
+    await createException(ctx, {
+      type: 'quantity_variance',
+      severity: 'block',
+      message:
+        `"${itemName}" was ordered on PO ${poNumber} (qty ${poQuantity}) but does not appear ` +
+        `on this invoice. Supplier may have short-shipped or skipped this line.`,
+      context: {
+        item_description: itemName,
+        inventory_item_id: line.inventory_item_id,
+        po_quantity: poQuantity,
+        invoice_quantity: 0,
+        variance_pct: 100,
+        threshold_pct: ctx.tenantSettings.totalVarianceThresholdPct,
+        purchase_order_id: poMatch.purchase_order_id,
+        purchase_order_number: poNumber,
+        purchase_order_item_id: line.id,
+        po_line_not_invoiced: true,
+      },
+      pipelineStage: STAGE,
+    })
+  }
+
+  console.log(JSON.stringify({
+    event: 'po_completeness_check',
+    invoice_id: ctx.invoiceId,
+    purchase_order_id: poMatch.purchase_order_id,
+    missing_lines: missingLines.length,
+  }))
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Process single invoice item
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * MOK-149: select the inventory candidate pool for matching.
+ *
+ * When the invoice has a resolved supplier, restrict the candidate pool to
+ * inventory items that belong to that supplier. This fixes Lulala-style
+ * cross-supplier mis-matches where a short invoice description ("Bacon")
+ * landed on a name-similar item from a different supplier ("Sammies Bacon
+ * Sandwich" from Odeko) before the right same-supplier item ("Loly's Burrito
+ * (bacon)") was even considered.
+ *
+ * If the resolved supplier has no inventory rows, returns an empty array; the
+ * caller will fall through to the existing no_item_match exception path,
+ * which is the right signal — better to flag than silently false-match.
+ *
+ * Falls back to the full pool when no supplier is resolved (rare; means stage
+ * 3 supplier resolution failed).
+ *
+ * Pure function — exported for unit tests.
+ */
+export function selectCandidatePool<T extends { supplier_id: string | null }>(
+  inventory: T[],
+  resolvedSupplierId: string | null,
+): T[] {
+  if (!resolvedSupplierId) return inventory
+  return inventory.filter((i) => i.supplier_id === resolvedSupplierId)
+}
 
 async function processInvoiceItem(
   ctx: PipelineContext,
   item: InvoiceItem,
-  inventory: InventoryItem[],
+  inventory: InventoryItem[],     // MOK-149: filtered to invoice supplier
+  inventoryAll: InventoryItem[],  // MOK-144: full pool, used for pack-pair sibling promotion
   aliasMap: Map<string, { inventory_item_id: string; confidence: number }>,
   matchThreshold: number
 ): Promise<void> {
@@ -214,7 +392,7 @@ async function processInvoiceItem(
       // sibling before recording the match.
       const promoted = promoteToPackPairSibling(
         inventoryItem,
-        inventory,
+        inventoryAll,
         item.unit_price,
         ctx.resolvedSupplierId ?? null,
       )
@@ -247,7 +425,7 @@ async function processInvoiceItem(
     // (different name). Promote across siblings before recording.
     const promoted = promoteToPackPairSibling(
       exactNameMatch,
-      inventory,
+      inventoryAll,
       item.unit_price,
       ctx.resolvedSupplierId ?? null,
     )
@@ -309,7 +487,7 @@ async function processInvoiceItem(
   // Promote across siblings + supplier preference before recording.
   const promoted = promoteToPackPairSibling(
     matchedInventoryItem,
-    inventory,
+    inventoryAll,
     item.unit_price,
     ctx.resolvedSupplierId ?? null,
   )
