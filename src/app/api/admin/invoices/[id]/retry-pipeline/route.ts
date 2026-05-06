@@ -42,7 +42,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // Verify invoice exists and belongs to this tenant
     const { data: invoice, error: fetchError } = await supabase
       .from('invoices')
-      .select('id, status, pipeline_stage, invoice_number')
+      .select('id, status, pipeline_stage, invoice_number, pipeline_started_at')
       .eq('id', id)
       .eq('tenant_id', tenantId)
       .single()
@@ -66,6 +66,35 @@ export async function POST(request: NextRequest, context: RouteContext) {
             `Retriable statuses: ${retriableStatuses.join(', ')}`
         },
         { status: 422 }
+      )
+    }
+
+    // MOK-148: prevent stacking concurrent runs against the same invoice.
+    // Pre-MOK-148 the retry route would reset status to 'uploaded' even when
+    // a pipeline was actively running, allowing the orchestrator's
+    // optimistic lock to claim again — two runs interleaved writes against
+    // the same row, producing zombie `pipeline_running` rows with corrupted
+    // timestamps (`pipeline_completed_at` < `pipeline_started_at`). Block
+    // retry while a recent run is in flight; expire the block after the
+    // staleness threshold so genuinely-stuck rows can still be recovered.
+    const PIPELINE_RUNNING_RECENT_THRESHOLD_MS = 5 * 60 * 1000
+    if (
+      invoice.status === 'pipeline_running' &&
+      invoice.pipeline_started_at &&
+      Date.now() - new Date(invoice.pipeline_started_at).getTime() <
+        PIPELINE_RUNNING_RECENT_THRESHOLD_MS
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            `Invoice ${invoice.invoice_number} is currently being processed ` +
+            `(started ${invoice.pipeline_started_at}). ` +
+            'Wait for the current run to complete (typically under 2 minutes). ' +
+            'If it appears stuck, retry will be available 5 minutes after the run started.',
+          code: 'PIPELINE_ALREADY_RUNNING',
+          pipeline_started_at: invoice.pipeline_started_at,
+        },
+        { status: 409 }
       )
     }
 

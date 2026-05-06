@@ -350,4 +350,125 @@ describe('POST /api/admin/invoices/[id]/retry-pipeline (MOK-127)', () => {
       .single()
     expect(bException!.status).toBe('open')
   })
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // MOK-148: block retry while a recent pipeline_running run is in flight
+  // ───────────────────────────────────────────────────────────────────────────
+
+  it('MOK-148: blocks retry with 409 when invoice is pipeline_running with a recent started_at', async () => {
+    if (!tenantA) throw new Error('test setup failed')
+    const invoice = await createInvoice(tenantA, {
+      supplier_id: supplierAId,
+      status: 'pending_exceptions' as never,
+    })
+    const svc = getServiceClient()
+
+    // Simulate a run that just started 10 seconds ago — well within the
+    // 5-minute recent-run threshold.
+    const recentStart = new Date(Date.now() - 10_000).toISOString()
+    await svc
+      .from('invoices')
+      .update({
+        status: 'pipeline_running',
+        pipeline_stage: 'extracting',
+        pipeline_started_at: recentStart,
+      })
+      .eq('id', invoice.id)
+
+    const req = buildAuthedRequest({
+      tenant: tenantA,
+      method: 'POST',
+      url: `/api/admin/invoices/${invoice.id}/retry-pipeline`,
+      body: {},
+    })
+    const res = await retryPOST(req, { params: Promise.resolve({ id: invoice.id }) })
+
+    expect(res.status).toBe(409)
+    const body = await res.json()
+    expect(body.code).toBe('PIPELINE_ALREADY_RUNNING')
+    expect(body.error).toMatch(/currently being processed/i)
+
+    // Confirm pipeline state was NOT reset — the in-flight run's state
+    // should still be intact.
+    const { data: refreshed } = await svc
+      .from('invoices')
+      .select('status, pipeline_stage, pipeline_started_at')
+      .eq('id', invoice.id)
+      .single()
+    expect(refreshed!.status).toBe('pipeline_running')
+    expect(refreshed!.pipeline_stage).toBe('extracting')
+    // Postgres returns timestamps with `+00:00`, we sent `Z` — same instant.
+    expect(new Date(refreshed!.pipeline_started_at as string).toISOString()).toBe(recentStart)
+  })
+
+  it('MOK-148: allows retry on a stuck pipeline_running invoice once started_at is older than the threshold', async () => {
+    if (!tenantA) throw new Error('test setup failed')
+    const invoice = await createInvoice(tenantA, {
+      supplier_id: supplierAId,
+      status: 'pending_exceptions' as never,
+    })
+    const svc = getServiceClient()
+
+    // Simulate a run that started 10 minutes ago — past the 5-minute
+    // staleness threshold, so retry is allowed (operator recovers stuck row).
+    const staleStart = new Date(Date.now() - 10 * 60_000).toISOString()
+    await svc
+      .from('invoices')
+      .update({
+        status: 'pipeline_running',
+        pipeline_stage: 'extracting',
+        pipeline_started_at: staleStart,
+      })
+      .eq('id', invoice.id)
+
+    const req = buildAuthedRequest({
+      tenant: tenantA,
+      method: 'POST',
+      url: `/api/admin/invoices/${invoice.id}/retry-pipeline`,
+      body: {},
+    })
+    const res = await retryPOST(req, { params: Promise.resolve({ id: invoice.id }) })
+
+    expect(res.status).toBe(202)
+    // Pipeline state was reset.
+    const { data: refreshed } = await svc
+      .from('invoices')
+      .select('status, pipeline_stage, pipeline_completed_at')
+      .eq('id', invoice.id)
+      .single()
+    expect(refreshed!.status).toBe('uploaded')
+    expect(refreshed!.pipeline_stage).toBeNull()
+    expect(refreshed!.pipeline_completed_at).toBeNull()
+  })
+
+  it('MOK-148: allows retry on pipeline_running with no started_at (legacy/missing data)', async () => {
+    if (!tenantA) throw new Error('test setup failed')
+    const invoice = await createInvoice(tenantA, {
+      supplier_id: supplierAId,
+      status: 'pending_exceptions' as never,
+    })
+    const svc = getServiceClient()
+
+    // Edge case: status=pipeline_running but pipeline_started_at is null
+    // (corrupted/legacy row). Don't block retry — the precondition only
+    // fires when we can prove the run is recent.
+    await svc
+      .from('invoices')
+      .update({
+        status: 'pipeline_running',
+        pipeline_stage: 'extracting',
+        pipeline_started_at: null,
+      })
+      .eq('id', invoice.id)
+
+    const req = buildAuthedRequest({
+      tenant: tenantA,
+      method: 'POST',
+      url: `/api/admin/invoices/${invoice.id}/retry-pipeline`,
+      body: {},
+    })
+    const res = await retryPOST(req, { params: Promise.resolve({ id: invoice.id }) })
+
+    expect(res.status).toBe(202)
+  })
 })
