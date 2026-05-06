@@ -126,7 +126,17 @@ export async function runItemMatching(ctx: PipelineContext): Promise<StageResult
     return { ok: false, fatal: true, error: `Failed to load inventory items: ${invError.message}` }
   }
 
-  const inventory = (inventoryItems ?? []) as InventoryItem[]
+  const inventoryAll = (inventoryItems ?? []) as InventoryItem[]
+
+  // MOK-149: scope the matcher's candidate pool to the invoice's supplier.
+  // Pre-MOK-149 the matcher fuzzy-matched against the entire tenant inventory,
+  // so a Lulala "Bacon" line could land on Odeko's "Sammies Bacon Sandwich"
+  // purely on literal word overlap — supplier-blind. Filtering up front means
+  // short-form descriptions resolve correctly within their own supplier's
+  // catalog. The full inventory list is preserved separately for
+  // `promoteToPackPairSibling` (MOK-144), since a pack-pair sibling can
+  // legitimately live on a different supplier (Aspen→Bluepoint transitions).
+  const inventory = selectCandidatePool(inventoryAll, ctx.resolvedSupplierId ?? null)
 
   // ── Pre-load alias map (avoid N+1 queries) ────────────────────────────────
   let aliasMap = new Map<string, Awaited<ReturnType<typeof getAllAliasesForSupplier>> extends Map<string, infer V> ? V : never>()
@@ -141,7 +151,7 @@ export async function runItemMatching(ctx: PipelineContext): Promise<StageResult
   // ── Process each invoice item ─────────────────────────────────────────────
   for (const item of items) {
     try {
-      await processInvoiceItem(ctx, item, inventory, aliasMap, matchThreshold)
+      await processInvoiceItem(ctx, item, inventory, inventoryAll, aliasMap, matchThreshold)
       matchedCount++
     } catch (err) {
       // Item-level exception — create exception and continue
@@ -197,10 +207,38 @@ export async function runItemMatching(ctx: PipelineContext): Promise<StageResult
 // Process single invoice item
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * MOK-149: select the inventory candidate pool for matching.
+ *
+ * When the invoice has a resolved supplier, restrict the candidate pool to
+ * inventory items that belong to that supplier. This fixes Lulala-style
+ * cross-supplier mis-matches where a short invoice description ("Bacon")
+ * landed on a name-similar item from a different supplier ("Sammies Bacon
+ * Sandwich" from Odeko) before the right same-supplier item ("Loly's Burrito
+ * (bacon)") was even considered.
+ *
+ * If the resolved supplier has no inventory rows, returns an empty array; the
+ * caller will fall through to the existing no_item_match exception path,
+ * which is the right signal — better to flag than silently false-match.
+ *
+ * Falls back to the full pool when no supplier is resolved (rare; means stage
+ * 3 supplier resolution failed).
+ *
+ * Pure function — exported for unit tests.
+ */
+export function selectCandidatePool<T extends { supplier_id: string | null }>(
+  inventory: T[],
+  resolvedSupplierId: string | null,
+): T[] {
+  if (!resolvedSupplierId) return inventory
+  return inventory.filter((i) => i.supplier_id === resolvedSupplierId)
+}
+
 async function processInvoiceItem(
   ctx: PipelineContext,
   item: InvoiceItem,
-  inventory: InventoryItem[],
+  inventory: InventoryItem[],     // MOK-149: filtered to invoice supplier
+  inventoryAll: InventoryItem[],  // MOK-144: full pool, used for pack-pair sibling promotion
   aliasMap: Map<string, { inventory_item_id: string; confidence: number }>,
   matchThreshold: number
 ): Promise<void> {
@@ -214,7 +252,7 @@ async function processInvoiceItem(
       // sibling before recording the match.
       const promoted = promoteToPackPairSibling(
         inventoryItem,
-        inventory,
+        inventoryAll,
         item.unit_price,
         ctx.resolvedSupplierId ?? null,
       )
@@ -247,7 +285,7 @@ async function processInvoiceItem(
     // (different name). Promote across siblings before recording.
     const promoted = promoteToPackPairSibling(
       exactNameMatch,
-      inventory,
+      inventoryAll,
       item.unit_price,
       ctx.resolvedSupplierId ?? null,
     )
@@ -309,7 +347,7 @@ async function processInvoiceItem(
   // Promote across siblings + supplier preference before recording.
   const promoted = promoteToPackPairSibling(
     matchedInventoryItem,
-    inventory,
+    inventoryAll,
     item.unit_price,
     ctx.resolvedSupplierId ?? null,
   )
