@@ -142,7 +142,14 @@ export async function syncMenusFromSquare(
   const relatedObjects = (itemResp.related_objects ?? []) as SquareCatalogObject[]
 
   // ── Step 3: process categories first ──────────────────────────────────────
+  // Defense: even though we asked Square for MENU_CATEGORY only, double-check
+  // category_type before mirroring. Future API-shape surprises shouldn't
+  // pollute the mirror.
   for (const cat of categories) {
+    const isMenuCategory =
+      cat.category_data?.category_type === 'MENU_CATEGORY' || cat.is_deleted
+    if (!isMenuCategory) continue
+
     if (cat.is_deleted) {
       const removed = await markCategoryDeleted(supabase, tenantId, cat.id)
       if (removed.categoryUpdated) result.deletes.categoriesMarkedDeleted++
