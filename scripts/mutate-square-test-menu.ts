@@ -160,10 +160,21 @@ async function removeEspressoDouble() {
   console.log(`✓ removed "Double" variation from Espresso`)
 }
 
-async function deleteMuffin() {
-  const muffin = await findByName('ITEM', 'Blueberry Muffin')
-  await deleteObject(muffin.id)
-  console.log(`✓ hard-deleted Blueberry Muffin (${muffin.id})`)
+async function deleteMuffin(explicitId?: string) {
+  // Allow an explicit Square ID to bypass name-search (useful when prior
+  // seed runs left duplicate "Blueberry Muffin" objects in Square and
+  // findByName returns the wrong one).
+  const id = explicitId ?? (await findByName('ITEM', 'Blueberry Muffin')).id
+  await deleteObject(id)
+  console.log(`✓ hard-deleted Blueberry Muffin (${id})`)
+}
+
+async function deleteByIds(type: string, ids: string[]) {
+  if (ids.length === 0) return
+  for (const id of ids) {
+    await deleteObject(id)
+    console.log(`✓ hard-deleted ${type} (${id})`)
+  }
 }
 
 async function deletePastriesGroup() {
@@ -176,12 +187,19 @@ async function deletePastriesGroup() {
 // CLI dispatch
 // ─────────────────────────────────────────────────────────────────────────────
 
-const SCENARIOS: Record<string, () => Promise<void>> = {
+const SCENARIOS: Record<string, (arg?: string) => Promise<void>> = {
   'rename-espresso': () => renameEspresso(),
   'move-espresso-cold': moveEspressoToCold,
   'remove-espresso-double': removeEspressoDouble,
-  'delete-muffin': deleteMuffin,
+  'delete-muffin': (id) => deleteMuffin(id),
   'delete-pastries-group': deletePastriesGroup,
+  // Generic helper: delete a specific Square object by id
+  // npm run mutate-kds-test-menu delete-by-id <id> [<id> …]
+  'delete-by-id': async () => {
+    const ids = process.argv.slice(3)
+    if (ids.length === 0) throw new Error('Usage: delete-by-id <id> [<id> …]')
+    await deleteByIds('object', ids)
+  },
 }
 
 async function main() {
@@ -196,8 +214,9 @@ async function main() {
     console.error(`Unknown scenario: ${scenario}`)
     process.exit(1)
   }
-  console.log(`🔧 Mutating: ${scenario}`)
-  await fn()
+  const arg = process.argv[3]
+  console.log(`🔧 Mutating: ${scenario}${arg ? ` ${arg}` : ''}`)
+  await fn(arg)
   console.log('  Now trigger the menu-sync (DevTools) to propagate to the local mirror.')
 }
 
