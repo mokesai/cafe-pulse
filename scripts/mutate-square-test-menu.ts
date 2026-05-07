@@ -78,23 +78,33 @@ async function squareFetch<T = unknown>(path: string, init: RequestInit = {}): P
   return body as T
 }
 
-async function findByName(type: 'CATEGORY' | 'ITEM', name: string): Promise<CatalogObject> {
-  const body = await squareFetch<{ objects?: CatalogObject[] }>('/v2/catalog/search', {
-    method: 'POST',
-    body: JSON.stringify({
-      object_types: [type],
-      query: { exact_query: { attribute_name: 'name', attribute_value: name } },
-    }),
-  })
-  const obj = (body.objects ?? []).find((o) => {
-    if (type === 'ITEM') return o.item_data?.name === name
-    return (o.category_data as { name?: string } | undefined)?.name === name
-  })
-  if (!obj) {
-    throw new Error(`No ${type} found with name="${name}"`)
+async function findByName(
+  type: 'CATEGORY' | 'ITEM',
+  ...nameCandidates: string[]
+): Promise<CatalogObject> {
+  // Try each candidate name in order — scripts may re-find an item that an
+  // earlier mutation renamed (e.g. Espresso → Strong Espresso).
+  for (const name of nameCandidates) {
+    const body = await squareFetch<{ objects?: CatalogObject[] }>('/v2/catalog/search', {
+      method: 'POST',
+      body: JSON.stringify({
+        object_types: [type],
+        query: { exact_query: { attribute_name: 'name', attribute_value: name } },
+      }),
+    })
+    const obj = (body.objects ?? []).find((o) => {
+      if (type === 'ITEM') return o.item_data?.name === name
+      return (o.category_data as { name?: string } | undefined)?.name === name
+    })
+    if (obj) return obj
   }
-  return obj
+  throw new Error(`No ${type} found with name in [${nameCandidates.join(', ')}]`)
 }
+
+// Convenience wrappers for the mutation scenarios so callers don't need to
+// repeat the name-history tuple every time.
+const ESPRESSO_NAMES = ['Strong Espresso', 'Espresso'] as const
+const findEspresso = () => findByName('ITEM', ...ESPRESSO_NAMES)
 
 async function retrieveCurrent(id: string): Promise<CatalogObject> {
   const body = await squareFetch<{ object?: CatalogObject }>(`/v2/catalog/object/${id}`)
@@ -119,7 +129,7 @@ async function deleteObject(id: string) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function renameEspresso(newName = 'Strong Espresso') {
-  const espresso = await findByName('ITEM', 'Espresso')
+  const espresso = await findEspresso()
   const fresh = await retrieveCurrent(espresso.id)
   fresh.item_data!.name = newName
   await upsert(fresh)
@@ -127,7 +137,7 @@ async function renameEspresso(newName = 'Strong Espresso') {
 }
 
 async function moveEspressoToCold() {
-  const espresso = await findByName('ITEM', 'Espresso')
+  const espresso = await findEspresso()
   const cold = await findByName('CATEGORY', 'Cold Drinks')
   const fresh = await retrieveCurrent(espresso.id)
   fresh.item_data!.categories = [{ id: cold.id, ordinal: 3 }] // append at end of cold
@@ -136,7 +146,7 @@ async function moveEspressoToCold() {
 }
 
 async function removeEspressoDouble() {
-  const espresso = await findByName('ITEM', 'Espresso')
+  const espresso = await findEspresso()
   const fresh = await retrieveCurrent(espresso.id)
   const variations = fresh.item_data?.variations ?? []
   const before = variations.length
