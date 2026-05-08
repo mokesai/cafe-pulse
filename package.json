@@ -26,6 +26,8 @@
     "seed-inventory": "node scripts/seed-inventory.js",
     "init-catalog-taxes": "node scripts/init-catalog-taxes.js",
     "debug-square": "node scripts/debug-square-env.js",
+    "seed-kds-test-menu": "npx tsx scripts/seed-square-test-menu.ts",
+    "mutate-kds-test-menu": "npx tsx scripts/mutate-square-test-menu.ts",
     "setup-inventory": "node scripts/setup-inventory-system.js",
     "upload-suppliers": "node scripts/bulk-upload-suppliers.js",
     "audit-square-mapping": "node scripts/audit-square-inventory-mapping.js",

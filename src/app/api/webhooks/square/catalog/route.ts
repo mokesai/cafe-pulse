@@ -475,6 +475,28 @@ export async function POST(request: NextRequest) {
     console.log(`🆕 New items: ${syncResult.newItems}`)
     console.log(`✨ Updated items: ${syncResult.updatedItems}`)
 
+    // MOK-151 / KDS v3 phase 1: also sync the local Square menu mirror.
+    // Runs alongside the existing inventory sync, after it. Failure here is
+    // logged but doesn't fail the webhook (Square will retry, but we don't
+    // want a transient mirror-sync error to repeat indefinitely).
+    try {
+      const { syncMenusFromSquare } = await import('@/lib/square/menu-sync')
+      const menuSyncResult = await syncMenusFromSquare(supabase, tenantId)
+      console.log(
+        `[catalog-webhook] menu-sync ran for tenant=${tenantId} ` +
+          `categories+=${menuSyncResult.upserts.categories} ` +
+          `items+=${menuSyncResult.upserts.items} ` +
+          `variations+=${menuSyncResult.upserts.variations} ` +
+          `memberships+=${menuSyncResult.upserts.memberships} ` +
+          `warnings=${menuSyncResult.warnings.length}`,
+      )
+    } catch (menuSyncError) {
+      console.error(
+        `[catalog-webhook] menu-sync failed for tenant=${tenantId} (non-fatal):`,
+        menuSyncError instanceof Error ? menuSyncError.message : menuSyncError,
+      )
+    }
+
     return NextResponse.json({
       success: true,
       message: 'Catalog webhook processed successfully',
