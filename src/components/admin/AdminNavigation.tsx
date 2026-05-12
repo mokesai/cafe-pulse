@@ -36,6 +36,7 @@ const navigation = [
   { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
   { name: 'Customers', href: '/admin/customers', icon: Users },
   { name: 'KDS Setup', href: '/admin/kds-config', icon: Monitor },
+  { name: 'KDS v3 (beta)', href: '/admin/kds-v3/screens', icon: Monitor },
   { name: 'Team', href: '/admin/team', icon: Users },
   { name: 'Settings', href: '/admin/settings', icon: Settings },
   { name: 'Invoice Pipeline', href: '/admin/settings/invoices', icon: SlidersHorizontal },
