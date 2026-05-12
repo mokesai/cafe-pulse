@@ -1,13 +1,22 @@
+'use client'
+
 /**
  * MOK-152 / KDS v3 phase 2 — screens list page (admin).
  *
- * Lives under (protected) so it inherits the admin sidebar / chrome. The
- * list is rendered client-side via ScreensList because it has refresh +
- * delete actions; server fetch on initial mount keeps the first paint fast.
+ * Matches the loading pattern used by other admin client pages (e.g.
+ * customers/page.tsx): 'use client' + next/dynamic with ssr:false. This
+ * avoids Server→Client boundary hiccups in dev mode and is the convention
+ * other pages use.
  */
-import { ScreensList } from '@/components/admin/kds-v3/ScreensList'
+import dynamic from 'next/dynamic'
 
-export const dynamic = 'force-dynamic'
+const ScreensList = dynamic(
+  () => import('@/components/admin/kds-v3/ScreensList').then((mod) => mod.ScreensList),
+  {
+    loading: () => <div className="text-sm text-gray-500">Loading screens…</div>,
+    ssr: false,
+  },
+)
 
 export default function KdsV3ScreensPage() {
   return (

@@ -1,6 +1,14 @@
-import { ScreenForm } from '@/components/admin/kds-v3/ScreenForm'
+'use client'
 
-export const dynamic = 'force-dynamic'
+import dynamic from 'next/dynamic'
+
+const ScreenForm = dynamic(
+  () => import('@/components/admin/kds-v3/ScreenForm').then((mod) => mod.ScreenForm),
+  {
+    loading: () => <div className="text-sm text-gray-500">Loading editor…</div>,
+    ssr: false,
+  },
+)
 
 export default function NewScreenPage() {
   return (
