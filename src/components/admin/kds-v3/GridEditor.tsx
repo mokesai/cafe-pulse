@@ -17,8 +17,6 @@
  */
 import { useMemo, useState } from 'react'
 import GridLayout, { type Layout, WidthProvider } from 'react-grid-layout'
-import { Plus, Trash2 } from 'lucide-react'
-import { Button } from '@/components/ui'
 import {
   nextAvailablePosition,
   firstFreeCell,
@@ -121,9 +119,13 @@ export function GridEditor({ grid_rows, grid_cols, boxes, onChange }: Props) {
         <p className="text-sm font-medium text-gray-700">
           Grid layout — {boxes.length} {boxes.length === 1 ? 'box' : 'boxes'}
         </p>
-        <Button size="sm" variant="secondary" onClick={addBox}>
-          <Plus className="h-4 w-4 mr-1.5" /> Add Box
-        </Button>
+        <button
+          type="button"
+          onClick={addBox}
+          className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        >
+          + Add Box
+        </button>
       </div>
 
       <div className="rounded-md border border-gray-200 bg-gray-50 p-2">
@@ -181,7 +183,7 @@ export function GridEditor({ grid_rows, grid_cols, boxes, onChange }: Props) {
                       </select>
                       <button
                         type="button"
-                        className="rounded p-1 text-red-500 hover:bg-red-50"
+                        className="rounded px-1.5 py-0.5 text-[11px] text-red-500 hover:bg-red-50"
                         onClick={(e) => {
                           e.stopPropagation()
                           removeBox(box.position)
@@ -189,7 +191,7 @@ export function GridEditor({ grid_rows, grid_cols, boxes, onChange }: Props) {
                         onMouseDown={(e) => e.stopPropagation()}
                         title="Delete this box"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        ✕
                       </button>
                     </div>
                   </div>

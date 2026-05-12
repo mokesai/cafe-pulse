@@ -20,9 +20,7 @@
  */
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Save, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
-import { Button, Input } from '@/components/ui'
 import { GridEditor, type EditableBox } from './GridEditor'
 import { validateBoxLayout } from '@/lib/kds/grid-validation'
 
@@ -124,9 +122,9 @@ export function ScreenForm({ initialScreen }: Props) {
       <div>
         <Link
           href="/admin/kds-v3/screens"
-          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700"
+          className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700"
         >
-          <ArrowLeft className="h-4 w-4" /> Back to screens
+          ← Back to screens
         </Link>
         <h1 className="mt-2 text-2xl font-semibold text-gray-900">
           {editing ? `Edit screen: ${initialScreen!.name}` : 'New screen'}
@@ -146,33 +144,33 @@ export function ScreenForm({ initialScreen }: Props) {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-700">Name</label>
-          <Input
+          <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Drinks, Food"
-            className="mt-1"
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Rows</label>
-          <Input
+          <input
             type="number"
             min={1}
             max={12}
             value={rows}
             onChange={(e) => setRows(Math.max(1, Math.min(12, Number(e.target.value) || 1)))}
-            className="mt-1"
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Columns</label>
-          <Input
+          <input
             type="number"
             min={1}
             max={12}
             value={cols}
             onChange={(e) => setCols(Math.max(1, Math.min(12, Number(e.target.value) || 1)))}
-            className="mt-1"
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
         <div>
@@ -199,13 +197,20 @@ export function ScreenForm({ initialScreen }: Props) {
       />
 
       <div className="flex items-center justify-end gap-2 border-t border-gray-200 pt-4">
-        <Link href="/admin/kds-v3/screens">
-          <Button variant="secondary">Cancel</Button>
+        <Link
+          href="/admin/kds-v3/screens"
+          className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        >
+          Cancel
         </Link>
-        <Button onClick={() => void onSave()} disabled={saving}>
-          <Save className="h-4 w-4 mr-1.5" />
+        <button
+          type="button"
+          onClick={() => void onSave()}
+          disabled={saving}
+          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+        >
           {saving ? 'Saving…' : 'Save'}
-        </Button>
+        </button>
       </div>
     </div>
   )
