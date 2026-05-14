@@ -1,6 +1,9 @@
 -- KDS v3 phase 2 — ROLLBACK
 --
--- Reverses migration: 20260512015358_kds_v3_phase_2_screen_designer.sql
+-- Reverses migrations (in order):
+--   - 20260512015358_kds_v3_phase_2_screen_designer.sql  (T1 — initial schema)
+--   - 20260513023650_kds_v3_phase_2_grid_max_24.sql      (T-A — Path A bump)
+--
 -- Spec: https://linear.app/mokesai/issue/MOK-152
 -- Plan: .planning/kds-v3/PHASE-2-PLAN.md
 --
@@ -48,12 +51,14 @@ DROP TABLE IF EXISTS public.kds_grid_boxes;
 DROP TABLE IF EXISTS public.kds_screens;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 3. Remove the migration's row from supabase_migrations.schema_migrations so
---    `npm run db:migrate` re-applies the forward migration on next run.
+-- 3. Remove both phase 2 migration rows from supabase_migrations.schema_migrations
+--    so `npm run db:migrate` re-applies the forward migrations on next run.
+--    T-A's CHECK changes don't need a separate ALTER-undo step here because
+--    DROP TABLE above removed kds_screens entirely.
 -- ─────────────────────────────────────────────────────────────────────────────
 
 DELETE FROM supabase_migrations.schema_migrations
- WHERE version = '20260512015358';
+ WHERE version IN ('20260512015358', '20260513023650');
 
 COMMIT;
 
@@ -69,7 +74,7 @@ COMMIT;
 --   -- expect: 0
 --
 --   SELECT version FROM supabase_migrations.schema_migrations
---    WHERE version = '20260512015358';
+--    WHERE version IN ('20260512015358', '20260513023650');
 --   -- expect: 0 rows
 --
 -- After verification, re-apply via `npm run db:migrate` to confirm idempotency.

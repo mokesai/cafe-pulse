@@ -118,12 +118,12 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   const name = body.name?.trim()
   if (name !== undefined && name.length === 0) errors.push('name cannot be empty')
   const grid_rows = body.grid_rows
-  if (grid_rows !== undefined && (!Number.isInteger(grid_rows) || grid_rows < 1 || grid_rows > 12)) {
-    errors.push('grid_rows must be an integer between 1 and 12')
+  if (grid_rows !== undefined && (!Number.isInteger(grid_rows) || grid_rows < 1 || grid_rows > 24)) {
+    errors.push('grid_rows must be an integer between 1 and 24')
   }
   const grid_cols = body.grid_cols
-  if (grid_cols !== undefined && (!Number.isInteger(grid_cols) || grid_cols < 1 || grid_cols > 12)) {
-    errors.push('grid_cols must be an integer between 1 and 12')
+  if (grid_cols !== undefined && (!Number.isInteger(grid_cols) || grid_cols < 1 || grid_cols > 24)) {
+    errors.push('grid_cols must be an integer between 1 and 24')
   }
   const theme = body.theme
   if (theme !== undefined && !VALID_THEMES.has(theme)) {

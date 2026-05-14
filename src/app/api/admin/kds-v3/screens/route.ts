@@ -91,12 +91,12 @@ export async function POST(request: NextRequest) {
   const name = body.name?.trim() ?? ''
   if (!name) errors.push('name is required')
   const grid_rows = Number(body.grid_rows)
-  if (!Number.isInteger(grid_rows) || grid_rows < 1 || grid_rows > 12) {
-    errors.push('grid_rows must be an integer between 1 and 12')
+  if (!Number.isInteger(grid_rows) || grid_rows < 1 || grid_rows > 24) {
+    errors.push('grid_rows must be an integer between 1 and 24')
   }
   const grid_cols = Number(body.grid_cols)
-  if (!Number.isInteger(grid_cols) || grid_cols < 1 || grid_cols > 12) {
-    errors.push('grid_cols must be an integer between 1 and 12')
+  if (!Number.isInteger(grid_cols) || grid_cols < 1 || grid_cols > 24) {
+    errors.push('grid_cols must be an integer between 1 and 24')
   }
   const theme = body.theme ?? 'warm'
   if (!VALID_THEMES.has(theme)) {
