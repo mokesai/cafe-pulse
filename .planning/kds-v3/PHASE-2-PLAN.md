@@ -15,13 +15,13 @@ After the operator first saw the rendered editor on 2026-05-11, three new editor
 2. **Adjustable per-box heights** — finer granularity than the current 64px row cell snap.
 3. **Box division (max 1 per box)** — a single box can be split left/right or top/bottom, with each side carrying independent content (e.g. menu items on the left, aesthetic image on the right).
 
-Decision: **Path A** — handle (1) + (2) in phase 2 by raising the underlying grid resolution; defer (3) to phase 2.5 (MOK-153, to be filed). Reasoning:
+Decision: **Path A** — handle (1) + (2) in phase 2 by raising the underlying grid resolution; defer (3) to phase 2.5 (ticket to be filed). Reasoning:
 
 - (1) and (2) are already expressible in the current schema if we raise the grid resolution. A 24×24 grid with 32px row height lets the operator create variable column structures (one box spans 24 rows = looks like 1 row; another column has three 8-row boxes = looks like 3 rows). No schema change required beyond bumping the CHECK constraint.
 - (3) requires a real schema addition (`division` enum + duplicated content slots) and impacts the phase 6 renderer's data shape. Better designed alongside the renderer, not in isolation.
 - Operator explicitly flagged "other capabilities I'm not thinking of at the moment" — keeping phase 2 tight means less rework when those surface.
 
-Adds task **T-A** (below) and revises the relevant acceptance criteria. Updated MOK-152 ticket reflects the new max. Phase 2.5 (MOK-153) gets its own spec when phase 2 ships.
+Adds task **T-A** (below) and revises the relevant acceptance criteria. Updated MOK-152 ticket reflects the new max. Phase 2.5 (ticket to be filed) gets its own spec when phase 2 ships.
 
 ## Library decision: `react-grid-layout`
 
@@ -279,7 +279,7 @@ Same shape as phase 1 T8: walk through the spec's acceptance criteria with the d
 - Per-item display overrides — phase 5
 - Public KDS render — phase 6
 - v2 migration / cutover — phase 7
-- **Box division (single split, left/right or top/bottom)** — phase 2.5 / MOK-153. Requires `division` enum + duplicated content slots and impacts the phase 6 renderer data shape, so designed alongside the renderer rather than in phase 2.
+- **Box division (single split, left/right or top/bottom)** — phase 2.5 (ticket to be filed). Requires `division` enum + duplicated content slots and impacts the phase 6 renderer data shape, so designed alongside the renderer rather than in phase 2.
 - Freeform canvas editor — possible follow-up after phase 2 review
 
 ## Rollback contract
@@ -290,6 +290,6 @@ Rollback window remains open through phases 3-6 (tables exist but aren't user-fa
 ## Done criteria for phase 2
 - All T1-T9 + T-A commits on `kds-v3-p2-screen-designer`, each with green CI.
 - `PHASE-2-VERIFICATION.md` filled in with sign-off.
-- MOK-153 (phase 2.5 — box division) filed with spec stub before phase 2 PR merges.
+- Phase 2.5 ticket (box division) filed with spec stub before phase 2 PR merges.
 - PR `kds-v3-p2-screen-designer` → `kds-v3` opened, reviewed, merged.
 - Phase 3 spec drafting begins (per just-in-time spec cadence).
