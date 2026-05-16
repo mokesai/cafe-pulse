@@ -21,6 +21,12 @@ interface ApiBox {
   col_span: number
   box_type: 'menu_group' | 'image_only'
   header_override?: string | null
+  // Phase 2.5 (MOK-154)
+  division?: 'none' | 'horizontal' | 'vertical'
+  box_type_b?: 'menu_group' | 'image_only' | null
+  header_override_b?: string | null
+  square_menu_group_id_b?: string | null
+  aesthetic_image_id_b?: string | null
 }
 
 export default function EditScreenPage() {
@@ -55,6 +61,13 @@ export default function EditScreenPage() {
             col_span: b.col_span,
             box_type: b.box_type,
             header_override: b.header_override ?? null,
+            // Phase 2.5 fields. Default `division` to 'none' for safety so
+            // a phase-2-era row without the column still round-trips cleanly.
+            division: b.division ?? 'none',
+            box_type_b: b.box_type_b ?? null,
+            header_override_b: b.header_override_b ?? null,
+            square_menu_group_id_b: b.square_menu_group_id_b ?? null,
+            aesthetic_image_id_b: b.aesthetic_image_id_b ?? null,
           })),
         })
       } catch (e) {

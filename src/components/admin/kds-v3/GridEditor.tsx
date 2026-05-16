@@ -44,11 +44,18 @@ import {
   nextAvailablePosition,
   firstFreeCell,
   type GridBox,
+  type DivisionMode,
 } from '@/lib/kds/grid-validation'
 
 export interface EditableBox extends GridBox {
   box_type: 'menu_group' | 'image_only'
   header_override?: string | null
+  // Phase 2.5 (MOK-154) — optional second-slot fields.
+  division?: DivisionMode
+  box_type_b?: 'menu_group' | 'image_only' | null
+  header_override_b?: string | null
+  square_menu_group_id_b?: string | null
+  aesthetic_image_id_b?: string | null
 }
 
 interface Props {
@@ -169,6 +176,39 @@ export function GridEditor({ grid_rows, grid_cols, boxes, onChange }: Props) {
     onChange(boxes.map((b) => (b.position === position ? { ...b, box_type } : b)))
   }
 
+  // Phase 2.5 — toggle division on a box. Going to 'none' clears slot-B
+  // fields atomically (single state update, no React batching surprises).
+  // Going from 'none' to a divided mode initializes box_type_b='menu_group'
+  // so the DB CHECK invariant holds the moment we save.
+  const setBoxDivision = (position: number, division: DivisionMode) => {
+    onChange(
+      boxes.map((b) => {
+        if (b.position !== position) return b
+        if (division === 'none') {
+          return {
+            ...b,
+            division: 'none',
+            box_type_b: null,
+            header_override_b: null,
+            square_menu_group_id_b: null,
+            aesthetic_image_id_b: null,
+          }
+        }
+        return {
+          ...b,
+          division,
+          box_type_b: b.box_type_b ?? 'menu_group',
+        }
+      }),
+    )
+  }
+
+  const updateBoxTypeB = (position: number, box_type_b: 'menu_group' | 'image_only') => {
+    onChange(
+      boxes.map((b) => (b.position === position ? { ...b, box_type_b } : b)),
+    )
+  }
+
   const selectedBox = selected !== null ? boxes.find((b) => b.position === selected) ?? null : null
 
   return (
@@ -251,6 +291,38 @@ export function GridEditor({ grid_rows, grid_cols, boxes, onChange }: Props) {
             {boxes.map((box) => {
               const isSelected = selected === box.position
               const sb = sizeBadge(box)
+              const division = box.division ?? 'none'
+              // Phase 2.5: divided boxes render two halves with a 1px divider.
+              // Slot label suffix: `Na` (top/left) and `Nb` (bottom/right).
+              if (division === 'horizontal' || division === 'vertical') {
+                const isHorizontal = division === 'horizontal'
+                return (
+                  <div
+                    key={String(box.position)}
+                    className={`overflow-hidden rounded-md border bg-white shadow-sm transition-colors ${
+                      isSelected ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-300'
+                    } ${isHorizontal ? 'flex flex-col' : 'flex flex-row'}`}
+                    onClick={() => setSelected(box.position)}
+                  >
+                    <div className="flex flex-1 flex-col items-center justify-center text-center">
+                      <span className="text-xs font-semibold text-gray-700">{box.position}a</span>
+                      <span className={`mt-0.5 rounded-full px-1.5 py-0.5 text-[9px] ${sb.cls}`}>
+                        {box.box_type === 'menu_group' ? 'menu' : 'image'}
+                      </span>
+                    </div>
+                    <div
+                      className={`bg-gray-400 ${isHorizontal ? 'h-px w-full' : 'h-full w-px'}`}
+                      aria-hidden="true"
+                    />
+                    <div className="flex flex-1 flex-col items-center justify-center text-center">
+                      <span className="text-xs font-semibold text-gray-700">{box.position}b</span>
+                      <span className={`mt-0.5 rounded-full px-1.5 py-0.5 text-[9px] ${sb.cls}`}>
+                        {(box.box_type_b ?? 'menu_group') === 'menu_group' ? 'menu' : 'image'}
+                      </span>
+                    </div>
+                  </div>
+                )
+              }
               return (
                 <div
                   key={String(box.position)}
@@ -271,35 +343,117 @@ export function GridEditor({ grid_rows, grid_cols, boxes, onChange }: Props) {
       </div>
 
       {selectedBox ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
-          <div className="text-sm">
-            <span className="font-semibold text-gray-800">Box {selectedBox.position}</span>
-            <span className="ml-2 text-gray-500">
-              row {selectedBox.row_start}, col {selectedBox.col_start} · {selectedBox.row_span}×
-              {selectedBox.col_span}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-gray-600">Type</label>
-            <select
-              value={selectedBox.box_type}
-              onChange={(e) =>
-                updateBoxType(selectedBox.position, e.target.value as 'menu_group' | 'image_only')
-              }
-              className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700"
-            >
-              <option value="menu_group">menu_group</option>
-              <option value="image_only">image_only</option>
-            </select>
-            <button
-              type="button"
-              onClick={() => removeBox(selectedBox.position)}
-              className="rounded-md border border-red-200 bg-white px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
-            >
-              Delete box
-            </button>
-          </div>
-        </div>
+        (() => {
+          const division: DivisionMode = selectedBox.division ?? 'none'
+          const divided = division !== 'none'
+          // Min-span guard mirrors the route + DB validation. The segmented
+          // control disables modes whose span requirement isn't met by the
+          // current box dimensions — operator must resize first.
+          const canHorizontal = selectedBox.row_span >= 2
+          const canVertical = selectedBox.col_span >= 2
+          return (
+            <div className="space-y-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="text-sm">
+                  <span className="font-semibold text-gray-800">Box {selectedBox.position}</span>
+                  <span className="ml-2 text-gray-500">
+                    row {selectedBox.row_start}, col {selectedBox.col_start} ·{' '}
+                    {selectedBox.row_span}×{selectedBox.col_span}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeBox(selectedBox.position)}
+                  className="rounded-md border border-red-200 bg-white px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                >
+                  Delete box
+                </button>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
+                <span className="font-medium">Divide:</span>
+                <div className="inline-flex overflow-hidden rounded-md border border-gray-300">
+                  {(['none', 'horizontal', 'vertical'] as DivisionMode[]).map((mode) => {
+                    const label = mode === 'none' ? 'None' : mode === 'horizontal' ? 'Top/Bottom' : 'Left/Right'
+                    const disabled =
+                      (mode === 'horizontal' && !canHorizontal) ||
+                      (mode === 'vertical' && !canVertical)
+                    const active = division === mode
+                    return (
+                      <button
+                        key={mode}
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => setBoxDivision(selectedBox.position, mode)}
+                        title={
+                          disabled
+                            ? mode === 'horizontal'
+                              ? 'Requires row_span ≥ 2'
+                              : 'Requires col_span ≥ 2'
+                            : undefined
+                        }
+                        className={`px-2.5 py-1 text-xs ${
+                          active
+                            ? 'bg-blue-600 text-white'
+                            : disabled
+                              ? 'bg-gray-100 text-gray-400'
+                              : 'bg-white text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-medium text-gray-600">
+                    {divided ? 'Slot A type' : 'Type'}
+                  </label>
+                  <select
+                    value={selectedBox.box_type}
+                    onChange={(e) =>
+                      updateBoxType(
+                        selectedBox.position,
+                        e.target.value as 'menu_group' | 'image_only',
+                      )
+                    }
+                    className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700"
+                  >
+                    <option value="menu_group">menu_group</option>
+                    <option value="image_only">image_only</option>
+                  </select>
+                </div>
+                {divided && (
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-medium text-gray-600">Slot B type</label>
+                    <select
+                      value={selectedBox.box_type_b ?? 'menu_group'}
+                      onChange={(e) =>
+                        updateBoxTypeB(
+                          selectedBox.position,
+                          e.target.value as 'menu_group' | 'image_only',
+                        )
+                      }
+                      className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700"
+                    >
+                      <option value="menu_group">menu_group</option>
+                      <option value="image_only">image_only</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {divided && (
+                <p className="text-[11px] text-gray-500">
+                  Content selectors (which menu group, which image) for each slot are configured in later phases.
+                </p>
+              )}
+            </div>
+          )
+        })()
       ) : (
         <p className="text-xs text-gray-500">
           Click a box to edit its type or delete it. Drag a box to move it; use the bottom-right
