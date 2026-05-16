@@ -104,6 +104,26 @@ version          name
 
 All 4 UPDATEs applied; same shape as dev execution.
 
+## Follow-up (2026-05-16) — KDS v3 bookkeeping cleanup on dev
+
+After the initial reconciliation (PRs #115 + #116), `supabase db push --dry-run` from the `staging` branch (which points at cafe-pulse-dev) still surfaced 4 orphan rows — all KDS v3 work applied to dev via mcp during phase 1 + phase 2 development:
+
+```
+20260507011219  kds_v3_phase_1_square_menu_mirror (early draft attempt)
+20260507033640  kds_v3_phase_1_square_menu_mirror (successful)
+20260512015358  kds_v3_phase_2_screen_designer
+20260513023650  kds_v3_phase_2_grid_max_24
+```
+
+These were intentionally out of scope of PRs #115 / #116 (per the "no kds-v3 commits to staging" rule). The follow-up script `scripts/migrations/mok-153-followup-kds-v3-bookkeeping-cleanup-2026-05-16.sql` drops just the schema_migrations rows for these 4 entries. The `kds_screens` and `kds_grid_boxes` tables and their data on dev are preserved (2 screens + 8 boxes still present at the time of execution).
+
+Net effect:
+- `staging` branch: `db push --dry-run` reports zero drift.
+- `kds-v3` branch: `db push` will think the migrations need to be applied; the SQL is idempotent (`CREATE TABLE IF NOT EXISTS`, `DROP POLICY IF EXISTS`, `DROP CONSTRAINT IF EXISTS`), so tables remain unchanged and schema_migrations rows get re-added with local file timestamps. KDS v3 self-heals to drift-free state on its own branch.
+- Rollback path unchanged: `PHASE-{1,2}-ROLLBACK.sql` use `DROP TABLE IF EXISTS`, so missing schema_migrations rows don't matter.
+
+Executed against cafe-pulse-dev on 2026-05-16. Prod is unaffected (KDS v3 has not shipped there).
+
 ## Going-forward rule
 
 Always author + apply migrations via the Supabase CLI:
