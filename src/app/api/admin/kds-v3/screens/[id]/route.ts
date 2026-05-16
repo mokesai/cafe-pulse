@@ -16,10 +16,13 @@ import {
   validateBoxLayout,
   nextAvailablePosition,
   type GridBox,
+  type BoxDivisionFields,
+  type DivisionMode,
 } from '@/lib/kds/grid-validation'
 
 const VALID_THEMES = new Set(['warm', 'dark', 'wps'])
 const VALID_BOX_TYPES = new Set(['menu_group', 'image_only'])
+const VALID_DIVISIONS = new Set<DivisionMode>(['none', 'horizontal', 'vertical'])
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -35,6 +38,12 @@ interface PutBoxInput {
   header_override?: string | null
   square_menu_group_id?: string | null
   aesthetic_image_id?: string | null
+  // Phase 2.5 (MOK-154) — optional second-slot fields. Default to undivided.
+  division?: string
+  box_type_b?: string | null
+  header_override_b?: string | null
+  square_menu_group_id_b?: string | null
+  aesthetic_image_id_b?: string | null
 }
 
 interface PutBody {
@@ -159,7 +168,15 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   }
 
   // Pre-validate boxes if provided
-  const validatedBoxes: Array<GridBox & { box_type: string; header_override: string | null; square_menu_group_id: string | null; aesthetic_image_id: string | null }> = []
+  const validatedBoxes: Array<
+    GridBox &
+      BoxDivisionFields & {
+        box_type: string
+        header_override: string | null
+        square_menu_group_id: string | null
+        aesthetic_image_id: string | null
+      }
+  > = []
   if (body.boxes !== undefined) {
     const inputBoxes = body.boxes
     // Assign positions to new boxes (those without position) in order, starting
@@ -182,6 +199,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
       const row_span = b.row_span ?? 1
       const col_span = b.col_span ?? 1
       const box_type = b.box_type ?? 'menu_group'
+      const division = (b.division ?? 'none') as DivisionMode
 
       if (!Number.isInteger(row_start) || !Number.isInteger(col_start)) {
         fieldErrors.push(`box[${i}]: row_start and col_start are required integers`)
@@ -195,6 +213,17 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         fieldErrors.push(`box[${i}]: box_type must be 'menu_group' or 'image_only'`)
         continue
       }
+      // Phase 2.5: per-field shape checks for the new slot-B columns. The
+      // cross-column invariant + min-span guard run inside validateBoxLayout
+      // below (which calls validateBoxDivision per box).
+      if (!VALID_DIVISIONS.has(division)) {
+        fieldErrors.push(`box[${i}]: division must be 'none', 'horizontal', or 'vertical'`)
+        continue
+      }
+      if (b.box_type_b != null && !VALID_BOX_TYPES.has(b.box_type_b)) {
+        fieldErrors.push(`box[${i}]: box_type_b must be 'menu_group' or 'image_only' when set`)
+        continue
+      }
 
       validatedBoxes.push({
         position,
@@ -206,6 +235,11 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         header_override: b.header_override ?? null,
         square_menu_group_id: b.square_menu_group_id ?? null,
         aesthetic_image_id: b.aesthetic_image_id ?? null,
+        division,
+        box_type_b: b.box_type_b ?? null,
+        header_override_b: b.header_override_b ?? null,
+        square_menu_group_id_b: b.square_menu_group_id_b ?? null,
+        aesthetic_image_id_b: b.aesthetic_image_id_b ?? null,
       })
     }
     if (fieldErrors.length > 0) {
@@ -304,6 +338,13 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         header_override: b.header_override,
         square_menu_group_id: b.square_menu_group_id,
         aesthetic_image_id: b.aesthetic_image_id,
+        // Phase 2.5 fields. PUT is replace-all, so undivided boxes write
+        // explicit nulls/none — matching the DB CHECK invariant.
+        division: b.division,
+        box_type_b: b.box_type_b,
+        header_override_b: b.header_override_b,
+        square_menu_group_id_b: b.square_menu_group_id_b,
+        aesthetic_image_id_b: b.aesthetic_image_id_b,
       }))
       const { data: inserted, error: insertError } = await supabase
         .from('kds_grid_boxes')

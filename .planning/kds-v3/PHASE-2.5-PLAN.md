@@ -88,8 +88,8 @@ Plus:
   - `division = 'horizontal'` requires `row_span >= 2`
   - `division = 'vertical'` requires `col_span >= 2`
   - Enforced at the route layer only (not DB CHECK) because it's a UX guard, not a data-integrity invariant — DB stays permissive in case we relax later.
-- Update `PutBoxInput` type + PUT route to accept the 5 new fields and run the division validator before the existing layout check.
-- Error code: `KDS_SCREEN_BOX_DIVISION_INVALID` returned as 422 with structured `validation_errors`.
+- Update `PutBoxInput` type + PUT route to accept the 5 new fields and run the division validator alongside the existing layout check.
+- Error code: reuse the existing `KDS_SCREEN_LAYOUT_INVALID` (422) — `validation_errors[]` carries the human-readable division-specific messages, which is enough for the editor to surface. (Decision recorded T3 commit: a separate code added complexity without UX benefit.)
 - Defense-in-depth: server still relies on the DB CHECK constraint as the source of truth, but surfaces a friendly message for the editor.
 
 **Acceptance:**

@@ -30,6 +30,33 @@ export interface GridBox {
   col_span: number
 }
 
+/**
+ * MOK-154 / phase 2.5 — division mode for an optional second content slot.
+ * `'horizontal'` = top/bottom split, `'vertical'` = left/right split.
+ */
+export type DivisionMode = 'none' | 'horizontal' | 'vertical'
+
+/**
+ * Phase 2.5 second-slot fields. Always optional at the type level — phase 2
+ * boxes don't carry them, and the validator interprets `division === undefined`
+ * the same as `'none'` (matching the DB's NOT NULL DEFAULT).
+ */
+export interface BoxDivisionFields {
+  division?: DivisionMode | null
+  box_type_b?: string | null
+  square_menu_group_id_b?: string | null
+  aesthetic_image_id_b?: string | null
+  header_override_b?: string | null
+}
+
+/**
+ * Minimum span on the divided axis. Set to 2 so we never produce a slot
+ * smaller than 1 grid cell along the split direction — the phase 6 renderer
+ * uses `ceil(span / 2)` / `floor(span / 2)` to compute each slot's rectangle,
+ * which would produce a 0-cell slot for span=1.
+ */
+export const MIN_SPAN_FOR_DIVISION = 2
+
 export interface ValidationOk {
   ok: true
 }
@@ -83,18 +110,89 @@ export function boxesOverlap(a: GridBox, b: GridBox): boolean {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Division validation (phase 2.5)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Validate the division-related fields of a single box. Returns an error list
+ * per box; aggregated by `validateBoxLayout` below.
+ *
+ * Two invariants enforced here:
+ *   1. Cross-column: when `division = 'none'` (or undefined), all `_b` fields
+ *      must be null/undefined; when `division` is `'horizontal'` or `'vertical'`,
+ *      `box_type_b` must be set. (Mirrors the DB CHECK constraint
+ *      `kds_grid_boxes_division_slot_b_invariant`.)
+ *   2. Min span on the divided axis: `'horizontal'` requires `row_span >= 2`,
+ *      `'vertical'` requires `col_span >= 2`. Enforced only at the route
+ *      layer (not in the DB) because it's a UX guard — the DB stays
+ *      permissive in case we relax later.
+ */
+export function validateBoxDivision(box: GridBox & BoxDivisionFields): ValidationResult {
+  const errors: string[] = []
+  const division = box.division ?? 'none'
+
+  const hasStrayB =
+    box.box_type_b != null ||
+    box.square_menu_group_id_b != null ||
+    box.aesthetic_image_id_b != null ||
+    box.header_override_b != null
+
+  if (division === 'none') {
+    if (hasStrayB) {
+      errors.push(
+        `Box ${box.position} has division='none' but slot-B fields are populated. ` +
+          `When a box is undivided, box_type_b / square_menu_group_id_b / aesthetic_image_id_b / header_override_b must all be null.`,
+      )
+    }
+  } else if (division === 'horizontal' || division === 'vertical') {
+    if (box.box_type_b == null) {
+      errors.push(
+        `Box ${box.position} has division='${division}' but box_type_b is not set. ` +
+          `Divided boxes must specify a box_type for slot B.`,
+      )
+    }
+    if (division === 'horizontal' && box.row_span < MIN_SPAN_FOR_DIVISION) {
+      errors.push(
+        `Box ${box.position} cannot be split horizontally with row_span=${box.row_span}. ` +
+          `Horizontal division requires row_span >= ${MIN_SPAN_FOR_DIVISION}.`,
+      )
+    }
+    if (division === 'vertical' && box.col_span < MIN_SPAN_FOR_DIVISION) {
+      errors.push(
+        `Box ${box.position} cannot be split vertically with col_span=${box.col_span}. ` +
+          `Vertical division requires col_span >= ${MIN_SPAN_FOR_DIVISION}.`,
+      )
+    }
+  } else {
+    errors.push(
+      `Box ${box.position} has invalid division='${String(division)}'. ` +
+        `Must be one of: none, horizontal, vertical.`,
+    )
+  }
+
+  return errors.length === 0 ? { ok: true } : { ok: false, errors }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Aggregate validation
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Validate a full set of boxes against the grid. Returns one error string per
- * offending box (or pair, for overlaps). Returns `{ ok: true }` only when the
- * entire layout is valid.
+ * offending box (or pair, for overlaps, or per division-invariant violation).
+ * Returns `{ ok: true }` only when the entire layout is valid.
  *
  * Why a list of errors rather than a single boolean: the editor surfaces the
  * messages back to the operator so they can fix all violations at once.
+ *
+ * Backward-compatible with phase 2 callers: `BoxDivisionFields` fields are
+ * optional, so a caller passing plain `GridBox[]` continues to work — division
+ * is treated as `'none'` and no `_b` fields are checked.
  */
-export function validateBoxLayout(boxes: GridBox[], grid: GridDims): ValidationResult {
+export function validateBoxLayout(
+  boxes: Array<GridBox & BoxDivisionFields>,
+  grid: GridDims,
+): ValidationResult {
   const errors: string[] = []
 
   // Grid bounds check
@@ -117,6 +215,12 @@ export function validateBoxLayout(boxes: GridBox[], grid: GridDims): ValidationR
         )
       }
     }
+  }
+
+  // Division-invariant + min-span guard (phase 2.5)
+  for (const box of boxes) {
+    const result = validateBoxDivision(box)
+    if (!result.ok) errors.push(...result.errors)
   }
 
   // Duplicate position numbers — defensive (shouldn't happen if the editor

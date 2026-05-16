@@ -13,14 +13,28 @@ import {
   boxFitsInGrid,
   boxesOverlap,
   validateBoxLayout,
+  validateBoxDivision,
   nextAvailablePosition,
   cellsOccupied,
   firstFreeCell,
+  MIN_SPAN_FOR_DIVISION,
   type GridBox,
+  type BoxDivisionFields,
 } from '../grid-validation'
 
 function box(position: number, r: number, c: number, rs = 1, cs = 1): GridBox {
   return { position, row_start: r, col_start: c, row_span: rs, col_span: cs }
+}
+
+function divBox(
+  position: number,
+  r: number,
+  c: number,
+  rs: number,
+  cs: number,
+  div: BoxDivisionFields,
+): GridBox & BoxDivisionFields {
+  return { ...box(position, r, c, rs, cs), ...div }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -198,5 +212,131 @@ describe('firstFreeCell', () => {
   it('returns null when the grid is fully occupied', () => {
     const fullCover = [box(1, 1, 1, 4, 6)]
     expect(firstFreeCell(fullCover, { rows: 4, cols: 6 })).toBeNull()
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// validateBoxDivision (phase 2.5)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('validateBoxDivision', () => {
+  it('undivided + all _b NULL is valid', () => {
+    expect(
+      validateBoxDivision(divBox(1, 1, 1, 1, 1, { division: 'none' })),
+    ).toEqual({ ok: true })
+  })
+
+  it('undefined division is treated as none (valid when _b is empty)', () => {
+    expect(validateBoxDivision(divBox(1, 1, 1, 1, 1, {}))).toEqual({ ok: true })
+  })
+
+  it('horizontal + box_type_b set + row_span >= 2 is valid', () => {
+    expect(
+      validateBoxDivision(
+        divBox(1, 1, 1, 2, 1, { division: 'horizontal', box_type_b: 'menu_group' }),
+      ),
+    ).toEqual({ ok: true })
+  })
+
+  it('vertical + box_type_b set + col_span >= 2 is valid', () => {
+    expect(
+      validateBoxDivision(
+        divBox(1, 1, 1, 1, 2, { division: 'vertical', box_type_b: 'image_only' }),
+      ),
+    ).toEqual({ ok: true })
+  })
+
+  it('divided + missing box_type_b is rejected', () => {
+    const result = validateBoxDivision(divBox(1, 1, 1, 2, 1, { division: 'horizontal' }))
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.errors[0]).toMatch(/box_type_b is not set/)
+    }
+  })
+
+  it('undivided + stray box_type_b is rejected', () => {
+    const result = validateBoxDivision(
+      divBox(1, 1, 1, 1, 1, { division: 'none', box_type_b: 'menu_group' }),
+    )
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.errors[0]).toMatch(/slot-B fields are populated/)
+    }
+  })
+
+  it('undivided + stray header_override_b is rejected', () => {
+    const result = validateBoxDivision(
+      divBox(1, 1, 1, 1, 1, { division: 'none', header_override_b: 'foo' }),
+    )
+    expect(result.ok).toBe(false)
+  })
+
+  it('horizontal + row_span=1 is rejected (min-span guard)', () => {
+    const result = validateBoxDivision(
+      divBox(1, 1, 1, 1, 4, { division: 'horizontal', box_type_b: 'menu_group' }),
+    )
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.errors[0]).toMatch(/row_span >= 2/)
+    }
+  })
+
+  it('vertical + col_span=1 is rejected (min-span guard)', () => {
+    const result = validateBoxDivision(
+      divBox(1, 1, 1, 4, 1, { division: 'vertical', box_type_b: 'menu_group' }),
+    )
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.errors[0]).toMatch(/col_span >= 2/)
+    }
+  })
+
+  it('horizontal + row_span=2 is valid (min-span boundary)', () => {
+    expect(MIN_SPAN_FOR_DIVISION).toBe(2)
+    expect(
+      validateBoxDivision(
+        divBox(1, 1, 1, 2, 4, { division: 'horizontal', box_type_b: 'menu_group' }),
+      ),
+    ).toEqual({ ok: true })
+  })
+
+  it('invalid division value is rejected', () => {
+    const result = validateBoxDivision(
+      divBox(1, 1, 1, 1, 1, { division: 'bogus' as 'horizontal' }),
+    )
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.errors[0]).toMatch(/invalid division/)
+    }
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// validateBoxLayout — phase 2.5 division integration
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('validateBoxLayout (with division)', () => {
+  it('aggregates division errors alongside geometry errors', () => {
+    const boxes = [
+      // box 1: out of grid bounds
+      divBox(1, 5, 1, 1, 1, { division: 'none' }),
+      // box 2: divided but missing box_type_b
+      divBox(2, 1, 1, 2, 1, { division: 'horizontal' }),
+    ]
+    const result = validateBoxLayout(boxes, { rows: 4, cols: 4 })
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.errors.length).toBeGreaterThanOrEqual(2)
+      expect(result.errors.some((e) => /extends beyond/.test(e))).toBe(true)
+      expect(result.errors.some((e) => /box_type_b is not set/.test(e))).toBe(true)
+    }
+  })
+
+  it('accepts a layout mixing divided and undivided boxes', () => {
+    const boxes = [
+      divBox(1, 1, 1, 1, 1, { division: 'none' }),
+      divBox(2, 2, 1, 2, 2, { division: 'vertical', box_type_b: 'image_only' }),
+    ]
+    expect(validateBoxLayout(boxes, { rows: 4, cols: 4 })).toEqual({ ok: true })
   })
 })
