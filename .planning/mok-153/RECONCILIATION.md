@@ -45,6 +45,8 @@ Keeping kds-v3 out of this PR means it can merge to `staging` with zero kds-v3 s
 
 Each env has its own drift IDs (different wall-clock apply times) but the same on-disk source-of-truth file timestamps. The reconciliation SQL has separate `BEGIN/COMMIT` blocks for dev and prod.
 
+**Staging note:** the `staging` branch's Vercel deploy currently points at the **cafe-pulse-dev** Supabase project (per the "Staging-side testing temporarily skipped" working note). So the dev block above implicitly fixed staging at the same time — no separate staging-env SQL is needed. When staging eventually gets its own Supabase project, this reconciliation will need a third block; for now, dev + prod is the complete set.
+
 ## Safety analysis
 
 - **Table structure:** `supabase_migrations.schema_migrations` PK is `version` (text); no FK constraints reference this table. `UPDATE` of `version` is safe and atomic.
@@ -78,11 +80,29 @@ version          name
 
 All 4 UPDATEs applied; 0 rows affected on re-run (idempotent).
 
-### cafe-pulse-prod — TBD (will be filled in after the PR merges to staging)
+### cafe-pulse-prod — 2026-05-15 (post-PR-115-merge)
+
+Pre-reconciliation snapshot:
 
 ```
--- same shape
+version          name
+20260426193647   mok121_invoice_exception_severity
+20260426193705   mok122_invoice_variance_history
+20260426193715   mok123_exception_status_acknowledged
+20260502220525   mok139_inventory_unit_cost_precision
 ```
+
+Post-reconciliation snapshot:
+
+```
+version          name
+20260425191406   mok121_invoice_exception_severity   ✓ matches local
+20260426092709   mok122_invoice_variance_history     ✓ matches local
+20260426095840   mok123_exception_status_acknowledged ✓ matches local
+20260502214725   mok139_inventory_unit_cost_precision ✓ matches local
+```
+
+All 4 UPDATEs applied; same shape as dev execution.
 
 ## Going-forward rule
 
@@ -99,6 +119,6 @@ Captured in working-style memory at `feedback_supabase_cli_for_migrations.md`. T
 ## Acceptance
 
 - [x] Dev execution: pre-snapshot recorded → SQL run → post-snapshot recorded → 4 rows show local-file versions (2026-05-15)
-- [ ] PR merged to `staging`
-- [ ] Prod execution: pre-snapshot recorded → SQL run → post-snapshot recorded → 4 rows show local-file versions
-- [ ] MOK-153 closed with link to this doc + the PR
+- [x] PR #115 merged to `staging` (2026-05-15)
+- [x] Prod execution: pre-snapshot recorded → SQL run → post-snapshot recorded → 4 rows show local-file versions (2026-05-15)
+- [x] MOK-153 closed with link to this doc + PR #115 + PR (this update)

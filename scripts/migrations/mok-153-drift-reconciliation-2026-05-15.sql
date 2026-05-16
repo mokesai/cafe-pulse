@@ -21,7 +21,11 @@
 -- ║                                                                          ║
 -- ║  EXECUTION RECORD                                                       ║
 -- ║    - Executed against cafe-pulse-dev:  2026-05-15 ✓ verified            ║
--- ║    - Executed against cafe-pulse-prod: <after PR merges to staging>     ║
+-- ║    - Executed against cafe-pulse-prod: 2026-05-15 ✓ verified            ║
+-- ║                                                                          ║
+-- ║  Note: the `staging` branch's Vercel deploy points at cafe-pulse-dev     ║
+-- ║  (per the staging-side-testing-skip working note), so the dev block     ║
+-- ║  also fixed staging implicitly. No separate staging-env SQL exists.     ║
 -- ║                                                                          ║
 -- ║  Schema-migrations row structure (verified 2026-05-15):                 ║
 -- ║    PRIMARY KEY (version), no FK constraints. UPDATE-in-place safe.      ║
