@@ -1,18 +1,28 @@
 /**
  * MOK-152 / KDS v3 phase 2 — integration tests for the screens CRUD routes.
+ * Extended in MOK-154 / phase 2.5 with box-division coverage (cases 10-15).
  *
- * Plan: .planning/kds-v3/PHASE-2-PLAN.md (T7)
+ * Plan: .planning/kds-v3/PHASE-2-PLAN.md (T7), .planning/kds-v3/PHASE-2.5-PLAN.md (T5)
  *
- * Covers (one test per MOK-152 acceptance criterion + the meta cases):
- *   1. POST /screens — creates a screen
- *   2. POST /screens — 422 KDS_SCREEN_LIMIT_REACHED at cap of 2
- *   3. GET /screens — lists tenant's screens with box counts + cap info
- *   4. GET /screens/[id] — returns screen + boxes; 404 cross-tenant
- *   5. PUT /screens/[id] — replaces boxes atomically; position numbers stable
- *   6. PUT /screens/[id] — 422 KDS_SCREEN_LAYOUT_INVALID on overlap
- *   7. PUT /screens/[id] — 422 KDS_SCREEN_LAYOUT_INVALID on out-of-bounds
- *   8. DELETE /screens/[id] — cascade deletes boxes
- *   9. Tenant isolation — cross-tenant operations 404 / don't leak data
+ * Covers:
+ *   Phase 2 (MOK-152):
+ *     1. POST /screens — creates a screen
+ *     2. POST /screens — 422 KDS_SCREEN_LIMIT_REACHED at cap of 2
+ *     3. GET /screens — lists tenant's screens with box counts + cap info
+ *     4. GET /screens/[id] — returns screen + boxes; 404 cross-tenant
+ *     5. PUT /screens/[id] — replaces boxes atomically; position numbers stable
+ *     6. PUT /screens/[id] — 422 KDS_SCREEN_LAYOUT_INVALID on overlap
+ *     7. PUT /screens/[id] — 422 KDS_SCREEN_LAYOUT_INVALID on out-of-bounds
+ *     8. DELETE /screens/[id] — cascade deletes boxes
+ *     9. Tenant isolation — cross-tenant operations 404 / don't leak data
+ *
+ *   Phase 2.5 (MOK-154):
+ *    10. PUT /screens/[id] — divided box round-trips (division + slot-B fields)
+ *    11. PUT /screens/[id] — undivided → divided lifecycle
+ *    12. PUT /screens/[id] — divided → undivided clears _b fields
+ *    13. PUT /screens/[id] — 422 when divided but missing box_type_b
+ *    14. PUT /screens/[id] — 422 when undivided but stray slot-B data
+ *    15. PUT /screens/[id] — position stability across division toggle
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
@@ -304,5 +314,241 @@ describe('MOK-152 — kds-v3 screens routes', () => {
       .eq('id', drinks.id)
       .single()
     expect(data?.name).toBe('Drinks')
+  })
+
+  // ───────────────────────────────────────────────────────────────────────
+  // MOK-154 — phase 2.5 box division. Same test file (integration suite is
+  // organized per route, not per spec).
+  // ───────────────────────────────────────────────────────────────────────
+
+  // T5 #1 — divided box round-trips
+  it('PUT /screens/[id] persists division=vertical + slot-B fields', async () => {
+    const drinks = await createScreen(tenantA, 'Drinks')
+
+    const putRes = await itemPUT(
+      itemReq(tenantA, drinks.id, 'PUT', {
+        boxes: [
+          {
+            position: 1,
+            row_start: 1,
+            col_start: 1,
+            row_span: 1,
+            col_span: 2,
+            box_type: 'menu_group',
+            division: 'vertical',
+            box_type_b: 'image_only',
+            header_override_b: 'Specials',
+          },
+        ],
+      }),
+      { params: Promise.resolve({ id: drinks.id }) },
+    )
+    expect(putRes.status).toBe(200)
+
+    // GET back and check the row reflects the slot-B fields
+    const getRes = await itemGET(
+      itemReq(tenantA, drinks.id, 'GET'),
+      { params: Promise.resolve({ id: drinks.id }) },
+    )
+    const body = await getRes.json()
+    const boxes = body.data.boxes as Array<{
+      position: number
+      division: string
+      box_type_b: string | null
+      header_override_b: string | null
+    }>
+    expect(boxes).toHaveLength(1)
+    expect(boxes[0].division).toBe('vertical')
+    expect(boxes[0].box_type_b).toBe('image_only')
+    expect(boxes[0].header_override_b).toBe('Specials')
+  })
+
+  // T5 #2 — undivided → divided lifecycle
+  it('PUT /screens/[id] transitions an undivided box to divided', async () => {
+    const drinks = await createScreen(tenantA, 'Drinks')
+
+    // First save: undivided
+    await itemPUT(
+      itemReq(tenantA, drinks.id, 'PUT', {
+        boxes: [
+          { position: 1, row_start: 1, col_start: 1, row_span: 2, col_span: 1, box_type: 'menu_group' },
+        ],
+      }),
+      { params: Promise.resolve({ id: drinks.id }) },
+    )
+
+    // Second save: same position, now divided horizontally
+    const putRes = await itemPUT(
+      itemReq(tenantA, drinks.id, 'PUT', {
+        boxes: [
+          {
+            position: 1,
+            row_start: 1,
+            col_start: 1,
+            row_span: 2,
+            col_span: 1,
+            box_type: 'menu_group',
+            division: 'horizontal',
+            box_type_b: 'image_only',
+          },
+        ],
+      }),
+      { params: Promise.resolve({ id: drinks.id }) },
+    )
+    expect(putRes.status).toBe(200)
+    const body = await putRes.json()
+    const boxes = body.data.boxes as Array<{ position: number; division: string; box_type_b: string | null }>
+    expect(boxes[0].position).toBe(1)
+    expect(boxes[0].division).toBe('horizontal')
+    expect(boxes[0].box_type_b).toBe('image_only')
+  })
+
+  // T5 #3 — divided → undivided clears _b fields
+  it('PUT /screens/[id] clears slot-B fields when reverting to division=none', async () => {
+    const drinks = await createScreen(tenantA, 'Drinks')
+
+    // Save divided first
+    await itemPUT(
+      itemReq(tenantA, drinks.id, 'PUT', {
+        boxes: [
+          {
+            position: 1,
+            row_start: 1,
+            col_start: 1,
+            row_span: 1,
+            col_span: 2,
+            box_type: 'menu_group',
+            division: 'vertical',
+            box_type_b: 'image_only',
+            header_override_b: 'temp',
+          },
+        ],
+      }),
+      { params: Promise.resolve({ id: drinks.id }) },
+    )
+
+    // Revert to undivided. PUT semantics replace boxes wholesale.
+    const putRes = await itemPUT(
+      itemReq(tenantA, drinks.id, 'PUT', {
+        boxes: [
+          {
+            position: 1,
+            row_start: 1,
+            col_start: 1,
+            row_span: 1,
+            col_span: 2,
+            box_type: 'menu_group',
+            division: 'none',
+          },
+        ],
+      }),
+      { params: Promise.resolve({ id: drinks.id }) },
+    )
+    expect(putRes.status).toBe(200)
+
+    // Confirm via raw DB select that slot-B columns are NULL on the saved row.
+    const supabase = getServiceClient()
+    const { data } = await supabase
+      .from('kds_grid_boxes')
+      .select('division, box_type_b, header_override_b, square_menu_group_id_b, aesthetic_image_id_b')
+      .eq('screen_id', drinks.id)
+      .eq('position', 1)
+      .single()
+    expect(data?.division).toBe('none')
+    expect(data?.box_type_b).toBeNull()
+    expect(data?.header_override_b).toBeNull()
+    expect(data?.square_menu_group_id_b).toBeNull()
+    expect(data?.aesthetic_image_id_b).toBeNull()
+  })
+
+  // T5 #4 — invariant rejection: divided but missing box_type_b
+  it('PUT /screens/[id] returns 422 when divided box lacks box_type_b', async () => {
+    const drinks = await createScreen(tenantA, 'Drinks')
+
+    const res = await itemPUT(
+      itemReq(tenantA, drinks.id, 'PUT', {
+        boxes: [
+          {
+            position: 1,
+            row_start: 1,
+            col_start: 1,
+            row_span: 2,
+            col_span: 1,
+            box_type: 'menu_group',
+            division: 'horizontal',
+            // box_type_b intentionally omitted
+          },
+        ],
+      }),
+      { params: Promise.resolve({ id: drinks.id }) },
+    )
+    expect(res.status).toBe(422)
+    const body = await res.json()
+    expect(body.code).toBe('KDS_SCREEN_LAYOUT_INVALID')
+    expect((body.validation_errors as string[]).some((e) => /box_type_b is not set/.test(e))).toBe(true)
+  })
+
+  // T5 #5 — invariant rejection: undivided but stray _b set
+  it('PUT /screens/[id] returns 422 when undivided box has stray slot-B data', async () => {
+    const drinks = await createScreen(tenantA, 'Drinks')
+
+    const res = await itemPUT(
+      itemReq(tenantA, drinks.id, 'PUT', {
+        boxes: [
+          {
+            position: 1,
+            row_start: 1,
+            col_start: 1,
+            row_span: 1,
+            col_span: 1,
+            box_type: 'menu_group',
+            division: 'none',
+            box_type_b: 'image_only', // stray
+          },
+        ],
+      }),
+      { params: Promise.resolve({ id: drinks.id }) },
+    )
+    expect(res.status).toBe(422)
+    const body = await res.json()
+    expect(body.code).toBe('KDS_SCREEN_LAYOUT_INVALID')
+    expect((body.validation_errors as string[]).some((e) => /slot-B fields are populated/.test(e))).toBe(true)
+  })
+
+  // T5 #6 — position stability across division toggle
+  it('PUT /screens/[id] preserves position numbers across division toggle', async () => {
+    const drinks = await createScreen(tenantA, 'Drinks')
+
+    // Three boxes; mark middle one as divided
+    const initial = await itemPUT(
+      itemReq(tenantA, drinks.id, 'PUT', {
+        boxes: [
+          { position: 1, row_start: 1, col_start: 1, row_span: 1, col_span: 1, box_type: 'menu_group' },
+          { position: 2, row_start: 1, col_start: 2, row_span: 1, col_span: 2, box_type: 'menu_group', division: 'vertical', box_type_b: 'image_only' },
+          { position: 3, row_start: 2, col_start: 1, row_span: 1, col_span: 1, box_type: 'image_only' },
+        ],
+      }),
+      { params: Promise.resolve({ id: drinks.id }) },
+    )
+    expect(initial.status).toBe(200)
+
+    // Toggle box 2 back to undivided
+    const updated = await itemPUT(
+      itemReq(tenantA, drinks.id, 'PUT', {
+        boxes: [
+          { position: 1, row_start: 1, col_start: 1, row_span: 1, col_span: 1, box_type: 'menu_group' },
+          { position: 2, row_start: 1, col_start: 2, row_span: 1, col_span: 2, box_type: 'menu_group', division: 'none' },
+          { position: 3, row_start: 2, col_start: 1, row_span: 1, col_span: 1, box_type: 'image_only' },
+        ],
+      }),
+      { params: Promise.resolve({ id: drinks.id }) },
+    )
+    expect(updated.status).toBe(200)
+    const body = await updated.json()
+    const positions = (body.data.boxes as Array<{ position: number; division: string }>).sort(
+      (a, b) => a.position - b.position,
+    )
+    expect(positions.map((b) => b.position)).toEqual([1, 2, 3]) // unchanged
+    expect(positions[1].division).toBe('none')
   })
 })
