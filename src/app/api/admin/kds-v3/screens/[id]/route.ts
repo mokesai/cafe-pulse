@@ -224,6 +224,22 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         fieldErrors.push(`box[${i}]: box_type_b must be 'menu_group' or 'image_only' when set`)
         continue
       }
+      // Phase 3: image_only-with-group rejection. A box_type_b='image_only' slot
+      // must leave square_menu_group_id_b NULL — menu-group binding is a
+      // menu_group-only concept. Same for slot A. Defense-in-depth against
+      // tampered requests; the editor hides the picker for image_only slots.
+      if (box_type === 'image_only' && b.square_menu_group_id != null) {
+        fieldErrors.push(
+          `box[${i}]: square_menu_group_id must be null when box_type='image_only'`,
+        )
+        continue
+      }
+      if (b.box_type_b === 'image_only' && b.square_menu_group_id_b != null) {
+        fieldErrors.push(
+          `box[${i}]: square_menu_group_id_b must be null when box_type_b='image_only'`,
+        )
+        continue
+      }
 
       validatedBoxes.push({
         position,
@@ -252,6 +268,55 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         },
         { status: 400 },
       )
+    }
+
+    // Phase 3 cross-row check: every non-null square_menu_group_id (slot A + B)
+    // must reference an existing row in square_menu_categories for the CURRENT
+    // tenant. Cross-tenant references are the load-bearing security boundary
+    // here — without this check, a tampered request could bind tenant A's box
+    // to tenant B's menu group, leaking content into phase 6's renderer.
+    //
+    // Single batched query (not N+1) — collect the unique referenced IDs and
+    // run one `IN (...)` lookup, then diff against the requested set.
+    const referencedGroupIds = Array.from(
+      new Set(
+        validatedBoxes
+          .flatMap((b) => [b.square_menu_group_id, b.square_menu_group_id_b])
+          .filter((v): v is string => typeof v === 'string' && v.length > 0),
+      ),
+    )
+    if (referencedGroupIds.length > 0) {
+      const { data: foundGroups, error: lookupError } = await supabase
+        .from('square_menu_categories')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .in('id', referencedGroupIds)
+      if (lookupError) {
+        return NextResponse.json(
+          { success: false, error: lookupError.message, code: 'KDS_SCREEN_UPDATE_FAILED' },
+          { status: 500 },
+        )
+      }
+      const foundSet = new Set(
+        ((foundGroups ?? []) as Array<{ id: string }>).map((r) => r.id),
+      )
+      const missing = referencedGroupIds.filter((id) => !foundSet.has(id))
+      if (missing.length > 0) {
+        const errs = missing.map(
+          (id) =>
+            `square_menu_group_id "${id}" does not exist for this tenant ` +
+            `(may be cross-tenant or never synced)`,
+        )
+        return NextResponse.json(
+          {
+            success: false,
+            error: errs.join('; '),
+            code: 'KDS_SCREEN_LAYOUT_INVALID',
+            validation_errors: errs,
+          },
+          { status: 422 },
+        )
+      }
     }
 
     const layout = validateBoxLayout(validatedBoxes, effectiveGrid)
