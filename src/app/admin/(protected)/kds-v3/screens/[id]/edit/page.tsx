@@ -21,6 +21,9 @@ interface ApiBox {
   col_span: number
   box_type: 'menu_group' | 'image_only'
   header_override?: string | null
+  // Phase 3 (MOK-155) — slot-A menu-group / image bindings.
+  square_menu_group_id?: string | null
+  aesthetic_image_id?: string | null
   // Phase 2.5 (MOK-154)
   division?: 'none' | 'horizontal' | 'vertical'
   box_type_b?: 'menu_group' | 'image_only' | null
@@ -61,6 +64,9 @@ export default function EditScreenPage() {
             col_span: b.col_span,
             box_type: b.box_type,
             header_override: b.header_override ?? null,
+            // Phase 3 slot-A bindings.
+            square_menu_group_id: b.square_menu_group_id ?? null,
+            aesthetic_image_id: b.aesthetic_image_id ?? null,
             // Phase 2.5 fields. Default `division` to 'none' for safety so
             // a phase-2-era row without the column still round-trips cleanly.
             division: b.division ?? 'none',

@@ -1,8 +1,11 @@
 /**
  * MOK-152 / KDS v3 phase 2 — integration tests for the screens CRUD routes.
- * Extended in MOK-154 / phase 2.5 with box-division coverage (cases 10-15).
+ * Extended in MOK-154 (phase 2.5 box division) and MOK-155 (phase 3
+ * menu-group binding).
  *
- * Plan: .planning/kds-v3/PHASE-2-PLAN.md (T7), .planning/kds-v3/PHASE-2.5-PLAN.md (T5)
+ * Plan: .planning/kds-v3/PHASE-2-PLAN.md (T7),
+ *       .planning/kds-v3/PHASE-2.5-PLAN.md (T5),
+ *       .planning/kds-v3/PHASE-3-PLAN.md (T4)
  *
  * Covers:
  *   Phase 2 (MOK-152):
@@ -23,6 +26,16 @@
  *    13. PUT /screens/[id] — 422 when divided but missing box_type_b
  *    14. PUT /screens/[id] — 422 when undivided but stray slot-B data
  *    15. PUT /screens/[id] — position stability across division toggle
+ *
+ *   Phase 3 (MOK-155):
+ *    16. PUT /screens/[id] — square_menu_group_id + header_override round-trip
+ *    17. PUT /screens/[id] — unbind (NULL) clears the binding
+ *    18. PUT /screens/[id] — slot-A + slot-B bindings on a divided box
+ *    19. PUT /screens/[id] — cross-tenant rejection (422)
+ *    20. PUT /screens/[id] — 400 when image_only slot carries a group binding
+ *    21. PUT /screens/[id] — 422 when binding to a fabricated id
+ *    22. PUT /screens/[id] — accepts binding to is_deleted=true group
+ *    23. PUT /screens/[id] — position stability across binding changes
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
@@ -38,6 +51,7 @@ import {
   cleanupTenant,
   createTenantForTest,
   getServiceClient,
+  seedTestMenuGroup,
   type TestTenant,
 } from './helpers/tenant'
 
@@ -60,8 +74,20 @@ async function clearScreens(tenantId: string) {
   await supabase.from('kds_screens').delete().eq('tenant_id', tenantId)
 }
 
+async function clearMenuMirror(tenantId: string) {
+  const supabase = getServiceClient()
+  await supabase.from('square_menu_item_categories').delete().eq('tenant_id', tenantId)
+  await supabase.from('square_menu_items').delete().eq('tenant_id', tenantId)
+  await supabase.from('square_menu_categories').delete().eq('tenant_id', tenantId)
+}
+
 beforeEach(async () => {
-  await Promise.all([clearScreens(tenantA.id), clearScreens(tenantB.id)])
+  await Promise.all([
+    clearScreens(tenantA.id),
+    clearScreens(tenantB.id),
+    clearMenuMirror(tenantA.id),
+    clearMenuMirror(tenantB.id),
+  ])
 })
 
 function createReq(tenant: TestTenant, body: unknown) {
@@ -550,5 +576,262 @@ describe('MOK-152 — kds-v3 screens routes', () => {
     )
     expect(positions.map((b) => b.position)).toEqual([1, 2, 3]) // unchanged
     expect(positions[1].division).toBe('none')
+  })
+
+  // ───────────────────────────────────────────────────────────────────────
+  // MOK-155 — phase 3 menu group binding. Tests #16-23.
+  // ───────────────────────────────────────────────────────────────────────
+
+  // T4 #16
+  it('PUT /screens/[id] persists square_menu_group_id and header_override on slot A', async () => {
+    const drinks = await createScreen(tenantA, 'Drinks')
+    const hot = await seedTestMenuGroup(tenantA, { name: 'Hot Drinks' })
+
+    const res = await itemPUT(
+      itemReq(tenantA, drinks.id, 'PUT', {
+        boxes: [
+          {
+            position: 1,
+            row_start: 1,
+            col_start: 1,
+            row_span: 1,
+            col_span: 1,
+            box_type: 'menu_group',
+            square_menu_group_id: hot.id,
+            header_override: '☕ Brewed Hot',
+          },
+        ],
+      }),
+      { params: Promise.resolve({ id: drinks.id }) },
+    )
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    const box = (body.data.boxes as Array<{ square_menu_group_id: string; header_override: string }>)[0]
+    expect(box.square_menu_group_id).toBe(hot.id)
+    expect(box.header_override).toBe('☕ Brewed Hot')
+  })
+
+  // T4 #17
+  it('PUT /screens/[id] clears the menu-group binding when square_menu_group_id is null', async () => {
+    const drinks = await createScreen(tenantA, 'Drinks')
+    const hot = await seedTestMenuGroup(tenantA, { name: 'Hot Drinks' })
+
+    await itemPUT(
+      itemReq(tenantA, drinks.id, 'PUT', {
+        boxes: [
+          { position: 1, row_start: 1, col_start: 1, row_span: 1, col_span: 1, box_type: 'menu_group', square_menu_group_id: hot.id },
+        ],
+      }),
+      { params: Promise.resolve({ id: drinks.id }) },
+    )
+    const unbind = await itemPUT(
+      itemReq(tenantA, drinks.id, 'PUT', {
+        boxes: [
+          { position: 1, row_start: 1, col_start: 1, row_span: 1, col_span: 1, box_type: 'menu_group', square_menu_group_id: null },
+        ],
+      }),
+      { params: Promise.resolve({ id: drinks.id }) },
+    )
+    expect(unbind.status).toBe(200)
+    const body = await unbind.json()
+    const box = (body.data.boxes as Array<{ square_menu_group_id: string | null }>)[0]
+    expect(box.square_menu_group_id).toBeNull()
+  })
+
+  // T4 #18
+  it('PUT /screens/[id] persists slot-A and slot-B menu-group bindings on a divided box', async () => {
+    const drinks = await createScreen(tenantA, 'Drinks')
+    const hot = await seedTestMenuGroup(tenantA, { name: 'Hot Drinks' })
+    const cold = await seedTestMenuGroup(tenantA, { name: 'Cold Drinks' })
+
+    const res = await itemPUT(
+      itemReq(tenantA, drinks.id, 'PUT', {
+        boxes: [
+          {
+            position: 1,
+            row_start: 1,
+            col_start: 1,
+            row_span: 1,
+            col_span: 2,
+            box_type: 'menu_group',
+            square_menu_group_id: hot.id,
+            header_override: 'Hot',
+            division: 'vertical',
+            box_type_b: 'menu_group',
+            square_menu_group_id_b: cold.id,
+            header_override_b: 'Cold',
+          },
+        ],
+      }),
+      { params: Promise.resolve({ id: drinks.id }) },
+    )
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    const box = (body.data.boxes as Array<{
+      square_menu_group_id: string
+      square_menu_group_id_b: string
+      header_override: string
+      header_override_b: string
+    }>)[0]
+    expect(box.square_menu_group_id).toBe(hot.id)
+    expect(box.square_menu_group_id_b).toBe(cold.id)
+    expect(box.header_override).toBe('Hot')
+    expect(box.header_override_b).toBe('Cold')
+  })
+
+  // T4 #19 — cross-tenant rejection (load-bearing security boundary)
+  it('PUT /screens/[id] returns 422 when binding to a square_menu_group_id from another tenant', async () => {
+    const drinks = await createScreen(tenantA, 'Drinks')
+    const bGroup = await seedTestMenuGroup(tenantB, { name: 'B-only group' })
+
+    const res = await itemPUT(
+      itemReq(tenantA, drinks.id, 'PUT', {
+        boxes: [
+          {
+            position: 1,
+            row_start: 1,
+            col_start: 1,
+            row_span: 1,
+            col_span: 1,
+            box_type: 'menu_group',
+            square_menu_group_id: bGroup.id, // belongs to tenant B
+          },
+        ],
+      }),
+      { params: Promise.resolve({ id: drinks.id }) },
+    )
+    expect(res.status).toBe(422)
+    const body = await res.json()
+    expect(body.code).toBe('KDS_SCREEN_LAYOUT_INVALID')
+    expect(
+      (body.validation_errors as string[]).some((e) =>
+        e.includes(bGroup.id) && /does not exist for this tenant/.test(e),
+      ),
+    ).toBe(true)
+  })
+
+  // T4 #20 — image_only-with-group rejection
+  it('PUT /screens/[id] returns 400 when image_only slot carries square_menu_group_id', async () => {
+    const drinks = await createScreen(tenantA, 'Drinks')
+    const hot = await seedTestMenuGroup(tenantA, { name: 'Hot Drinks' })
+
+    const res = await itemPUT(
+      itemReq(tenantA, drinks.id, 'PUT', {
+        boxes: [
+          {
+            position: 1,
+            row_start: 1,
+            col_start: 1,
+            row_span: 1,
+            col_span: 1,
+            box_type: 'image_only',
+            square_menu_group_id: hot.id, // illegal on image_only
+          },
+        ],
+      }),
+      { params: Promise.resolve({ id: drinks.id }) },
+    )
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(
+      (body.validation_errors as string[]).some((e) => /image_only/.test(e)),
+    ).toBe(true)
+  })
+
+  // T4 #21 — nonexistent-group rejection
+  it('PUT /screens/[id] returns 422 when binding to a fabricated square_menu_group_id', async () => {
+    const drinks = await createScreen(tenantA, 'Drinks')
+
+    const res = await itemPUT(
+      itemReq(tenantA, drinks.id, 'PUT', {
+        boxes: [
+          {
+            position: 1,
+            row_start: 1,
+            col_start: 1,
+            row_span: 1,
+            col_span: 1,
+            box_type: 'menu_group',
+            square_menu_group_id: 'fabricated-id-that-doesnt-exist',
+          },
+        ],
+      }),
+      { params: Promise.resolve({ id: drinks.id }) },
+    )
+    expect(res.status).toBe(422)
+    const body = await res.json()
+    expect(body.code).toBe('KDS_SCREEN_LAYOUT_INVALID')
+    expect(
+      (body.validation_errors as string[]).some((e) =>
+        e.includes('fabricated-id-that-doesnt-exist'),
+      ),
+    ).toBe(true)
+  })
+
+  // T4 #22 — bound group with is_deleted=true accepted (binding stays for operator's awareness)
+  it('PUT /screens/[id] accepts a binding to an is_deleted=true menu group', async () => {
+    const drinks = await createScreen(tenantA, 'Drinks')
+    const stale = await seedTestMenuGroup(tenantA, { name: 'Pastries', is_deleted: true })
+
+    const res = await itemPUT(
+      itemReq(tenantA, drinks.id, 'PUT', {
+        boxes: [
+          {
+            position: 1,
+            row_start: 1,
+            col_start: 1,
+            row_span: 1,
+            col_span: 1,
+            box_type: 'menu_group',
+            square_menu_group_id: stale.id,
+          },
+        ],
+      }),
+      { params: Promise.resolve({ id: drinks.id }) },
+    )
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect((body.data.boxes as Array<{ square_menu_group_id: string }>)[0].square_menu_group_id).toBe(
+      stale.id,
+    )
+  })
+
+  // T4 #23 — position stability across menu-group binding changes
+  it('PUT /screens/[id] preserves position numbers when changing menu-group bindings', async () => {
+    const drinks = await createScreen(tenantA, 'Drinks')
+    const hot = await seedTestMenuGroup(tenantA, { name: 'Hot Drinks' })
+    const cold = await seedTestMenuGroup(tenantA, { name: 'Cold Drinks' })
+
+    // Initial: 3 boxes, only box 2 bound
+    await itemPUT(
+      itemReq(tenantA, drinks.id, 'PUT', {
+        boxes: [
+          { position: 1, row_start: 1, col_start: 1, row_span: 1, col_span: 1, box_type: 'menu_group' },
+          { position: 2, row_start: 1, col_start: 2, row_span: 1, col_span: 1, box_type: 'menu_group', square_menu_group_id: hot.id },
+          { position: 3, row_start: 1, col_start: 3, row_span: 1, col_span: 1, box_type: 'menu_group' },
+        ],
+      }),
+      { params: Promise.resolve({ id: drinks.id }) },
+    )
+
+    // Now rebind box 2 to a different group + bind box 3 too
+    const updated = await itemPUT(
+      itemReq(tenantA, drinks.id, 'PUT', {
+        boxes: [
+          { position: 1, row_start: 1, col_start: 1, row_span: 1, col_span: 1, box_type: 'menu_group' },
+          { position: 2, row_start: 1, col_start: 2, row_span: 1, col_span: 1, box_type: 'menu_group', square_menu_group_id: cold.id },
+          { position: 3, row_start: 1, col_start: 3, row_span: 1, col_span: 1, box_type: 'menu_group', square_menu_group_id: hot.id },
+        ],
+      }),
+      { params: Promise.resolve({ id: drinks.id }) },
+    )
+    expect(updated.status).toBe(200)
+    const body = await updated.json()
+    const boxes = (body.data.boxes as Array<{ position: number; square_menu_group_id: string | null }>)
+      .sort((a, b) => a.position - b.position)
+    expect(boxes.map((b) => b.position)).toEqual([1, 2, 3])
+    expect(boxes[0].square_menu_group_id).toBeNull()
+    expect(boxes[1].square_menu_group_id).toBe(cold.id)
+    expect(boxes[2].square_menu_group_id).toBe(hot.id)
   })
 })

@@ -50,12 +50,29 @@ import {
 export interface EditableBox extends GridBox {
   box_type: 'menu_group' | 'image_only'
   header_override?: string | null
+  // Phase 3 (MOK-155) — slot-A menu-group binding + (future) image binding.
+  square_menu_group_id?: string | null
+  aesthetic_image_id?: string | null
   // Phase 2.5 (MOK-154) — optional second-slot fields.
   division?: DivisionMode
   box_type_b?: 'menu_group' | 'image_only' | null
   header_override_b?: string | null
   square_menu_group_id_b?: string | null
   aesthetic_image_id_b?: string | null
+}
+
+/**
+ * MOK-155 — shape returned by GET /api/admin/kds-v3/menu-groups, fetched once
+ * on editor mount and used to populate the menu-group picker.
+ */
+export interface MenuGroupOption {
+  id: string
+  name: string
+  ordinal: number
+  item_count: number
+  is_deleted: boolean
+  parent_menu_id: string | null
+  parent_menu_name: string | null
 }
 
 interface Props {
@@ -76,10 +93,138 @@ const GRID_MARGIN: [number, number] = [6, 6]
 const ASPECT_RATIO = 16 / 9
 const MIN_ROW_HEIGHT_PX = 8
 
+/**
+ * MOK-155 — render the per-slot controls in the selected-box panel.
+ * Slot A is always shown; slot B only when the box is divided. Each slot
+ * picks a type (menu_group | image_only) and — for menu_group slots —
+ * an optional menu-group binding plus a header override.
+ *
+ * Defined at module scope (not nested inside GridEditor) so renders are
+ * cheap; it's a presentation helper, not a stateful component.
+ */
+interface SlotControlsProps {
+  label: string
+  boxType: 'menu_group' | 'image_only'
+  onBoxTypeChange: (t: 'menu_group' | 'image_only') => void
+  squareMenuGroupId: string | null
+  onMenuGroupChange: (id: string | null) => void
+  headerOverride: string
+  onHeaderOverrideChange: (text: string) => void
+  menuGroups: MenuGroupOption[]
+}
+
+function renderSlotControls(props: SlotControlsProps) {
+  const {
+    label,
+    boxType,
+    onBoxTypeChange,
+    squareMenuGroupId,
+    onMenuGroupChange,
+    headerOverride,
+    onHeaderOverrideChange,
+    menuGroups,
+  } = props
+
+  // If the box is bound to a group that's not in the fetched list (sync
+  // hasn't caught up yet, or the id was fabricated and is about to fail
+  // server-side validation), inject a synthetic option so the operator
+  // sees the stale value rather than a silently-empty dropdown.
+  const knownIds = new Set(menuGroups.map((g) => g.id))
+  const hasUnknownBinding =
+    squareMenuGroupId != null && squareMenuGroupId !== '' && !knownIds.has(squareMenuGroupId)
+
+  return (
+    <div className="space-y-1.5 rounded border border-gray-200 bg-white p-2">
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+        {label}
+      </div>
+
+      <div className="flex items-center gap-2">
+        <label className="text-xs font-medium text-gray-600">Type</label>
+        <select
+          value={boxType}
+          onChange={(e) => onBoxTypeChange(e.target.value as 'menu_group' | 'image_only')}
+          className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700"
+        >
+          <option value="menu_group">menu_group</option>
+          <option value="image_only">image_only</option>
+        </select>
+      </div>
+
+      {boxType === 'menu_group' ? (
+        <>
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-gray-600">Menu group</label>
+            <select
+              value={squareMenuGroupId ?? ''}
+              onChange={(e) => onMenuGroupChange(e.target.value === '' ? null : e.target.value)}
+              className="flex-1 rounded border border-gray-300 px-2 py-1 text-xs text-gray-700"
+            >
+              <option value="">— Unbound —</option>
+              {hasUnknownBinding && (
+                <option value={squareMenuGroupId ?? ''}>
+                  ⚠ unknown ({squareMenuGroupId})
+                </option>
+              )}
+              {menuGroups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.is_deleted ? '⚠ (deleted) ' : ''}
+                  {g.name}
+                  {typeof g.item_count === 'number' ? ` · ${g.item_count} items` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-gray-600">Header</label>
+            <input
+              type="text"
+              maxLength={60}
+              value={headerOverride}
+              onChange={(e) => onHeaderOverrideChange(e.target.value)}
+              placeholder="(use group name)"
+              className="flex-1 rounded border border-gray-300 px-2 py-1 text-xs text-gray-700"
+            />
+          </div>
+        </>
+      ) : (
+        <p className="text-[11px] text-gray-500">
+          Image binding is configured in phase 4 (aesthetic image library).
+        </p>
+      )}
+    </div>
+  )
+}
+
 export function GridEditor({ grid_rows, grid_cols, boxes, onChange }: Props) {
   const [selected, setSelected] = useState<number | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
+
+  // MOK-155 — fetch the tenant's menu groups once on mount to populate the
+  // selected-box panel's picker. One round-trip per editor session; the
+  // dropdown handles deleted groups by rendering them with a warning rather
+  // than re-fetching on every selection change.
+  const [menuGroups, setMenuGroups] = useState<MenuGroupOption[]>([])
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await fetch('/api/admin/kds-v3/menu-groups')
+        const body = await res.json()
+        if (cancelled) return
+        if (res.ok && body.success && Array.isArray(body.data)) {
+          setMenuGroups(body.data as MenuGroupOption[])
+        }
+      } catch {
+        // Non-fatal: editor still works without the picker; binding stays
+        // unchanged because the dropdown just lists what's available.
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -206,6 +351,31 @@ export function GridEditor({ grid_rows, grid_cols, boxes, onChange }: Props) {
   const updateBoxTypeB = (position: number, box_type_b: 'menu_group' | 'image_only') => {
     onChange(
       boxes.map((b) => (b.position === position ? { ...b, box_type_b } : b)),
+    )
+  }
+
+  // Phase 3 helpers — update the menu-group binding or header override on
+  // either slot. `null` clears the field. Both helpers preserve every other
+  // field on the box.
+  const updateMenuGroup = (
+    position: number,
+    slot: 'a' | 'b',
+    square_menu_group_id: string | null,
+  ) => {
+    const key = slot === 'a' ? 'square_menu_group_id' : 'square_menu_group_id_b'
+    onChange(
+      boxes.map((b) => (b.position === position ? { ...b, [key]: square_menu_group_id } : b)),
+    )
+  }
+
+  const updateHeaderOverride = (
+    position: number,
+    slot: 'a' | 'b',
+    header_override: string | null,
+  ) => {
+    const key = slot === 'a' ? 'header_override' : 'header_override_b'
+    onChange(
+      boxes.map((b) => (b.position === position ? { ...b, [key]: header_override } : b)),
     )
   }
 
@@ -407,50 +577,31 @@ export function GridEditor({ grid_rows, grid_cols, boxes, onChange }: Props) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                <div className="flex items-center gap-2">
-                  <label className="text-xs font-medium text-gray-600">
-                    {divided ? 'Slot A type' : 'Type'}
-                  </label>
-                  <select
-                    value={selectedBox.box_type}
-                    onChange={(e) =>
-                      updateBoxType(
-                        selectedBox.position,
-                        e.target.value as 'menu_group' | 'image_only',
-                      )
-                    }
-                    className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700"
-                  >
-                    <option value="menu_group">menu_group</option>
-                    <option value="image_only">image_only</option>
-                  </select>
-                </div>
-                {divided && (
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs font-medium text-gray-600">Slot B type</label>
-                    <select
-                      value={selectedBox.box_type_b ?? 'menu_group'}
-                      onChange={(e) =>
-                        updateBoxTypeB(
-                          selectedBox.position,
-                          e.target.value as 'menu_group' | 'image_only',
-                        )
-                      }
-                      className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700"
-                    >
-                      <option value="menu_group">menu_group</option>
-                      <option value="image_only">image_only</option>
-                    </select>
-                  </div>
-                )}
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                {renderSlotControls({
+                  label: divided ? 'Slot A' : 'Slot',
+                  boxType: selectedBox.box_type,
+                  onBoxTypeChange: (t) => updateBoxType(selectedBox.position, t),
+                  squareMenuGroupId: selectedBox.square_menu_group_id ?? null,
+                  onMenuGroupChange: (id) => updateMenuGroup(selectedBox.position, 'a', id),
+                  headerOverride: selectedBox.header_override ?? '',
+                  onHeaderOverrideChange: (text) =>
+                    updateHeaderOverride(selectedBox.position, 'a', text || null),
+                  menuGroups,
+                })}
+                {divided &&
+                  renderSlotControls({
+                    label: 'Slot B',
+                    boxType: selectedBox.box_type_b ?? 'menu_group',
+                    onBoxTypeChange: (t) => updateBoxTypeB(selectedBox.position, t),
+                    squareMenuGroupId: selectedBox.square_menu_group_id_b ?? null,
+                    onMenuGroupChange: (id) => updateMenuGroup(selectedBox.position, 'b', id),
+                    headerOverride: selectedBox.header_override_b ?? '',
+                    onHeaderOverrideChange: (text) =>
+                      updateHeaderOverride(selectedBox.position, 'b', text || null),
+                    menuGroups,
+                  })}
               </div>
-
-              {divided && (
-                <p className="text-[11px] text-gray-500">
-                  Content selectors (which menu group, which image) for each slot are configured in later phases.
-                </p>
-              )}
             </div>
           )
         })()
