@@ -311,12 +311,16 @@ function OverrideRowControl({
   images: AestheticImage[]
   onChange: (kind: 'item' | 'variation', id: string, state: OverrideState) => void
 }) {
-  const [state, setState] = useState<OverrideState>(defaultOverrideState(initialOverride))
-
-  // Re-sync if the parent's override map updates (e.g. after a save).
-  useEffect(() => {
-    setState(defaultOverrideState(initialOverride))
-  }, [initialOverride])
+  // Local state is initialized ONCE at mount from initialOverride. We
+  // deliberately don't re-sync it when the server's PUT response updates
+  // the parent's overrides map — that would clobber characters typed
+  // between the debounce firing and the response landing (e.g. the
+  // server saves "Caffe La" then the sync overwrites the freshly-typed
+  // "Caffe Latte" with "Caffe La"). React's lazy-initializer ensures the
+  // initialOverride at mount time is captured.
+  const [state, setState] = useState<OverrideState>(() =>
+    defaultOverrideState(initialOverride),
+  )
 
   const apply = (next: OverrideState) => {
     setState(next)
@@ -346,6 +350,13 @@ function OverrideRowControl({
           value={state.alt_display_name}
           onChange={(e) => apply({ ...state, alt_display_name: e.target.value })}
           placeholder="(use Square name)"
+          // Operator names like "Caffè Latte" get mangled by browser
+          // autocorrect / autocapitalize on iOS / Safari. The field is a
+          // free-form label; we don't want any browser "help."
+          spellCheck={false}
+          autoComplete="off"
+          autoCapitalize="off"
+          autoCorrect="off"
           className="w-full rounded border border-gray-300 px-1.5 py-0.5 text-xs"
         />
       </div>
