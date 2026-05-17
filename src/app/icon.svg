@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Steam wisps -->
+  <path d="M20 4 C16 9 24 13 20 18" stroke="#006241" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M32 2 C28 7 36 11 32 16" stroke="#006241" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M44 4 C40 9 48 13 44 18" stroke="#006241" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Cup body (subtle taper) -->
+  <path d="M10 24 L48 24 L44 58 C44 60 42 62 40 62 L18 62 C16 62 14 60 14 58 Z" fill="#006241"/>
+
+  <!-- Handle -->
+  <path d="M48 32 C58 32 58 48 48 48" stroke="#006241" stroke-width="4" fill="none" stroke-linecap="round"/>
+</svg>
