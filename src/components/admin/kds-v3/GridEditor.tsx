@@ -47,6 +47,13 @@ import {
   type DivisionMode,
 } from '@/lib/kds/grid-validation'
 
+// Phase 6 (MOK-158) — string-literal enums for the 5 new per-slot controls.
+export type LayoutMode = 'simple_list' | 'variation_column_header' | 'flavor_list' | 'compact_list'
+export type PriceDisplayMode = 'none' | 'lowest' | 'range' | 'base'
+export type Density = 'compact' | 'normal' | 'loose'
+export type TitleSize = 'small' | 'medium' | 'large'
+export type TitleAlign = 'left' | 'center' | 'right'
+
 export interface EditableBox extends GridBox {
   box_type: 'menu_group' | 'image_only'
   header_override?: string | null
@@ -59,7 +66,33 @@ export interface EditableBox extends GridBox {
   header_override_b?: string | null
   square_menu_group_id_b?: string | null
   aesthetic_image_id_b?: string | null
+  // Phase 6 (MOK-158) — slot-A layout/price/whitespace controls.
+  layout_mode?: LayoutMode
+  price_display_mode?: PriceDisplayMode
+  density?: Density
+  title_size?: TitleSize
+  title_align?: TitleAlign
+  // Phase 6 — slot-B mirrors (null when undivided).
+  layout_mode_b?: LayoutMode | null
+  price_display_mode_b?: PriceDisplayMode | null
+  density_b?: Density | null
+  title_size_b?: TitleSize | null
+  title_align_b?: TitleAlign | null
 }
+
+const LAYOUT_MODE_DEFAULT: LayoutMode = 'simple_list'
+const PRICE_DISPLAY_MODE_DEFAULT: PriceDisplayMode = 'lowest'
+const DENSITY_DEFAULT: Density = 'normal'
+const TITLE_SIZE_DEFAULT: TitleSize = 'medium'
+const TITLE_ALIGN_DEFAULT: TitleAlign = 'left'
+
+// Layouts that don't honor a price display mode — we disable the dropdown
+// with a hint when one of these is selected. (variation_column_header
+// renders columns of prices; compact_list shows a group-level price range.)
+const LAYOUTS_WITHOUT_PRICE_DISPLAY = new Set<LayoutMode>([
+  'variation_column_header',
+  'compact_list',
+])
 
 /**
  * MOK-155 — shape returned by GET /api/admin/kds-v3/menu-groups, fetched once
@@ -128,6 +161,19 @@ interface SlotControlsProps {
   onHeaderOverrideChange: (text: string) => void
   menuGroups: MenuGroupOption[]
   aestheticImages: AestheticImageOption[]
+  // Phase 6 (MOK-158) — per-slot layout / price-display / whitespace controls.
+  // Surface only when boxType === 'menu_group'; image_only slots don't use
+  // these.
+  layoutMode: LayoutMode
+  onLayoutModeChange: (m: LayoutMode) => void
+  priceDisplayMode: PriceDisplayMode
+  onPriceDisplayModeChange: (m: PriceDisplayMode) => void
+  density: Density
+  onDensityChange: (d: Density) => void
+  titleSize: TitleSize
+  onTitleSizeChange: (s: TitleSize) => void
+  titleAlign: TitleAlign
+  onTitleAlignChange: (a: TitleAlign) => void
 }
 
 function renderSlotControls(props: SlotControlsProps) {
@@ -143,7 +189,18 @@ function renderSlotControls(props: SlotControlsProps) {
     onHeaderOverrideChange,
     menuGroups,
     aestheticImages,
+    layoutMode,
+    onLayoutModeChange,
+    priceDisplayMode,
+    onPriceDisplayModeChange,
+    density,
+    onDensityChange,
+    titleSize,
+    onTitleSizeChange,
+    titleAlign,
+    onTitleAlignChange,
   } = props
+  const priceDisplayDisabled = LAYOUTS_WITHOUT_PRICE_DISPLAY.has(layoutMode)
 
   // If the box is bound to a group that's not in the fetched list (sync
   // hasn't caught up yet, or the id was fabricated and is about to fail
@@ -212,6 +269,112 @@ function renderSlotControls(props: SlotControlsProps) {
               placeholder="(use group name)"
               className="flex-1 rounded border border-gray-300 px-2 py-1 text-xs text-gray-700"
             />
+          </div>
+
+          {/* Phase 6 (MOK-158) — layout / price / whitespace controls */}
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="text-xs font-medium text-gray-600">Layout</label>
+            <div className="inline-flex overflow-hidden rounded border border-gray-300">
+              {(
+                [
+                  ['simple_list', 'Simple'],
+                  ['variation_column_header', 'Columns'],
+                  ['flavor_list', 'Flavors'],
+                  ['compact_list', 'Compact'],
+                ] as Array<[LayoutMode, string]>
+              ).map(([mode, label]) => {
+                const active = layoutMode === mode
+                return (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => onLayoutModeChange(mode)}
+                    className={`px-2 py-1 text-[11px] ${
+                      active ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-gray-600">Price display</label>
+            <select
+              value={priceDisplayMode}
+              disabled={priceDisplayDisabled}
+              title={
+                priceDisplayDisabled
+                  ? '(not used by this layout — column / range pricing is derived from items)'
+                  : undefined
+              }
+              onChange={(e) => onPriceDisplayModeChange(e.target.value as PriceDisplayMode)}
+              className={`flex-1 rounded border px-2 py-1 text-xs ${
+                priceDisplayDisabled
+                  ? 'border-gray-200 bg-gray-50 text-gray-400'
+                  : 'border-gray-300 text-gray-700'
+              }`}
+            >
+              <option value="none">none</option>
+              <option value="lowest">lowest (&quot;from $5.95&quot;)</option>
+              <option value="range">range (&quot;$5.95 – $7.15&quot;)</option>
+              <option value="base">base ($5.95)</option>
+            </select>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
+                Density
+              </label>
+              <select
+                value={density}
+                onChange={(e) => onDensityChange(e.target.value as Density)}
+                className="rounded border border-gray-300 px-1.5 py-1 text-xs text-gray-700"
+              >
+                <option value="compact">compact</option>
+                <option value="normal">normal</option>
+                <option value="loose">loose</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
+                Title size
+              </label>
+              <select
+                value={titleSize}
+                onChange={(e) => onTitleSizeChange(e.target.value as TitleSize)}
+                className="rounded border border-gray-300 px-1.5 py-1 text-xs text-gray-700"
+              >
+                <option value="small">small</option>
+                <option value="medium">medium</option>
+                <option value="large">large</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
+                Title align
+              </label>
+              <div className="inline-flex overflow-hidden rounded border border-gray-300">
+                {(['left', 'center', 'right'] as TitleAlign[]).map((a) => {
+                  const active = titleAlign === a
+                  return (
+                    <button
+                      key={a}
+                      type="button"
+                      onClick={() => onTitleAlignChange(a)}
+                      className={`flex-1 px-1.5 py-1 text-[11px] ${
+                        active
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-white text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {a[0].toUpperCase()}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
           </div>
         </>
       ) : (
@@ -412,6 +575,11 @@ export function GridEditor({ grid_rows, grid_cols, boxes, onChange }: Props) {
   // fields atomically (single state update, no React batching surprises).
   // Going from 'none' to a divided mode initializes box_type_b='menu_group'
   // so the DB CHECK invariant holds the moment we save.
+  //
+  // Phase 6 (MOK-158): also clear / initialize the slot-B formatting columns
+  // (layout_mode_b through title_align_b) so the cross-slot-B formatting
+  // invariant CHECK passes — all slot-B formatting columns must be NULL
+  // when box_type_b is NULL, and all NOT NULL when box_type_b is set.
   const setBoxDivision = (position: number, division: DivisionMode) => {
     onChange(
       boxes.map((b) => {
@@ -424,12 +592,22 @@ export function GridEditor({ grid_rows, grid_cols, boxes, onChange }: Props) {
             header_override_b: null,
             square_menu_group_id_b: null,
             aesthetic_image_id_b: null,
+            layout_mode_b: null,
+            price_display_mode_b: null,
+            density_b: null,
+            title_size_b: null,
+            title_align_b: null,
           }
         }
         return {
           ...b,
           division,
           box_type_b: b.box_type_b ?? 'menu_group',
+          layout_mode_b: b.layout_mode_b ?? LAYOUT_MODE_DEFAULT,
+          price_display_mode_b: b.price_display_mode_b ?? PRICE_DISPLAY_MODE_DEFAULT,
+          density_b: b.density_b ?? DENSITY_DEFAULT,
+          title_size_b: b.title_size_b ?? TITLE_SIZE_DEFAULT,
+          title_align_b: b.title_align_b ?? TITLE_ALIGN_DEFAULT,
         }
       }),
     )
@@ -487,6 +665,32 @@ export function GridEditor({ grid_rows, grid_cols, boxes, onChange }: Props) {
     onChange(
       boxes.map((b) => (b.position === position ? { ...b, [key]: header_override } : b)),
     )
+  }
+
+  // Phase 6 (MOK-158) helpers — write a single per-slot formatting field.
+  const updateLayoutMode = (position: number, slot: 'a' | 'b', mode: LayoutMode) => {
+    const key = slot === 'a' ? 'layout_mode' : 'layout_mode_b'
+    onChange(boxes.map((b) => (b.position === position ? { ...b, [key]: mode } : b)))
+  }
+  const updatePriceDisplayMode = (
+    position: number,
+    slot: 'a' | 'b',
+    mode: PriceDisplayMode,
+  ) => {
+    const key = slot === 'a' ? 'price_display_mode' : 'price_display_mode_b'
+    onChange(boxes.map((b) => (b.position === position ? { ...b, [key]: mode } : b)))
+  }
+  const updateDensity = (position: number, slot: 'a' | 'b', d: Density) => {
+    const key = slot === 'a' ? 'density' : 'density_b'
+    onChange(boxes.map((b) => (b.position === position ? { ...b, [key]: d } : b)))
+  }
+  const updateTitleSize = (position: number, slot: 'a' | 'b', s: TitleSize) => {
+    const key = slot === 'a' ? 'title_size' : 'title_size_b'
+    onChange(boxes.map((b) => (b.position === position ? { ...b, [key]: s } : b)))
+  }
+  const updateTitleAlign = (position: number, slot: 'a' | 'b', a: TitleAlign) => {
+    const key = slot === 'a' ? 'title_align' : 'title_align_b'
+    onChange(boxes.map((b) => (b.position === position ? { ...b, [key]: a } : b)))
   }
 
   const selectedBox = selected !== null ? boxes.find((b) => b.position === selected) ?? null : null
@@ -701,6 +905,18 @@ export function GridEditor({ grid_rows, grid_cols, boxes, onChange }: Props) {
                     updateHeaderOverride(selectedBox.position, 'a', text || null),
                   menuGroups,
                   aestheticImages,
+                  layoutMode: selectedBox.layout_mode ?? LAYOUT_MODE_DEFAULT,
+                  onLayoutModeChange: (m) => updateLayoutMode(selectedBox.position, 'a', m),
+                  priceDisplayMode:
+                    selectedBox.price_display_mode ?? PRICE_DISPLAY_MODE_DEFAULT,
+                  onPriceDisplayModeChange: (m) =>
+                    updatePriceDisplayMode(selectedBox.position, 'a', m),
+                  density: selectedBox.density ?? DENSITY_DEFAULT,
+                  onDensityChange: (d) => updateDensity(selectedBox.position, 'a', d),
+                  titleSize: selectedBox.title_size ?? TITLE_SIZE_DEFAULT,
+                  onTitleSizeChange: (s) => updateTitleSize(selectedBox.position, 'a', s),
+                  titleAlign: selectedBox.title_align ?? TITLE_ALIGN_DEFAULT,
+                  onTitleAlignChange: (a) => updateTitleAlign(selectedBox.position, 'a', a),
                 })}
                 {divided &&
                   renderSlotControls({
@@ -716,6 +932,18 @@ export function GridEditor({ grid_rows, grid_cols, boxes, onChange }: Props) {
                       updateHeaderOverride(selectedBox.position, 'b', text || null),
                     menuGroups,
                     aestheticImages,
+                    layoutMode: selectedBox.layout_mode_b ?? LAYOUT_MODE_DEFAULT,
+                    onLayoutModeChange: (m) => updateLayoutMode(selectedBox.position, 'b', m),
+                    priceDisplayMode:
+                      selectedBox.price_display_mode_b ?? PRICE_DISPLAY_MODE_DEFAULT,
+                    onPriceDisplayModeChange: (m) =>
+                      updatePriceDisplayMode(selectedBox.position, 'b', m),
+                    density: selectedBox.density_b ?? DENSITY_DEFAULT,
+                    onDensityChange: (d) => updateDensity(selectedBox.position, 'b', d),
+                    titleSize: selectedBox.title_size_b ?? TITLE_SIZE_DEFAULT,
+                    onTitleSizeChange: (s) => updateTitleSize(selectedBox.position, 'b', s),
+                    titleAlign: selectedBox.title_align_b ?? TITLE_ALIGN_DEFAULT,
+                    onTitleAlignChange: (a) => updateTitleAlign(selectedBox.position, 'b', a),
                   })}
               </div>
             </div>

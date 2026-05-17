@@ -30,6 +30,19 @@ interface ApiBox {
   header_override_b?: string | null
   square_menu_group_id_b?: string | null
   aesthetic_image_id_b?: string | null
+  // Phase 6 (MOK-158) — layout / price / whitespace controls. Slot A
+  // always set with backfilled defaults; slot B nullable per the
+  // cross-slot-B invariant CHECK.
+  layout_mode?: 'simple_list' | 'variation_column_header' | 'flavor_list' | 'compact_list'
+  price_display_mode?: 'none' | 'lowest' | 'range' | 'base'
+  density?: 'compact' | 'normal' | 'loose'
+  title_size?: 'small' | 'medium' | 'large'
+  title_align?: 'left' | 'center' | 'right'
+  layout_mode_b?: 'simple_list' | 'variation_column_header' | 'flavor_list' | 'compact_list' | null
+  price_display_mode_b?: 'none' | 'lowest' | 'range' | 'base' | null
+  density_b?: 'compact' | 'normal' | 'loose' | null
+  title_size_b?: 'small' | 'medium' | 'large' | null
+  title_align_b?: 'left' | 'center' | 'right' | null
 }
 
 export default function EditScreenPage() {
@@ -74,6 +87,18 @@ export default function EditScreenPage() {
             header_override_b: b.header_override_b ?? null,
             square_menu_group_id_b: b.square_menu_group_id_b ?? null,
             aesthetic_image_id_b: b.aesthetic_image_id_b ?? null,
+            // Phase 6 (MOK-158) fields. Slot-A defaults match the DB-level
+            // backfill from the T1 migration so phase 2-era rows round-trip.
+            layout_mode: b.layout_mode ?? 'simple_list',
+            price_display_mode: b.price_display_mode ?? 'lowest',
+            density: b.density ?? 'normal',
+            title_size: b.title_size ?? 'medium',
+            title_align: b.title_align ?? 'left',
+            layout_mode_b: b.layout_mode_b ?? null,
+            price_display_mode_b: b.price_display_mode_b ?? null,
+            density_b: b.density_b ?? null,
+            title_size_b: b.title_size_b ?? null,
+            title_align_b: b.title_align_b ?? null,
           })),
         })
       } catch (e) {

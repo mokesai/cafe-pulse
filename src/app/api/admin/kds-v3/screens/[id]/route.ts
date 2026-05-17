@@ -24,6 +24,27 @@ const VALID_THEMES = new Set(['warm', 'dark', 'wps'])
 const VALID_BOX_TYPES = new Set(['menu_group', 'image_only'])
 const VALID_DIVISIONS = new Set<DivisionMode>(['none', 'horizontal', 'vertical'])
 
+// Phase 6 (MOK-158) — per-slot layout + formatting enums. Slot A required;
+// slot B nullable but cross-checked with box_type_b in the cross-slot-B
+// formatting invariant CHECK in the DB. The route validator below enforces
+// the same shape so we don't depend on the DB error message for UX.
+const VALID_LAYOUT_MODES = new Set([
+  'simple_list',
+  'variation_column_header',
+  'flavor_list',
+  'compact_list',
+])
+const VALID_PRICE_DISPLAY_MODES = new Set(['none', 'lowest', 'range', 'base'])
+const VALID_DENSITIES = new Set(['compact', 'normal', 'loose'])
+const VALID_TITLE_SIZES = new Set(['small', 'medium', 'large'])
+const VALID_TITLE_ALIGNS = new Set(['left', 'center', 'right'])
+
+const LAYOUT_MODE_DEFAULT = 'simple_list'
+const PRICE_DISPLAY_MODE_DEFAULT = 'lowest'
+const DENSITY_DEFAULT = 'normal'
+const TITLE_SIZE_DEFAULT = 'medium'
+const TITLE_ALIGN_DEFAULT = 'left'
+
 interface RouteContext {
   params: Promise<{ id: string }>
 }
@@ -44,6 +65,18 @@ interface PutBoxInput {
   header_override_b?: string | null
   square_menu_group_id_b?: string | null
   aesthetic_image_id_b?: string | null
+  // Phase 6 (MOK-158) — slot-A layout/price/whitespace controls.
+  layout_mode?: string
+  price_display_mode?: string
+  density?: string
+  title_size?: string
+  title_align?: string
+  // Phase 6 — slot-B mirrors (nullable; must all be set ↔ box_type_b set).
+  layout_mode_b?: string | null
+  price_display_mode_b?: string | null
+  density_b?: string | null
+  title_size_b?: string | null
+  title_align_b?: string | null
 }
 
 interface PutBody {
@@ -175,6 +208,18 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         header_override: string | null
         square_menu_group_id: string | null
         aesthetic_image_id: string | null
+        // Phase 6 — slot-A required with defaults
+        layout_mode: string
+        price_display_mode: string
+        density: string
+        title_size: string
+        title_align: string
+        // Phase 6 — slot-B mirrors (null when undivided)
+        layout_mode_b: string | null
+        price_display_mode_b: string | null
+        density_b: string | null
+        title_size_b: string | null
+        title_align_b: string | null
       }
   > = []
   if (body.boxes !== undefined) {
@@ -256,6 +301,94 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         continue
       }
 
+      // Phase 6 (MOK-158): slot-A layout/price/whitespace fields. Required
+      // shape — invalid enum values are rejected here so the operator gets
+      // a structured error rather than the DB CHECK message. Defaults are
+      // applied for any omitted slot-A field so phase 2 → 6 round-trips work.
+      const layout_mode = b.layout_mode ?? LAYOUT_MODE_DEFAULT
+      const price_display_mode = b.price_display_mode ?? PRICE_DISPLAY_MODE_DEFAULT
+      const density = b.density ?? DENSITY_DEFAULT
+      const title_size = b.title_size ?? TITLE_SIZE_DEFAULT
+      const title_align = b.title_align ?? TITLE_ALIGN_DEFAULT
+      if (!VALID_LAYOUT_MODES.has(layout_mode)) {
+        fieldErrors.push(
+          `box[${i}]: layout_mode must be one of: ${[...VALID_LAYOUT_MODES].join(', ')}`,
+        )
+        continue
+      }
+      if (!VALID_PRICE_DISPLAY_MODES.has(price_display_mode)) {
+        fieldErrors.push(
+          `box[${i}]: price_display_mode must be one of: ${[...VALID_PRICE_DISPLAY_MODES].join(', ')}`,
+        )
+        continue
+      }
+      if (!VALID_DENSITIES.has(density)) {
+        fieldErrors.push(
+          `box[${i}]: density must be one of: ${[...VALID_DENSITIES].join(', ')}`,
+        )
+        continue
+      }
+      if (!VALID_TITLE_SIZES.has(title_size)) {
+        fieldErrors.push(
+          `box[${i}]: title_size must be one of: ${[...VALID_TITLE_SIZES].join(', ')}`,
+        )
+        continue
+      }
+      if (!VALID_TITLE_ALIGNS.has(title_align)) {
+        fieldErrors.push(
+          `box[${i}]: title_align must be one of: ${[...VALID_TITLE_ALIGNS].join(', ')}`,
+        )
+        continue
+      }
+
+      // Phase 6 slot-B: mirror invariant — every slot-B formatting column
+      // must be set when box_type_b is set, and NULL when box_type_b is NULL.
+      // Apply defaults for any missing-but-required slot-B field, then enum-
+      // validate. For undivided boxes, drop any incoming slot-B formatting
+      // values to NULL so the cross-slot-B invariant CHECK holds.
+      const dividedB = b.box_type_b != null
+      const layout_mode_b = dividedB ? b.layout_mode_b ?? LAYOUT_MODE_DEFAULT : null
+      const price_display_mode_b = dividedB
+        ? b.price_display_mode_b ?? PRICE_DISPLAY_MODE_DEFAULT
+        : null
+      const density_b = dividedB ? b.density_b ?? DENSITY_DEFAULT : null
+      const title_size_b = dividedB ? b.title_size_b ?? TITLE_SIZE_DEFAULT : null
+      const title_align_b = dividedB ? b.title_align_b ?? TITLE_ALIGN_DEFAULT : null
+
+      if (layout_mode_b != null && !VALID_LAYOUT_MODES.has(layout_mode_b)) {
+        fieldErrors.push(
+          `box[${i}]: layout_mode_b must be one of: ${[...VALID_LAYOUT_MODES].join(', ')}`,
+        )
+        continue
+      }
+      if (
+        price_display_mode_b != null &&
+        !VALID_PRICE_DISPLAY_MODES.has(price_display_mode_b)
+      ) {
+        fieldErrors.push(
+          `box[${i}]: price_display_mode_b must be one of: ${[...VALID_PRICE_DISPLAY_MODES].join(', ')}`,
+        )
+        continue
+      }
+      if (density_b != null && !VALID_DENSITIES.has(density_b)) {
+        fieldErrors.push(
+          `box[${i}]: density_b must be one of: ${[...VALID_DENSITIES].join(', ')}`,
+        )
+        continue
+      }
+      if (title_size_b != null && !VALID_TITLE_SIZES.has(title_size_b)) {
+        fieldErrors.push(
+          `box[${i}]: title_size_b must be one of: ${[...VALID_TITLE_SIZES].join(', ')}`,
+        )
+        continue
+      }
+      if (title_align_b != null && !VALID_TITLE_ALIGNS.has(title_align_b)) {
+        fieldErrors.push(
+          `box[${i}]: title_align_b must be one of: ${[...VALID_TITLE_ALIGNS].join(', ')}`,
+        )
+        continue
+      }
+
       validatedBoxes.push({
         position,
         row_start: row_start as number,
@@ -271,6 +404,16 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         header_override_b: b.header_override_b ?? null,
         square_menu_group_id_b: b.square_menu_group_id_b ?? null,
         aesthetic_image_id_b: b.aesthetic_image_id_b ?? null,
+        layout_mode,
+        price_display_mode,
+        density,
+        title_size,
+        title_align,
+        layout_mode_b,
+        price_display_mode_b,
+        density_b,
+        title_size_b,
+        title_align_b,
       })
     }
     if (fieldErrors.length > 0) {
@@ -471,6 +614,17 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         header_override_b: b.header_override_b,
         square_menu_group_id_b: b.square_menu_group_id_b,
         aesthetic_image_id_b: b.aesthetic_image_id_b,
+        // Phase 6 (MOK-158) — layout/price/whitespace formatting controls.
+        layout_mode: b.layout_mode,
+        price_display_mode: b.price_display_mode,
+        density: b.density,
+        title_size: b.title_size,
+        title_align: b.title_align,
+        layout_mode_b: b.layout_mode_b,
+        price_display_mode_b: b.price_display_mode_b,
+        density_b: b.density_b,
+        title_size_b: b.title_size_b,
+        title_align_b: b.title_align_b,
       }))
       const { data: inserted, error: insertError } = await supabase
         .from('kds_grid_boxes')
