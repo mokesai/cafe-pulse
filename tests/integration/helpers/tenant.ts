@@ -128,10 +128,13 @@ const TENANT_CHILD_TABLES = [
   'kds_settings',
   'kds_menu_items',
   'kds_categories',
-  // KDS v3 (phase 1 + 2 + 2.5 + 3)
+  // KDS v3 (phase 1 + 2 + 2.5 + 3 + 4)
   // kds_grid_boxes has FK CASCADE to kds_screens, but listing both for clarity.
+  // kds_aesthetic_images: FK from kds_grid_boxes is ON DELETE SET NULL, so
+  // dropping boxes first leaves images cleanly droppable.
   'kds_grid_boxes',
   'kds_screens',
+  'kds_aesthetic_images',
   'square_menu_item_categories',
   'square_menu_item_variations',
   'square_menu_items',
@@ -287,6 +290,61 @@ export async function seedTestMenuGroup(
   }
 
   return { id: groupId, name: groupName }
+}
+
+/**
+ * MOK-156 / KDS v3 phase 4 — seed a tenant-scoped row into
+ * kds_aesthetic_images for integration tests that need an image binding to
+ * exist. Bypasses Storage entirely: for source_kind='uploaded' we just
+ * write a synthetic storage_path that points nowhere (route-level upload
+ * validation is the boundary we care about; the actual Storage write is a
+ * third-party concern covered by the manual walk).
+ *
+ * Returns the synthetic image id so callers can pass it as
+ * `aesthetic_image_id` in PUT bodies.
+ */
+export interface SeedTestAestheticImageOptions {
+  source_kind?: 'uploaded' | 'external'
+  name?: string
+  external_url?: string
+  storage_path?: string
+  is_deleted?: boolean
+  alt_text?: string | null
+}
+
+export async function seedTestAestheticImage(
+  tenant: TestTenant,
+  overrides: SeedTestAestheticImageOptions = {},
+): Promise<{ id: string; name: string; source_kind: 'uploaded' | 'external' }> {
+  const supabase = getServiceClient()
+  const suffix = crypto.randomBytes(3).toString('hex')
+  const source_kind = overrides.source_kind ?? 'external'
+  const name = overrides.name ?? `Test image ${suffix}`
+
+  const row: Record<string, unknown> = {
+    tenant_id: tenant.id,
+    name,
+    source_kind,
+    alt_text: overrides.alt_text ?? null,
+    is_deleted: overrides.is_deleted ?? false,
+  }
+  if (source_kind === 'uploaded') {
+    row.storage_path = overrides.storage_path ?? `${tenant.id}/test-${suffix}.png`
+    row.mime_type = 'image/png'
+    row.bytes = 1024
+  } else {
+    row.external_url = overrides.external_url ?? `https://example.com/${suffix}.png`
+  }
+
+  const { data, error } = await supabase
+    .from('kds_aesthetic_images')
+    .insert(row)
+    .select('id, name, source_kind')
+    .single()
+  if (error || !data) {
+    throw new Error(`Failed to seed aesthetic image: ${error?.message}`)
+  }
+  return data as { id: string; name: string; source_kind: 'uploaded' | 'external' }
 }
 
 export interface CreateInventoryItemOptions {

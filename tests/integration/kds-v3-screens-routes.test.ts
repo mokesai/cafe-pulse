@@ -36,6 +36,14 @@
  *    21. PUT /screens/[id] — 422 when binding to a fabricated id
  *    22. PUT /screens/[id] — accepts binding to is_deleted=true group
  *    23. PUT /screens/[id] — position stability across binding changes
+ *
+ *   Phase 4 (MOK-156):
+ *    24. PUT /screens/[id] — aesthetic_image_id + header_override round-trip
+ *    25. PUT /screens/[id] — cross-tenant image binding (422)
+ *    26. PUT /screens/[id] — 400 when menu_group slot carries an image binding
+ *    27. PUT /screens/[id] — 422 when binding to a fabricated image id
+ *    28. PUT /screens/[id] — accepts binding to is_deleted=true image
+ *    29. PUT /screens/[id] — position stability across image-binding changes
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
@@ -52,6 +60,7 @@ import {
   createTenantForTest,
   getServiceClient,
   seedTestMenuGroup,
+  seedTestAestheticImage,
   type TestTenant,
 } from './helpers/tenant'
 
@@ -81,12 +90,23 @@ async function clearMenuMirror(tenantId: string) {
   await supabase.from('square_menu_categories').delete().eq('tenant_id', tenantId)
 }
 
+async function clearImages(tenantId: string) {
+  // Must run AFTER clearScreens because kds_grid_boxes references
+  // kds_aesthetic_images via FK (ON DELETE SET NULL). If we delete images
+  // first while boxes still reference them, the FK trigger fires and
+  // nulls those columns — harmless but extra work.
+  const supabase = getServiceClient()
+  await supabase.from('kds_aesthetic_images').delete().eq('tenant_id', tenantId)
+}
+
 beforeEach(async () => {
+  // Order: screens first (which cascades boxes), then images.
+  await Promise.all([clearScreens(tenantA.id), clearScreens(tenantB.id)])
   await Promise.all([
-    clearScreens(tenantA.id),
-    clearScreens(tenantB.id),
     clearMenuMirror(tenantA.id),
     clearMenuMirror(tenantB.id),
+    clearImages(tenantA.id),
+    clearImages(tenantB.id),
   ])
 })
 
@@ -833,5 +853,194 @@ describe('MOK-152 — kds-v3 screens routes', () => {
     expect(boxes[0].square_menu_group_id).toBeNull()
     expect(boxes[1].square_menu_group_id).toBe(cold.id)
     expect(boxes[2].square_menu_group_id).toBe(hot.id)
+  })
+
+  // ───────────────────────────────────────────────────────────────────────
+  // MOK-156 — phase 4 aesthetic image binding. Tests #24-29.
+  // ───────────────────────────────────────────────────────────────────────
+
+  // T8 #24
+  it('PUT /screens/[id] persists aesthetic_image_id on image_only slot', async () => {
+    const drinks = await createScreen(tenantA, 'Drinks')
+    const banner = await seedTestAestheticImage(tenantA, { name: 'Banner' })
+
+    const res = await itemPUT(
+      itemReq(tenantA, drinks.id, 'PUT', {
+        boxes: [
+          {
+            position: 1,
+            row_start: 1,
+            col_start: 1,
+            row_span: 1,
+            col_span: 1,
+            box_type: 'image_only',
+            aesthetic_image_id: banner.id,
+            header_override: 'Welcome',
+          },
+        ],
+      }),
+      { params: Promise.resolve({ id: drinks.id }) },
+    )
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    const box = (body.data.boxes as Array<{ aesthetic_image_id: string; header_override: string }>)[0]
+    expect(box.aesthetic_image_id).toBe(banner.id)
+    expect(box.header_override).toBe('Welcome')
+  })
+
+  // T8 #25 — cross-tenant rejection
+  it('PUT /screens/[id] returns 422 when binding to a cross-tenant aesthetic_image_id', async () => {
+    const drinks = await createScreen(tenantA, 'Drinks')
+    const bImg = await seedTestAestheticImage(tenantB, { name: 'B image' })
+
+    const res = await itemPUT(
+      itemReq(tenantA, drinks.id, 'PUT', {
+        boxes: [
+          {
+            position: 1,
+            row_start: 1,
+            col_start: 1,
+            row_span: 1,
+            col_span: 1,
+            box_type: 'image_only',
+            aesthetic_image_id: bImg.id,
+          },
+        ],
+      }),
+      { params: Promise.resolve({ id: drinks.id }) },
+    )
+    expect(res.status).toBe(422)
+    const body = await res.json()
+    expect(body.code).toBe('KDS_SCREEN_LAYOUT_INVALID')
+    expect(
+      (body.validation_errors as string[]).some(
+        (e) => e.includes(bImg.id) && /does not exist for this tenant/.test(e),
+      ),
+    ).toBe(true)
+  })
+
+  // T8 #26 — menu_group-with-image rejection
+  it('PUT /screens/[id] returns 400 when menu_group slot has aesthetic_image_id', async () => {
+    const drinks = await createScreen(tenantA, 'Drinks')
+    const img = await seedTestAestheticImage(tenantA, { name: 'Stray' })
+
+    const res = await itemPUT(
+      itemReq(tenantA, drinks.id, 'PUT', {
+        boxes: [
+          {
+            position: 1,
+            row_start: 1,
+            col_start: 1,
+            row_span: 1,
+            col_span: 1,
+            box_type: 'menu_group',
+            aesthetic_image_id: img.id, // illegal on menu_group
+          },
+        ],
+      }),
+      { params: Promise.resolve({ id: drinks.id }) },
+    )
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(
+      (body.validation_errors as string[]).some((e) =>
+        /aesthetic_image_id must be null when box_type='menu_group'/.test(e),
+      ),
+    ).toBe(true)
+  })
+
+  // T8 #27 — fabricated image id rejection
+  it('PUT /screens/[id] returns 422 when binding to a fabricated aesthetic_image_id', async () => {
+    const drinks = await createScreen(tenantA, 'Drinks')
+
+    const res = await itemPUT(
+      itemReq(tenantA, drinks.id, 'PUT', {
+        boxes: [
+          {
+            position: 1,
+            row_start: 1,
+            col_start: 1,
+            row_span: 1,
+            col_span: 1,
+            box_type: 'image_only',
+            aesthetic_image_id: '00000000-0000-0000-0000-000000000001',
+          },
+        ],
+      }),
+      { params: Promise.resolve({ id: drinks.id }) },
+    )
+    expect(res.status).toBe(422)
+    const body = await res.json()
+    expect(body.code).toBe('KDS_SCREEN_LAYOUT_INVALID')
+    expect(
+      (body.validation_errors as string[]).some((e) =>
+        e.includes('00000000-0000-0000-0000-000000000001'),
+      ),
+    ).toBe(true)
+  })
+
+  // T8 #28 — bound to is_deleted=true image accepted
+  it('PUT /screens/[id] accepts a binding to an is_deleted=true aesthetic image', async () => {
+    const drinks = await createScreen(tenantA, 'Drinks')
+    const stale = await seedTestAestheticImage(tenantA, { name: 'Stale', is_deleted: true })
+
+    const res = await itemPUT(
+      itemReq(tenantA, drinks.id, 'PUT', {
+        boxes: [
+          {
+            position: 1,
+            row_start: 1,
+            col_start: 1,
+            row_span: 1,
+            col_span: 1,
+            box_type: 'image_only',
+            aesthetic_image_id: stale.id,
+          },
+        ],
+      }),
+      { params: Promise.resolve({ id: drinks.id }) },
+    )
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect((body.data.boxes as Array<{ aesthetic_image_id: string }>)[0].aesthetic_image_id).toBe(
+      stale.id,
+    )
+  })
+
+  // T8 #29 — position stability across image-binding changes
+  it('PUT /screens/[id] preserves position numbers when changing image bindings', async () => {
+    const drinks = await createScreen(tenantA, 'Drinks')
+    const a = await seedTestAestheticImage(tenantA, { name: 'A' })
+    const b = await seedTestAestheticImage(tenantA, { name: 'B' })
+
+    await itemPUT(
+      itemReq(tenantA, drinks.id, 'PUT', {
+        boxes: [
+          { position: 1, row_start: 1, col_start: 1, row_span: 1, col_span: 1, box_type: 'image_only' },
+          { position: 2, row_start: 1, col_start: 2, row_span: 1, col_span: 1, box_type: 'image_only', aesthetic_image_id: a.id },
+          { position: 3, row_start: 1, col_start: 3, row_span: 1, col_span: 1, box_type: 'image_only' },
+        ],
+      }),
+      { params: Promise.resolve({ id: drinks.id }) },
+    )
+
+    const updated = await itemPUT(
+      itemReq(tenantA, drinks.id, 'PUT', {
+        boxes: [
+          { position: 1, row_start: 1, col_start: 1, row_span: 1, col_span: 1, box_type: 'image_only' },
+          { position: 2, row_start: 1, col_start: 2, row_span: 1, col_span: 1, box_type: 'image_only', aesthetic_image_id: b.id },
+          { position: 3, row_start: 1, col_start: 3, row_span: 1, col_span: 1, box_type: 'image_only', aesthetic_image_id: a.id },
+        ],
+      }),
+      { params: Promise.resolve({ id: drinks.id }) },
+    )
+    expect(updated.status).toBe(200)
+    const body = await updated.json()
+    const boxes = (body.data.boxes as Array<{ position: number; aesthetic_image_id: string | null }>)
+      .sort((x, y) => x.position - y.position)
+    expect(boxes.map((bx) => bx.position)).toEqual([1, 2, 3])
+    expect(boxes[0].aesthetic_image_id).toBeNull()
+    expect(boxes[1].aesthetic_image_id).toBe(b.id)
+    expect(boxes[2].aesthetic_image_id).toBe(a.id)
   })
 })
