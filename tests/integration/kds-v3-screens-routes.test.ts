@@ -1043,4 +1043,114 @@ describe('MOK-152 — kds-v3 screens routes', () => {
     expect(boxes[1].aesthetic_image_id).toBe(b.id)
     expect(boxes[2].aesthetic_image_id).toBe(a.id)
   })
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // MOK-158 phase 6 — layout / price / whitespace round-trip + validation
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // T11 #30 — slot-A layout / price / whitespace round-trips cleanly
+  it('PUT /screens/[id] persists slot-A layout_mode + price_display_mode + density + title_size + title_align', async () => {
+    const screen = await createScreen(tenantA, 'P6 Slot A')
+    const res = await itemPUT(
+      itemReq(tenantA, screen.id, 'PUT', {
+        boxes: [
+          {
+            position: 1,
+            row_start: 1,
+            col_start: 1,
+            row_span: 1,
+            col_span: 1,
+            box_type: 'menu_group',
+            layout_mode: 'flavor_list',
+            price_display_mode: 'base',
+            density: 'compact',
+            title_size: 'large',
+            title_align: 'center',
+          },
+        ],
+      }),
+      { params: Promise.resolve({ id: screen.id }) },
+    )
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    const box = body.data.boxes[0]
+    expect(box.layout_mode).toBe('flavor_list')
+    expect(box.price_display_mode).toBe('base')
+    expect(box.density).toBe('compact')
+    expect(box.title_size).toBe('large')
+    expect(box.title_align).toBe('center')
+    // Undivided box → all slot-B formatting columns null
+    expect(box.layout_mode_b).toBeNull()
+    expect(box.price_display_mode_b).toBeNull()
+    expect(box.density_b).toBeNull()
+    expect(box.title_size_b).toBeNull()
+    expect(box.title_align_b).toBeNull()
+  })
+
+  // T11 #31 — divided box round-trips distinct slot-A vs slot-B formatting
+  it('PUT /screens/[id] round-trips a divided box with distinct slot-A vs slot-B layout/density combos', async () => {
+    const screen = await createScreen(tenantA, 'P6 Divided')
+    const res = await itemPUT(
+      itemReq(tenantA, screen.id, 'PUT', {
+        boxes: [
+          {
+            position: 1,
+            row_start: 1,
+            col_start: 1,
+            row_span: 2,
+            col_span: 2,
+            box_type: 'menu_group',
+            division: 'horizontal',
+            box_type_b: 'menu_group',
+            layout_mode: 'variation_column_header',
+            density: 'loose',
+            title_size: 'large',
+            title_align: 'left',
+            layout_mode_b: 'compact_list',
+            density_b: 'compact',
+            title_size_b: 'small',
+            title_align_b: 'right',
+          },
+        ],
+      }),
+      { params: Promise.resolve({ id: screen.id }) },
+    )
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    const box = body.data.boxes[0]
+    expect(box.layout_mode).toBe('variation_column_header')
+    expect(box.density).toBe('loose')
+    expect(box.title_size).toBe('large')
+    expect(box.layout_mode_b).toBe('compact_list')
+    expect(box.density_b).toBe('compact')
+    expect(box.title_size_b).toBe('small')
+    expect(box.title_align_b).toBe('right')
+    // Default price_display_mode applied to slot B since not specified
+    expect(box.price_display_mode_b).toBe('lowest')
+  })
+
+  // T11 #32 — invalid enum value rejected at route layer with structured error
+  it('PUT /screens/[id] returns 400 when layout_mode is not a recognized enum', async () => {
+    const screen = await createScreen(tenantA, 'P6 Bad Enum')
+    const res = await itemPUT(
+      itemReq(tenantA, screen.id, 'PUT', {
+        boxes: [
+          {
+            position: 1,
+            row_start: 1,
+            col_start: 1,
+            row_span: 1,
+            col_span: 1,
+            box_type: 'menu_group',
+            layout_mode: 'not_a_layout',
+          },
+        ],
+      }),
+      { params: Promise.resolve({ id: screen.id }) },
+    )
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.code).toBe('KDS_SCREEN_BAD_REQUEST')
+    expect(body.error).toContain('layout_mode')
+  })
 })

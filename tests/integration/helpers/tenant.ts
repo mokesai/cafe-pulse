@@ -394,6 +394,7 @@ export interface SeedTestSquareVariationOptions {
   name?: string
   price_cents?: number | null
   is_deleted?: boolean
+  ordinal?: number
 }
 
 export async function seedTestSquareVariation(
@@ -411,7 +412,7 @@ export async function seedTestSquareVariation(
     item_id: overrides.item_id,
     name,
     price_cents: overrides.price_cents ?? null,
-    ordinal: 0,
+    ordinal: overrides.ordinal ?? 0,
     is_deleted: overrides.is_deleted ?? false,
     updated_at: now,
   })
