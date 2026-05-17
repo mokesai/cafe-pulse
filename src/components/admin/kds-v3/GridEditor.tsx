@@ -75,6 +75,19 @@ export interface MenuGroupOption {
   parent_menu_name: string | null
 }
 
+/**
+ * MOK-156 — shape returned by GET /api/admin/kds-v3/aesthetic-images,
+ * fetched once on editor mount and used to populate the image picker
+ * for `image_only` slots.
+ */
+export interface AestheticImageOption {
+  id: string
+  name: string
+  source_kind: 'uploaded' | 'external'
+  is_deleted: boolean
+  thumbnail_url: string | null
+}
+
 interface Props {
   grid_rows: number
   grid_cols: number
@@ -108,9 +121,13 @@ interface SlotControlsProps {
   onBoxTypeChange: (t: 'menu_group' | 'image_only') => void
   squareMenuGroupId: string | null
   onMenuGroupChange: (id: string | null) => void
+  // MOK-156 — slot image binding (used when boxType === 'image_only').
+  aestheticImageId: string | null
+  onImageChange: (id: string | null) => void
   headerOverride: string
   onHeaderOverrideChange: (text: string) => void
   menuGroups: MenuGroupOption[]
+  aestheticImages: AestheticImageOption[]
 }
 
 function renderSlotControls(props: SlotControlsProps) {
@@ -120,18 +137,28 @@ function renderSlotControls(props: SlotControlsProps) {
     onBoxTypeChange,
     squareMenuGroupId,
     onMenuGroupChange,
+    aestheticImageId,
+    onImageChange,
     headerOverride,
     onHeaderOverrideChange,
     menuGroups,
+    aestheticImages,
   } = props
 
   // If the box is bound to a group that's not in the fetched list (sync
   // hasn't caught up yet, or the id was fabricated and is about to fail
   // server-side validation), inject a synthetic option so the operator
   // sees the stale value rather than a silently-empty dropdown.
-  const knownIds = new Set(menuGroups.map((g) => g.id))
-  const hasUnknownBinding =
-    squareMenuGroupId != null && squareMenuGroupId !== '' && !knownIds.has(squareMenuGroupId)
+  const knownGroupIds = new Set(menuGroups.map((g) => g.id))
+  const hasUnknownGroup =
+    squareMenuGroupId != null && squareMenuGroupId !== '' && !knownGroupIds.has(squareMenuGroupId)
+
+  const knownImageIds = new Set(aestheticImages.map((i) => i.id))
+  const hasUnknownImage =
+    aestheticImageId != null && aestheticImageId !== '' && !knownImageIds.has(aestheticImageId)
+  const selectedImage = aestheticImageId
+    ? aestheticImages.find((i) => i.id === aestheticImageId) ?? null
+    : null
 
   return (
     <div className="space-y-1.5 rounded border border-gray-200 bg-white p-2">
@@ -161,7 +188,7 @@ function renderSlotControls(props: SlotControlsProps) {
               className="flex-1 rounded border border-gray-300 px-2 py-1 text-xs text-gray-700"
             >
               <option value="">— Unbound —</option>
-              {hasUnknownBinding && (
+              {hasUnknownGroup && (
                 <option value={squareMenuGroupId ?? ''}>
                   ⚠ unknown ({squareMenuGroupId})
                 </option>
@@ -188,9 +215,46 @@ function renderSlotControls(props: SlotControlsProps) {
           </div>
         </>
       ) : (
-        <p className="text-[11px] text-gray-500">
-          Image binding is configured in phase 4 (aesthetic image library).
-        </p>
+        <>
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-gray-600">Image</label>
+            <select
+              value={aestheticImageId ?? ''}
+              onChange={(e) => onImageChange(e.target.value === '' ? null : e.target.value)}
+              className="flex-1 rounded border border-gray-300 px-2 py-1 text-xs text-gray-700"
+            >
+              <option value="">— Unbound —</option>
+              {hasUnknownImage && (
+                <option value={aestheticImageId ?? ''}>⚠ unknown ({aestheticImageId})</option>
+              )}
+              {aestheticImages.map((i) => (
+                <option key={i.id} value={i.id}>
+                  {i.is_deleted ? '⚠ (deleted) ' : ''}
+                  {i.name} · {i.source_kind}
+                </option>
+              ))}
+            </select>
+          </div>
+          {selectedImage?.thumbnail_url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={selectedImage.thumbnail_url}
+              alt={selectedImage.name}
+              className="h-16 w-full rounded border border-gray-200 object-cover"
+            />
+          )}
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-gray-600">Header</label>
+            <input
+              type="text"
+              maxLength={60}
+              value={headerOverride}
+              onChange={(e) => onHeaderOverrideChange(e.target.value)}
+              placeholder="(no caption)"
+              className="flex-1 rounded border border-gray-300 px-2 py-1 text-xs text-gray-700"
+            />
+          </div>
+        </>
       )}
     </div>
   )
@@ -206,19 +270,28 @@ export function GridEditor({ grid_rows, grid_cols, boxes, onChange }: Props) {
   // dropdown handles deleted groups by rendering them with a warning rather
   // than re-fetching on every selection change.
   const [menuGroups, setMenuGroups] = useState<MenuGroupOption[]>([])
+  // MOK-156 — same shape for the aesthetic image library.
+  const [aestheticImages, setAestheticImages] = useState<AestheticImageOption[]>([])
   useEffect(() => {
     let cancelled = false
     void (async () => {
       try {
-        const res = await fetch('/api/admin/kds-v3/menu-groups')
-        const body = await res.json()
+        const [groupsRes, imagesRes] = await Promise.all([
+          fetch('/api/admin/kds-v3/menu-groups'),
+          fetch('/api/admin/kds-v3/aesthetic-images'),
+        ])
+        const groupsBody = await groupsRes.json()
+        const imagesBody = await imagesRes.json()
         if (cancelled) return
-        if (res.ok && body.success && Array.isArray(body.data)) {
-          setMenuGroups(body.data as MenuGroupOption[])
+        if (groupsRes.ok && groupsBody.success && Array.isArray(groupsBody.data)) {
+          setMenuGroups(groupsBody.data as MenuGroupOption[])
+        }
+        if (imagesRes.ok && imagesBody.success && Array.isArray(imagesBody.data)) {
+          setAestheticImages(imagesBody.data as AestheticImageOption[])
         }
       } catch {
-        // Non-fatal: editor still works without the picker; binding stays
-        // unchanged because the dropdown just lists what's available.
+        // Non-fatal: editor still works without pickers; bindings stay
+        // unchanged because the dropdowns just list what's available.
       }
     })()
     return () => {
@@ -318,7 +391,21 @@ export function GridEditor({ grid_rows, grid_cols, boxes, onChange }: Props) {
   }
 
   const updateBoxType = (position: number, box_type: 'menu_group' | 'image_only') => {
-    onChange(boxes.map((b) => (b.position === position ? { ...b, box_type } : b)))
+    // MOK-155/156 defense: when the operator flips a slot's type, clear the
+    // cross-type binding so the next save doesn't get rejected by the
+    // server-side invariants (image_only-with-group / menu_group-with-image).
+    onChange(
+      boxes.map((b) =>
+        b.position === position
+          ? {
+              ...b,
+              box_type,
+              square_menu_group_id: box_type === 'menu_group' ? b.square_menu_group_id ?? null : null,
+              aesthetic_image_id: box_type === 'image_only' ? b.aesthetic_image_id ?? null : null,
+            }
+          : b,
+      ),
+    )
   }
 
   // Phase 2.5 — toggle division on a box. Going to 'none' clears slot-B
@@ -350,7 +437,18 @@ export function GridEditor({ grid_rows, grid_cols, boxes, onChange }: Props) {
 
   const updateBoxTypeB = (position: number, box_type_b: 'menu_group' | 'image_only') => {
     onChange(
-      boxes.map((b) => (b.position === position ? { ...b, box_type_b } : b)),
+      boxes.map((b) =>
+        b.position === position
+          ? {
+              ...b,
+              box_type_b,
+              square_menu_group_id_b:
+                box_type_b === 'menu_group' ? b.square_menu_group_id_b ?? null : null,
+              aesthetic_image_id_b:
+                box_type_b === 'image_only' ? b.aesthetic_image_id_b ?? null : null,
+            }
+          : b,
+      ),
     )
   }
 
@@ -365,6 +463,18 @@ export function GridEditor({ grid_rows, grid_cols, boxes, onChange }: Props) {
     const key = slot === 'a' ? 'square_menu_group_id' : 'square_menu_group_id_b'
     onChange(
       boxes.map((b) => (b.position === position ? { ...b, [key]: square_menu_group_id } : b)),
+    )
+  }
+
+  // Phase 4 — same shape for the aesthetic image binding.
+  const updateImageBinding = (
+    position: number,
+    slot: 'a' | 'b',
+    aesthetic_image_id: string | null,
+  ) => {
+    const key = slot === 'a' ? 'aesthetic_image_id' : 'aesthetic_image_id_b'
+    onChange(
+      boxes.map((b) => (b.position === position ? { ...b, [key]: aesthetic_image_id } : b)),
     )
   }
 
@@ -584,10 +694,13 @@ export function GridEditor({ grid_rows, grid_cols, boxes, onChange }: Props) {
                   onBoxTypeChange: (t) => updateBoxType(selectedBox.position, t),
                   squareMenuGroupId: selectedBox.square_menu_group_id ?? null,
                   onMenuGroupChange: (id) => updateMenuGroup(selectedBox.position, 'a', id),
+                  aestheticImageId: selectedBox.aesthetic_image_id ?? null,
+                  onImageChange: (id) => updateImageBinding(selectedBox.position, 'a', id),
                   headerOverride: selectedBox.header_override ?? '',
                   onHeaderOverrideChange: (text) =>
                     updateHeaderOverride(selectedBox.position, 'a', text || null),
                   menuGroups,
+                  aestheticImages,
                 })}
                 {divided &&
                   renderSlotControls({
@@ -596,10 +709,13 @@ export function GridEditor({ grid_rows, grid_cols, boxes, onChange }: Props) {
                     onBoxTypeChange: (t) => updateBoxTypeB(selectedBox.position, t),
                     squareMenuGroupId: selectedBox.square_menu_group_id_b ?? null,
                     onMenuGroupChange: (id) => updateMenuGroup(selectedBox.position, 'b', id),
+                    aestheticImageId: selectedBox.aesthetic_image_id_b ?? null,
+                    onImageChange: (id) => updateImageBinding(selectedBox.position, 'b', id),
                     headerOverride: selectedBox.header_override_b ?? '',
                     onHeaderOverrideChange: (text) =>
                       updateHeaderOverride(selectedBox.position, 'b', text || null),
                     menuGroups,
+                    aestheticImages,
                   })}
               </div>
             </div>

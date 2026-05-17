@@ -240,6 +240,21 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         )
         continue
       }
+      // Phase 4 (MOK-156): symmetric menu_group-with-image rejection.
+      // image-binding is image_only-only. Defense-in-depth; editor hides
+      // the image picker for menu_group slots.
+      if (box_type === 'menu_group' && b.aesthetic_image_id != null) {
+        fieldErrors.push(
+          `box[${i}]: aesthetic_image_id must be null when box_type='menu_group'`,
+        )
+        continue
+      }
+      if (b.box_type_b === 'menu_group' && b.aesthetic_image_id_b != null) {
+        fieldErrors.push(
+          `box[${i}]: aesthetic_image_id_b must be null when box_type_b='menu_group'`,
+        )
+        continue
+      }
 
       validatedBoxes.push({
         position,
@@ -306,6 +321,52 @@ export async function PUT(request: NextRequest, context: RouteContext) {
           (id) =>
             `square_menu_group_id "${id}" does not exist for this tenant ` +
             `(may be cross-tenant or never synced)`,
+        )
+        return NextResponse.json(
+          {
+            success: false,
+            error: errs.join('; '),
+            code: 'KDS_SCREEN_LAYOUT_INVALID',
+            validation_errors: errs,
+          },
+          { status: 422 },
+        )
+      }
+    }
+
+    // Phase 4 (MOK-156) cross-row check: every non-null aesthetic_image_id
+    // (slot A + B) must reference an existing row in kds_aesthetic_images for
+    // the CURRENT tenant. Same load-bearing security boundary as the
+    // menu-group check above — without this, tenant A could bind to tenant
+    // B's image and leak content into phase 6's renderer.
+    const referencedImageIds = Array.from(
+      new Set(
+        validatedBoxes
+          .flatMap((b) => [b.aesthetic_image_id, b.aesthetic_image_id_b])
+          .filter((v): v is string => typeof v === 'string' && v.length > 0),
+      ),
+    )
+    if (referencedImageIds.length > 0) {
+      const { data: foundImages, error: imageLookupError } = await supabase
+        .from('kds_aesthetic_images')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .in('id', referencedImageIds)
+      if (imageLookupError) {
+        return NextResponse.json(
+          { success: false, error: imageLookupError.message, code: 'KDS_SCREEN_UPDATE_FAILED' },
+          { status: 500 },
+        )
+      }
+      const foundImageSet = new Set(
+        ((foundImages ?? []) as Array<{ id: string }>).map((r) => r.id),
+      )
+      const missingImages = referencedImageIds.filter((id) => !foundImageSet.has(id))
+      if (missingImages.length > 0) {
+        const errs = missingImages.map(
+          (id) =>
+            `aesthetic_image_id "${id}" does not exist for this tenant ` +
+            `(may be cross-tenant or never created)`,
         )
         return NextResponse.json(
           {
