@@ -134,6 +134,7 @@ const TENANT_CHILD_TABLES = [
   // dropping boxes first leaves images cleanly droppable.
   'kds_grid_boxes',
   'kds_screens',
+  'kds_display_overrides',
   'kds_aesthetic_images',
   'square_menu_item_categories',
   'square_menu_item_variations',
@@ -345,6 +346,79 @@ export async function seedTestAestheticImage(
     throw new Error(`Failed to seed aesthetic image: ${error?.message}`)
   }
   return data as { id: string; name: string; source_kind: 'uploaded' | 'external' }
+}
+
+/**
+ * MOK-157 / KDS v3 phase 5 — seed a Square menu item row directly in the
+ * mirror. Used by display-overrides integration tests that need an item
+ * to bind an override to. Bypasses the live Square sandbox.
+ */
+export interface SeedTestSquareItemOptions {
+  id?: string
+  name?: string
+  is_deleted?: boolean
+}
+
+export async function seedTestSquareItem(
+  tenant: TestTenant,
+  overrides: SeedTestSquareItemOptions = {},
+): Promise<{ id: string; name: string }> {
+  const supabase = getServiceClient()
+  const suffix = crypto.randomBytes(3).toString('hex')
+  const id = overrides.id ?? `test-item-${suffix}`
+  const name = overrides.name ?? `Test Item ${suffix}`
+  const now = new Date().toISOString()
+  const { error } = await supabase.from('square_menu_items').insert({
+    tenant_id: tenant.id,
+    id,
+    name,
+    square_version: 1,
+    raw_json: {},
+    is_deleted: overrides.is_deleted ?? false,
+    updated_at: now,
+  })
+  if (error) {
+    throw new Error(`Failed to seed Square item: ${error.message}`)
+  }
+  return { id, name }
+}
+
+/**
+ * MOK-157 — seed a Square variation row referencing an existing item.
+ * Caller is responsible for ensuring the parent item exists (otherwise the
+ * composite FK fires). Use seedTestSquareItem() first.
+ */
+export interface SeedTestSquareVariationOptions {
+  id?: string
+  item_id: string
+  name?: string
+  price_cents?: number | null
+  is_deleted?: boolean
+}
+
+export async function seedTestSquareVariation(
+  tenant: TestTenant,
+  overrides: SeedTestSquareVariationOptions,
+): Promise<{ id: string; item_id: string; name: string | null }> {
+  const supabase = getServiceClient()
+  const suffix = crypto.randomBytes(3).toString('hex')
+  const id = overrides.id ?? `test-var-${suffix}`
+  const name = overrides.name ?? `Test Variation ${suffix}`
+  const now = new Date().toISOString()
+  const { error } = await supabase.from('square_menu_item_variations').insert({
+    tenant_id: tenant.id,
+    id,
+    item_id: overrides.item_id,
+    name,
+    price_cents: overrides.price_cents ?? null,
+    ordinal: 0,
+    is_deleted: overrides.is_deleted ?? false,
+    updated_at: now,
+  })
+  if (error) {
+    throw new Error(`Failed to seed Square variation: ${error.message}`)
+  }
+  return { id, item_id: overrides.item_id, name }
 }
 
 export interface CreateInventoryItemOptions {
