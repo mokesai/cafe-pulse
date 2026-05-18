@@ -17,7 +17,7 @@ import {
   deriveCanonicalVariationSet,
   formatPriceCents,
   type DisplayOverride,
-  type VariationForResolution,
+  type ResolvedVariationLike,
 } from '../v3-render-helpers'
 
 function override(partial: Partial<DisplayOverride> = {}): DisplayOverride {
@@ -31,8 +31,14 @@ function override(partial: Partial<DisplayOverride> = {}): DisplayOverride {
   }
 }
 
-function variation(name: string, price_cents: number | null): VariationForResolution {
-  return { id: `var-${name}`, name, price_cents }
+// Post-resolution variation shape — matches what the renderer hands the
+// price / canonical-set helpers (display_name + price_cents). The
+// resolveDisplayForVariation tests below construct their input directly
+// with a `name` field since that's the pre-resolution shape.
+function variation(display_name: string, price_cents: number | null): ResolvedVariationLike & {
+  id: string
+} {
+  return { id: `var-${display_name}`, display_name, price_cents }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

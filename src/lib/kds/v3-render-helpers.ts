@@ -42,6 +42,20 @@ export interface VariationForResolution {
   price_cents: number | null
 }
 
+/**
+ * Post-resolution variation shape consumed by the price / canonical-set
+ * helpers below. Distinct from `VariationForResolution` (which is the
+ * Square-name input to `resolveDisplayForVariation`) — by the time these
+ * helpers run, override resolution has already produced `display_name`.
+ *
+ * The renderer hands `ResolvedVariation` (from v3-render.ts) directly to
+ * these helpers; this structural type makes that contract explicit.
+ */
+export interface ResolvedVariationLike {
+  display_name: string
+  price_cents: number | null
+}
+
 export interface ResolvedItemDisplay {
   display_name: string
   alt_image_id: string | null
@@ -106,7 +120,7 @@ export function formatPriceCents(cents: number): string {
  */
 export function derivePriceText(
   mode: PriceDisplayMode,
-  variations: VariationForResolution[],
+  variations: ResolvedVariationLike[],
 ): string | null {
   if (mode === 'none') return null
   const prices = variations
@@ -138,7 +152,7 @@ export function derivePriceText(
  * trailing price block).
  */
 export function derivePriceRangeForGroup(
-  items: Array<{ variations: VariationForResolution[] }>,
+  items: Array<{ variations: ResolvedVariationLike[] }>,
 ): string | null {
   const prices = items
     .flatMap((it) => it.variations.map((v) => v.price_cents))
@@ -168,17 +182,17 @@ export function derivePriceRangeForGroup(
  * Operator-defined canonical set is deferred to phase 6.5 per MOK-158.
  */
 export function deriveCanonicalVariationSet(
-  items: Array<{ variations: VariationForResolution[] }>,
+  items: Array<{ variations: ResolvedVariationLike[] }>,
 ): string[] {
   const counts = new Map<string, { count: number; firstSeen: number }>()
   let seenIdx = 0
   for (const item of items) {
     for (const v of item.variations) {
-      const existing = counts.get(v.name)
+      const existing = counts.get(v.display_name)
       if (existing) {
         existing.count++
       } else {
-        counts.set(v.name, { count: 1, firstSeen: seenIdx++ })
+        counts.set(v.display_name, { count: 1, firstSeen: seenIdx++ })
       }
     }
   }
