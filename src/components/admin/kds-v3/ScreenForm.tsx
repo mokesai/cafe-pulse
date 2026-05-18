@@ -126,9 +126,19 @@ export function ScreenForm({ initialScreen }: Props) {
         >
           ← Back to screens
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold text-gray-900">
-          {editing ? `Edit screen: ${initialScreen!.name}` : 'New screen'}
-        </h1>
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold text-gray-900">
+            {editing ? `Edit screen: ${initialScreen!.name}` : 'New screen'}
+          </h1>
+          {editing && (
+            <Link
+              href={`/admin/kds-v3/screens/${initialScreen!.id}/preview`}
+              className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Open preview ↗
+            </Link>
+          )}
+        </div>
       </div>
 
       {errors.length > 0 && (

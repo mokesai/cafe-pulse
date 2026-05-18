@@ -140,6 +140,12 @@ export default function KdsV3ScreensPage() {
                   </div>
                   <div className="ml-4 flex items-center gap-2">
                     <Link
+                      href={`/admin/kds-v3/screens/${screen.id}/preview`}
+                      className="rounded-md border border-gray-300 px-2.5 py-1 text-sm hover:bg-gray-50"
+                    >
+                      Preview
+                    </Link>
+                    <Link
                       href={`/admin/kds-v3/screens/${screen.id}/edit`}
                       className="rounded-md border border-gray-300 px-2.5 py-1 text-sm hover:bg-gray-50"
                     >
