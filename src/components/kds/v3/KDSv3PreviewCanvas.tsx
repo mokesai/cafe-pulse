@@ -16,7 +16,18 @@ import { useRouter } from 'next/navigation'
 import { KDSv3GridCanvas, CANVAS_W, CANVAS_H } from './KDSv3GridCanvas'
 import type { ResolvedScreen } from '@/lib/kds/v3-render'
 
-export function KDSv3PreviewCanvas({ resolved }: { resolved: ResolvedScreen }) {
+interface KDSv3PreviewCanvasProps {
+  resolved: ResolvedScreen
+  /**
+   * Optional refresh handler. Default behavior calls router.refresh() — fine
+   * for the standalone preview page (server component re-fetches on
+   * revalidation). The edit-page tab provides a client-side re-fetch via
+   * this prop so the preview can update without a page transition.
+   */
+  onRefresh?: () => void | Promise<void>
+}
+
+export function KDSv3PreviewCanvas({ resolved, onRefresh }: KDSv3PreviewCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
   const router = useRouter()
@@ -35,13 +46,20 @@ export function KDSv3PreviewCanvas({ resolved }: { resolved: ResolvedScreen }) {
   const scale = width > 0 ? width / CANVAS_W : 0
   const scaledHeight = CANVAS_H * scale
 
-  const onRefresh = () => {
+  const handleRefresh = async () => {
     setRefreshing(true)
-    router.refresh()
-    // Visual feedback only; the actual data is re-fetched by the server
-    // component on revalidate. Reset the "refreshing" flag after a short
-    // delay so the operator gets confirmation without a stuck-spinner case.
-    setTimeout(() => setRefreshing(false), 600)
+    try {
+      if (onRefresh) {
+        await onRefresh()
+      } else {
+        router.refresh()
+        // Visual feedback only — the server component re-fetches on revalidate.
+      }
+    } finally {
+      // Short delay so the operator gets visual confirmation even when the
+      // re-fetch resolves in <50ms; avoids a "did anything happen?" feel.
+      setTimeout(() => setRefreshing(false), 400)
+    }
   }
 
   return (
@@ -52,7 +70,7 @@ export function KDSv3PreviewCanvas({ resolved }: { resolved: ResolvedScreen }) {
         </p>
         <button
           type="button"
-          onClick={onRefresh}
+          onClick={handleRefresh}
           disabled={refreshing || width === 0}
           className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
         >
