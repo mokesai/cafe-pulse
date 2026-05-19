@@ -20,6 +20,7 @@ export type LayoutMode =
   | 'variation_column_header'
   | 'flavor_list'
   | 'compact_list'
+  | 'featured_list'
 
 export type PriceDisplayMode = 'none' | 'lowest' | 'range' | 'base'
 
@@ -181,6 +182,34 @@ export function derivePriceRangeForGroup(
  *
  * Operator-defined canonical set is deferred to phase 6.5 per MOK-158.
  */
+// ─────────────────────────────────────────────────────────────────────────────
+// Featured-list bullet color cycling (phase 6 addendum)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Fixed 6-color bright palette for `featured_list` bullets. Cycles per
+ * item index so adjacent bullets are always distinguishable. Returns a
+ * Tailwind class name applied to BOTH the bullet glyph and the item text
+ * (consistent row tinting).
+ *
+ * Operator-customizable palettes are explicitly out of scope for phase 6 —
+ * defer to phase 6.5+.
+ */
+const FEATURED_BULLET_PALETTE = [
+  'text-blue-500',
+  'text-emerald-500',
+  'text-rose-500',
+  'text-pink-500',
+  'text-amber-500',
+  'text-purple-500',
+] as const
+
+export function featuredBulletColorClass(index: number): string {
+  const i = ((index % FEATURED_BULLET_PALETTE.length) + FEATURED_BULLET_PALETTE.length) %
+    FEATURED_BULLET_PALETTE.length
+  return FEATURED_BULLET_PALETTE[i]
+}
+
 export function deriveCanonicalVariationSet(
   items: Array<{ variations: ResolvedVariationLike[] }>,
 ): string[] {

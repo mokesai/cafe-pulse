@@ -34,6 +34,30 @@
 BEGIN;
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- Reverse the featured_list + box chrome addendum migration first
+-- (20260519004606). Order matters: drop constraints referencing the columns
+-- before dropping the columns themselves.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+ALTER TABLE public.kds_grid_boxes
+  DROP CONSTRAINT IF EXISTS kds_grid_boxes_subtitle_override_length,
+  DROP CONSTRAINT IF EXISTS kds_grid_boxes_subtitle_override_b_length,
+  DROP CONSTRAINT IF EXISTS kds_grid_boxes_subtitle_override_b_gated,
+  DROP CONSTRAINT IF EXISTS kds_grid_boxes_box_border_check,
+  DROP CONSTRAINT IF EXISTS kds_grid_boxes_box_radius_check,
+  DROP CONSTRAINT IF EXISTS kds_grid_boxes_box_background_check;
+
+ALTER TABLE public.kds_grid_boxes
+  DROP COLUMN IF EXISTS subtitle_override,
+  DROP COLUMN IF EXISTS subtitle_override_b,
+  DROP COLUMN IF EXISTS box_border,
+  DROP COLUMN IF EXISTS box_radius,
+  DROP COLUMN IF EXISTS box_background;
+
+DELETE FROM supabase_migrations.schema_migrations
+  WHERE version = '20260519004606';
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- Drop the cross-slot-B formatting invariant first — it references the
 -- columns we're about to remove.
 -- ─────────────────────────────────────────────────────────────────────────────

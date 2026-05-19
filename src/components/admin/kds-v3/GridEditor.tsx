@@ -48,11 +48,21 @@ import {
 } from '@/lib/kds/grid-validation'
 
 // Phase 6 (MOK-158) — string-literal enums for the 5 new per-slot controls.
-export type LayoutMode = 'simple_list' | 'variation_column_header' | 'flavor_list' | 'compact_list'
+export type LayoutMode =
+  | 'simple_list'
+  | 'variation_column_header'
+  | 'flavor_list'
+  | 'compact_list'
+  | 'featured_list'
 export type PriceDisplayMode = 'none' | 'lowest' | 'range' | 'base'
 export type Density = 'compact' | 'normal' | 'loose'
 export type TitleSize = 'small' | 'medium' | 'large'
 export type TitleAlign = 'left' | 'center' | 'right'
+
+// Phase 6 addendum — per-box visual chrome (single set, wraps both slots).
+export type BoxBorder = 'none' | 'thin' | 'thick'
+export type BoxRadius = 'none' | 'sm' | 'lg'
+export type BoxBackground = 'none' | 'white' | 'accent' | 'warm' | 'cool'
 
 export interface EditableBox extends GridBox {
   box_type: 'menu_group' | 'image_only'
@@ -78,6 +88,12 @@ export interface EditableBox extends GridBox {
   density_b?: Density | null
   title_size_b?: TitleSize | null
   title_align_b?: TitleAlign | null
+  // Phase 6 addendum — per-slot subtitle + per-box chrome.
+  subtitle_override?: string | null
+  subtitle_override_b?: string | null
+  box_border?: BoxBorder
+  box_radius?: BoxRadius
+  box_background?: BoxBackground
 }
 
 const LAYOUT_MODE_DEFAULT: LayoutMode = 'simple_list'
@@ -85,6 +101,9 @@ const PRICE_DISPLAY_MODE_DEFAULT: PriceDisplayMode = 'lowest'
 const DENSITY_DEFAULT: Density = 'normal'
 const TITLE_SIZE_DEFAULT: TitleSize = 'medium'
 const TITLE_ALIGN_DEFAULT: TitleAlign = 'left'
+const BOX_BORDER_DEFAULT: BoxBorder = 'none'
+const BOX_RADIUS_DEFAULT: BoxRadius = 'none'
+const BOX_BACKGROUND_DEFAULT: BoxBackground = 'none'
 
 // Layouts that don't honor a price display mode — we disable the dropdown
 // with a hint when one of these is selected. (variation_column_header
@@ -174,6 +193,9 @@ interface SlotControlsProps {
   onTitleSizeChange: (s: TitleSize) => void
   titleAlign: TitleAlign
   onTitleAlignChange: (a: TitleAlign) => void
+  // Phase 6 addendum — per-slot subtitle (used by featured_list).
+  subtitleOverride: string
+  onSubtitleOverrideChange: (text: string) => void
 }
 
 function renderSlotControls(props: SlotControlsProps) {
@@ -199,8 +221,11 @@ function renderSlotControls(props: SlotControlsProps) {
     onTitleSizeChange,
     titleAlign,
     onTitleAlignChange,
+    subtitleOverride,
+    onSubtitleOverrideChange,
   } = props
   const priceDisplayDisabled = LAYOUTS_WITHOUT_PRICE_DISPLAY.has(layoutMode)
+  const subtitleVisible = layoutMode === 'featured_list'
 
   // If the box is bound to a group that's not in the fetched list (sync
   // hasn't caught up yet, or the id was fabricated and is about to fail
@@ -270,17 +295,31 @@ function renderSlotControls(props: SlotControlsProps) {
               className="flex-1 rounded border border-gray-300 px-2 py-1 text-xs text-gray-700"
             />
           </div>
+          {subtitleVisible && (
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-gray-600">Subtitle</label>
+              <input
+                type="text"
+                maxLength={120}
+                value={subtitleOverride}
+                onChange={(e) => onSubtitleOverrideChange(e.target.value)}
+                placeholder="e.g. Popular Flavors"
+                className="flex-1 rounded border border-gray-300 px-2 py-1 text-xs text-gray-700"
+              />
+            </div>
+          )}
 
           {/* Phase 6 (MOK-158) — layout / price / whitespace controls */}
           <div className="flex flex-wrap items-center gap-2">
             <label className="text-xs font-medium text-gray-600">Layout</label>
-            <div className="inline-flex overflow-hidden rounded border border-gray-300">
+            <div className="inline-flex flex-wrap overflow-hidden rounded border border-gray-300">
               {(
                 [
                   ['simple_list', 'Simple'],
                   ['variation_column_header', 'Columns'],
                   ['flavor_list', 'Flavors'],
                   ['compact_list', 'Compact'],
+                  ['featured_list', 'Featured'],
                 ] as Array<[LayoutMode, string]>
               ).map(([mode, label]) => {
                 const active = layoutMode === mode
@@ -597,6 +636,7 @@ export function GridEditor({ grid_rows, grid_cols, boxes, onChange }: Props) {
             density_b: null,
             title_size_b: null,
             title_align_b: null,
+            subtitle_override_b: null,
           }
         }
         return {
@@ -691,6 +731,27 @@ export function GridEditor({ grid_rows, grid_cols, boxes, onChange }: Props) {
   const updateTitleAlign = (position: number, slot: 'a' | 'b', a: TitleAlign) => {
     const key = slot === 'a' ? 'title_align' : 'title_align_b'
     onChange(boxes.map((b) => (b.position === position ? { ...b, [key]: a } : b)))
+  }
+
+  // Phase 6 addendum — per-slot subtitle (used by featured_list).
+  const updateSubtitleOverride = (
+    position: number,
+    slot: 'a' | 'b',
+    subtitle_override: string | null,
+  ) => {
+    const key = slot === 'a' ? 'subtitle_override' : 'subtitle_override_b'
+    onChange(boxes.map((b) => (b.position === position ? { ...b, [key]: subtitle_override } : b)))
+  }
+
+  // Phase 6 addendum — per-box chrome (single set, wraps both slots).
+  const updateBoxBorder = (position: number, border: BoxBorder) => {
+    onChange(boxes.map((b) => (b.position === position ? { ...b, box_border: border } : b)))
+  }
+  const updateBoxRadius = (position: number, radius: BoxRadius) => {
+    onChange(boxes.map((b) => (b.position === position ? { ...b, box_radius: radius } : b)))
+  }
+  const updateBoxBackground = (position: number, background: BoxBackground) => {
+    onChange(boxes.map((b) => (b.position === position ? { ...b, box_background: background } : b)))
   }
 
   const selectedBox = selected !== null ? boxes.find((b) => b.position === selected) ?? null : null
@@ -854,6 +915,55 @@ export function GridEditor({ grid_rows, grid_cols, boxes, onChange }: Props) {
                 </button>
               </div>
 
+              {/* Phase 6 addendum — per-box chrome (single set, wraps the
+                  whole box including any divided halves). */}
+              <div className="flex flex-wrap items-center gap-3 text-xs text-gray-600">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-medium">Border:</span>
+                  <select
+                    value={selectedBox.box_border ?? BOX_BORDER_DEFAULT}
+                    onChange={(e) =>
+                      updateBoxBorder(selectedBox.position, e.target.value as BoxBorder)
+                    }
+                    className="rounded border border-gray-300 px-2 py-0.5 text-xs text-gray-700"
+                  >
+                    <option value="none">none</option>
+                    <option value="thin">thin</option>
+                    <option value="thick">thick</option>
+                  </select>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-medium">Radius:</span>
+                  <select
+                    value={selectedBox.box_radius ?? BOX_RADIUS_DEFAULT}
+                    onChange={(e) =>
+                      updateBoxRadius(selectedBox.position, e.target.value as BoxRadius)
+                    }
+                    className="rounded border border-gray-300 px-2 py-0.5 text-xs text-gray-700"
+                  >
+                    <option value="none">none</option>
+                    <option value="sm">sm</option>
+                    <option value="lg">lg</option>
+                  </select>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-medium">Background:</span>
+                  <select
+                    value={selectedBox.box_background ?? BOX_BACKGROUND_DEFAULT}
+                    onChange={(e) =>
+                      updateBoxBackground(selectedBox.position, e.target.value as BoxBackground)
+                    }
+                    className="rounded border border-gray-300 px-2 py-0.5 text-xs text-gray-700"
+                  >
+                    <option value="none">none (default)</option>
+                    <option value="white">white</option>
+                    <option value="accent">accent</option>
+                    <option value="warm">warm</option>
+                    <option value="cool">cool</option>
+                  </select>
+                </div>
+              </div>
+
               <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
                 <span className="font-medium">Divide:</span>
                 <div className="inline-flex overflow-hidden rounded-md border border-gray-300">
@@ -917,6 +1027,9 @@ export function GridEditor({ grid_rows, grid_cols, boxes, onChange }: Props) {
                   onTitleSizeChange: (s) => updateTitleSize(selectedBox.position, 'a', s),
                   titleAlign: selectedBox.title_align ?? TITLE_ALIGN_DEFAULT,
                   onTitleAlignChange: (a) => updateTitleAlign(selectedBox.position, 'a', a),
+                  subtitleOverride: selectedBox.subtitle_override ?? '',
+                  onSubtitleOverrideChange: (text) =>
+                    updateSubtitleOverride(selectedBox.position, 'a', text || null),
                 })}
                 {divided &&
                   renderSlotControls({
@@ -944,6 +1057,9 @@ export function GridEditor({ grid_rows, grid_cols, boxes, onChange }: Props) {
                     onTitleSizeChange: (s) => updateTitleSize(selectedBox.position, 'b', s),
                     titleAlign: selectedBox.title_align_b ?? TITLE_ALIGN_DEFAULT,
                     onTitleAlignChange: (a) => updateTitleAlign(selectedBox.position, 'b', a),
+                    subtitleOverride: selectedBox.subtitle_override_b ?? '',
+                    onSubtitleOverrideChange: (text) =>
+                      updateSubtitleOverride(selectedBox.position, 'b', text || null),
                   })}
               </div>
             </div>

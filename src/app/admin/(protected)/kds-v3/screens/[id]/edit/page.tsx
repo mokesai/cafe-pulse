@@ -54,16 +54,33 @@ interface ApiBox {
   header_override_b?: string | null
   square_menu_group_id_b?: string | null
   aesthetic_image_id_b?: string | null
-  layout_mode?: 'simple_list' | 'variation_column_header' | 'flavor_list' | 'compact_list'
+  layout_mode?:
+    | 'simple_list'
+    | 'variation_column_header'
+    | 'flavor_list'
+    | 'compact_list'
+    | 'featured_list'
   price_display_mode?: 'none' | 'lowest' | 'range' | 'base'
   density?: 'compact' | 'normal' | 'loose'
   title_size?: 'small' | 'medium' | 'large'
   title_align?: 'left' | 'center' | 'right'
-  layout_mode_b?: 'simple_list' | 'variation_column_header' | 'flavor_list' | 'compact_list' | null
+  layout_mode_b?:
+    | 'simple_list'
+    | 'variation_column_header'
+    | 'flavor_list'
+    | 'compact_list'
+    | 'featured_list'
+    | null
   price_display_mode_b?: 'none' | 'lowest' | 'range' | 'base' | null
   density_b?: 'compact' | 'normal' | 'loose' | null
   title_size_b?: 'small' | 'medium' | 'large' | null
   title_align_b?: 'left' | 'center' | 'right' | null
+  // Phase 6 addendum — featured_list subtitle + per-box chrome.
+  subtitle_override?: string | null
+  subtitle_override_b?: string | null
+  box_border?: 'none' | 'thin' | 'thick'
+  box_radius?: 'none' | 'sm' | 'lg'
+  box_background?: 'none' | 'white' | 'accent' | 'warm' | 'cool'
 }
 
 type Tab = 'edit' | 'preview'
@@ -107,6 +124,12 @@ function mapInitialFromApi(data: {
       density_b: b.density_b ?? null,
       title_size_b: b.title_size_b ?? null,
       title_align_b: b.title_align_b ?? null,
+      // Phase 6 addendum
+      subtitle_override: b.subtitle_override ?? null,
+      subtitle_override_b: b.subtitle_override_b ?? null,
+      box_border: b.box_border ?? 'none',
+      box_radius: b.box_radius ?? 'none',
+      box_background: b.box_background ?? 'none',
     })),
   }
 }

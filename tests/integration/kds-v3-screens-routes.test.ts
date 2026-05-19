@@ -1129,6 +1129,92 @@ describe('MOK-152 — kds-v3 screens routes', () => {
     expect(box.price_display_mode_b).toBe('lowest')
   })
 
+  // Phase 6 addendum #33 — featured_list + subtitle + box chrome round-trip
+  it('PUT /screens/[id] persists featured_list + subtitle_override + per-box chrome', async () => {
+    const screen = await createScreen(tenantA, 'P6 Featured')
+    const res = await itemPUT(
+      itemReq(tenantA, screen.id, 'PUT', {
+        boxes: [
+          {
+            position: 1,
+            row_start: 1,
+            col_start: 1,
+            row_span: 1,
+            col_span: 1,
+            box_type: 'menu_group',
+            layout_mode: 'featured_list',
+            subtitle_override: 'Popular Flavors',
+            box_border: 'thick',
+            box_radius: 'lg',
+            box_background: 'accent',
+          },
+        ],
+      }),
+      { params: Promise.resolve({ id: screen.id }) },
+    )
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    const box = body.data.boxes[0]
+    expect(box.layout_mode).toBe('featured_list')
+    expect(box.subtitle_override).toBe('Popular Flavors')
+    expect(box.box_border).toBe('thick')
+    expect(box.box_radius).toBe('lg')
+    expect(box.box_background).toBe('accent')
+    // subtitle_override_b must be null when undivided.
+    expect(box.subtitle_override_b).toBeNull()
+  })
+
+  // Phase 6 addendum #34 — chrome defaults on existing boxes
+  it('PUT /screens/[id] defaults box chrome to "none" when not provided', async () => {
+    const screen = await createScreen(tenantA, 'P6 Chrome Default')
+    const res = await itemPUT(
+      itemReq(tenantA, screen.id, 'PUT', {
+        boxes: [
+          {
+            position: 1,
+            row_start: 1,
+            col_start: 1,
+            row_span: 1,
+            col_span: 1,
+            box_type: 'menu_group',
+          },
+        ],
+      }),
+      { params: Promise.resolve({ id: screen.id }) },
+    )
+    expect(res.status).toBe(200)
+    const box = (await res.json()).data.boxes[0]
+    expect(box.box_border).toBe('none')
+    expect(box.box_radius).toBe('none')
+    expect(box.box_background).toBe('none')
+    expect(box.subtitle_override).toBeNull()
+  })
+
+  // Phase 6 addendum #35 — invalid chrome value rejected
+  it('PUT /screens/[id] returns 400 when box_background is not a recognized enum', async () => {
+    const screen = await createScreen(tenantA, 'P6 Bad Chrome')
+    const res = await itemPUT(
+      itemReq(tenantA, screen.id, 'PUT', {
+        boxes: [
+          {
+            position: 1,
+            row_start: 1,
+            col_start: 1,
+            row_span: 1,
+            col_span: 1,
+            box_type: 'menu_group',
+            box_background: 'neon-pink',
+          },
+        ],
+      }),
+      { params: Promise.resolve({ id: screen.id }) },
+    )
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.code).toBe('KDS_SCREEN_BAD_REQUEST')
+    expect(body.error).toContain('box_background')
+  })
+
   // T11 #32 — invalid enum value rejected at route layer with structured error
   it('PUT /screens/[id] returns 400 when layout_mode is not a recognized enum', async () => {
     const screen = await createScreen(tenantA, 'P6 Bad Enum')

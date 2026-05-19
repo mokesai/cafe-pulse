@@ -16,6 +16,7 @@ import {
   derivePriceRangeForGroup,
   deriveCanonicalVariationSet,
   formatPriceCents,
+  featuredBulletColorClass,
   type DisplayOverride,
   type ResolvedVariationLike,
 } from '../v3-render-helpers'
@@ -278,6 +279,29 @@ describe('deriveCanonicalVariationSet', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // formatPriceCents
 // ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// featuredBulletColorClass (phase 6 addendum)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('featuredBulletColorClass', () => {
+  it('returns a non-empty Tailwind text-color class for index 0', () => {
+    expect(featuredBulletColorClass(0)).toMatch(/^text-[a-z]+-\d+$/)
+  })
+
+  it('cycles through 6 distinct colors before repeating', () => {
+    const colors = [0, 1, 2, 3, 4, 5].map((i) => featuredBulletColorClass(i))
+    expect(new Set(colors).size).toBe(6)
+    // 7th wraps to first.
+    expect(featuredBulletColorClass(6)).toBe(colors[0])
+    expect(featuredBulletColorClass(7)).toBe(colors[1])
+  })
+
+  it('handles negative indices safely (wraps modulo)', () => {
+    expect(featuredBulletColorClass(-1)).toBe(featuredBulletColorClass(5))
+    expect(featuredBulletColorClass(-6)).toBe(featuredBulletColorClass(0))
+  })
+})
 
 describe('formatPriceCents', () => {
   it('zero → $0.00', () => {

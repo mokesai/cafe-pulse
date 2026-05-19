@@ -47,6 +47,9 @@ export type Density = 'compact' | 'normal' | 'loose'
 export type TitleSize = 'small' | 'medium' | 'large'
 export type TitleAlign = 'left' | 'center' | 'right'
 export type DivisionMode = 'none' | 'horizontal' | 'vertical'
+export type BoxBorder = 'none' | 'thin' | 'thick'
+export type BoxRadius = 'none' | 'sm' | 'lg'
+export type BoxBackground = 'none' | 'white' | 'accent' | 'warm' | 'cool'
 
 export interface SlotFormatting {
   layout_mode: LayoutMode
@@ -55,6 +58,20 @@ export interface SlotFormatting {
   title_size: TitleSize
   title_align: TitleAlign
   header_override: string | null
+  /** Phase 6 addendum — optional second-line subtitle. Operator controls
+   *  the content; the renderer styles it as muted secondary text. */
+  subtitle_override: string | null
+}
+
+/**
+ * Phase 6 addendum — per-box visual chrome (wraps the whole box, including
+ * any divided halves). Operator-controlled; values map to Tailwind classes
+ * at the renderer.
+ */
+export interface BoxChrome {
+  border: BoxBorder
+  radius: BoxRadius
+  background: BoxBackground
 }
 
 export interface ResolvedImage {
@@ -98,6 +115,8 @@ export interface ResolvedBox {
   row_span: number
   col_span: number
   division: DivisionMode
+  /** Phase 6 addendum — visual chrome wrapping the whole box. */
+  chrome: BoxChrome
   slotA: ResolvedSlotContent
   slotB: ResolvedSlotContent | null
 }
@@ -144,6 +163,12 @@ interface BoxRow {
   density_b: Density | null
   title_size_b: TitleSize | null
   title_align_b: TitleAlign | null
+  // Phase 6 addendum — featured_list + box chrome + per-slot subtitle.
+  subtitle_override: string | null
+  subtitle_override_b: string | null
+  box_border: BoxBorder
+  box_radius: BoxRadius
+  box_background: BoxBackground
 }
 
 interface CategoryRow {
@@ -208,7 +233,8 @@ export async function resolveScreenForRender(
           'box_type, header_override, square_menu_group_id, aesthetic_image_id, ' +
           'division, box_type_b, header_override_b, square_menu_group_id_b, aesthetic_image_id_b, ' +
           'layout_mode, price_display_mode, density, title_size, title_align, ' +
-          'layout_mode_b, price_display_mode_b, density_b, title_size_b, title_align_b',
+          'layout_mode_b, price_display_mode_b, density_b, title_size_b, title_align_b, ' +
+          'subtitle_override, subtitle_override_b, box_border, box_radius, box_background',
       )
       .eq('tenant_id', tenantId)
       .eq('screen_id', screenId)
@@ -477,6 +503,7 @@ export async function resolveScreenForRender(
       title_size: b.title_size,
       title_align: b.title_align,
       header_override: b.header_override,
+      subtitle_override: b.subtitle_override,
     }
     const slotA = buildSlot(
       b.box_type,
@@ -495,6 +522,7 @@ export async function resolveScreenForRender(
         title_size: b.title_size_b,
         title_align: b.title_align_b,
         header_override: b.header_override_b,
+        subtitle_override: b.subtitle_override_b,
       }
       slotB = buildSlot(
         b.box_type_b,
@@ -513,6 +541,11 @@ export async function resolveScreenForRender(
       row_span: b.row_span,
       col_span: b.col_span,
       division: b.division,
+      chrome: {
+        border: b.box_border,
+        radius: b.box_radius,
+        background: b.box_background,
+      },
       slotA,
       slotB,
     }

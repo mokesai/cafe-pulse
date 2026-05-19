@@ -16,10 +16,45 @@ import { SimpleListRenderer } from './SimpleListRenderer'
 import { VariationColumnHeaderRenderer } from './VariationColumnHeaderRenderer'
 import { FlavorListRenderer } from './FlavorListRenderer'
 import { CompactListRenderer } from './CompactListRenderer'
-import type { ResolvedScreen, ResolvedSlotContent } from '@/lib/kds/v3-render'
+import { FeaturedListRenderer } from './FeaturedListRenderer'
+import type {
+  ResolvedScreen,
+  ResolvedSlotContent,
+  BoxChrome,
+  BoxBorder,
+  BoxRadius,
+  BoxBackground,
+} from '@/lib/kds/v3-render'
 
 export const CANVAS_W = 1920
 export const CANVAS_H = 1080
+
+// Box chrome → Tailwind class mappings. Per-box visual chrome wraps the
+// whole box, including any divided halves. Operator-controlled.
+const BORDER_CLASS: Record<BoxBorder, string> = {
+  none: '',
+  thin: 'border border-[color:var(--kds-divider-strong)]',
+  thick: 'border-2 border-[color:var(--kds-accent)]',
+}
+const RADIUS_CLASS: Record<BoxRadius, string> = {
+  none: '',
+  sm: 'rounded-md',
+  lg: 'rounded-2xl',
+}
+const BACKGROUND_CLASS: Record<BoxBackground, string> = {
+  // 'none' falls back to the default per-box bg the canvas applies.
+  none: '',
+  white: 'bg-white',
+  accent: 'bg-[color:var(--kds-accent-glow)]',
+  warm: 'bg-[color:var(--kds-bg-header)]',
+  cool: 'bg-[color:var(--kds-bg-category-hover)]',
+}
+
+function chromeClasses(chrome: BoxChrome): string {
+  return [BORDER_CLASS[chrome.border], RADIUS_CLASS[chrome.radius], BACKGROUND_CLASS[chrome.background]]
+    .filter(Boolean)
+    .join(' ')
+}
 
 export function KDSv3GridCanvas({ resolved }: { resolved: ResolvedScreen }) {
   const { screen, boxes } = resolved
@@ -41,12 +76,19 @@ export function KDSv3GridCanvas({ resolved }: { resolved: ResolvedScreen }) {
           const isHorizontal = box.division === 'horizontal'
           const isVertical = box.division === 'vertical'
           const divided = isHorizontal || isVertical
+          const chrome = chromeClasses(box.chrome)
+          // Default radius / background only apply when chrome has not
+          // overridden them — keeps the look unchanged for boxes that don't
+          // opt in to chrome customization.
+          const defaultRadius = box.chrome.radius === 'none' ? 'rounded-md' : ''
+          const defaultBg =
+            box.chrome.background === 'none' ? 'bg-[color:var(--kds-bg-category)]' : ''
           return (
             <div
               key={box.id}
-              className={`overflow-hidden rounded-md bg-[color:var(--kds-bg-category)] shadow-[var(--kds-shadow-sm)] ${
+              className={`overflow-hidden shadow-[var(--kds-shadow-sm)] ${defaultRadius} ${defaultBg} ${chrome} ${
                 divided ? (isHorizontal ? 'flex flex-col' : 'flex flex-row') : ''
-              }`}
+              }`.replace(/\s+/g, ' ').trim()}
               style={{
                 gridRow: `${box.row_start} / span ${box.row_span}`,
                 gridColumn: `${box.col_start} / span ${box.col_span}`,
@@ -115,6 +157,8 @@ function renderSlot(slot: ResolvedSlotContent) {
       return <FlavorListRenderer group={group} formatting={formatting} />
     case 'compact_list':
       return <CompactListRenderer group={group} formatting={formatting} />
+    case 'featured_list':
+      return <FeaturedListRenderer group={group} formatting={formatting} />
     default:
       return (
         <div className="flex h-full w-full items-center justify-center text-sm italic text-[color:var(--kds-text-muted)]">

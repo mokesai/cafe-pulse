@@ -33,17 +33,26 @@ const VALID_LAYOUT_MODES = new Set([
   'variation_column_header',
   'flavor_list',
   'compact_list',
+  'featured_list',
 ])
 const VALID_PRICE_DISPLAY_MODES = new Set(['none', 'lowest', 'range', 'base'])
 const VALID_DENSITIES = new Set(['compact', 'normal', 'loose'])
 const VALID_TITLE_SIZES = new Set(['small', 'medium', 'large'])
 const VALID_TITLE_ALIGNS = new Set(['left', 'center', 'right'])
 
+// Phase 6 addendum — box chrome enums.
+const VALID_BOX_BORDERS = new Set(['none', 'thin', 'thick'])
+const VALID_BOX_RADII = new Set(['none', 'sm', 'lg'])
+const VALID_BOX_BACKGROUNDS = new Set(['none', 'white', 'accent', 'warm', 'cool'])
+
 const LAYOUT_MODE_DEFAULT = 'simple_list'
 const PRICE_DISPLAY_MODE_DEFAULT = 'lowest'
 const DENSITY_DEFAULT = 'normal'
 const TITLE_SIZE_DEFAULT = 'medium'
 const TITLE_ALIGN_DEFAULT = 'left'
+const BOX_BORDER_DEFAULT = 'none'
+const BOX_RADIUS_DEFAULT = 'none'
+const BOX_BACKGROUND_DEFAULT = 'none'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -77,6 +86,13 @@ interface PutBoxInput {
   density_b?: string | null
   title_size_b?: string | null
   title_align_b?: string | null
+  // Phase 6 addendum — per-slot subtitle (text, optional).
+  subtitle_override?: string | null
+  subtitle_override_b?: string | null
+  // Phase 6 addendum — per-box visual chrome (single set, wraps both slots).
+  box_border?: string
+  box_radius?: string
+  box_background?: string
 }
 
 interface PutBody {
@@ -220,6 +236,12 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         density_b: string | null
         title_size_b: string | null
         title_align_b: string | null
+        // Phase 6 addendum
+        subtitle_override: string | null
+        subtitle_override_b: string | null
+        box_border: string
+        box_radius: string
+        box_background: string
       }
   > = []
   if (body.boxes !== undefined) {
@@ -389,6 +411,51 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         continue
       }
 
+      // Phase 6 addendum: per-slot subtitle (optional text) — slot-B variant
+      // gated on box_type_b being set (DB invariant defends if route is
+      // bypassed, but we surface a structured error here too).
+      const subtitle_override =
+        typeof b.subtitle_override === 'string' && b.subtitle_override.length > 0
+          ? b.subtitle_override
+          : null
+      const subtitle_override_b = !dividedB
+        ? null
+        : typeof b.subtitle_override_b === 'string' && b.subtitle_override_b.length > 0
+          ? b.subtitle_override_b
+          : null
+      if (subtitle_override != null && subtitle_override.length > 120) {
+        fieldErrors.push(`box[${i}]: subtitle_override must be 120 chars or fewer`)
+        continue
+      }
+      if (subtitle_override_b != null && subtitle_override_b.length > 120) {
+        fieldErrors.push(`box[${i}]: subtitle_override_b must be 120 chars or fewer`)
+        continue
+      }
+
+      // Phase 6 addendum: per-box chrome enums (single set per box; defaults
+      // to 'none' when not provided so existing boxes round-trip cleanly).
+      const box_border = b.box_border ?? BOX_BORDER_DEFAULT
+      const box_radius = b.box_radius ?? BOX_RADIUS_DEFAULT
+      const box_background = b.box_background ?? BOX_BACKGROUND_DEFAULT
+      if (!VALID_BOX_BORDERS.has(box_border)) {
+        fieldErrors.push(
+          `box[${i}]: box_border must be one of: ${[...VALID_BOX_BORDERS].join(', ')}`,
+        )
+        continue
+      }
+      if (!VALID_BOX_RADII.has(box_radius)) {
+        fieldErrors.push(
+          `box[${i}]: box_radius must be one of: ${[...VALID_BOX_RADII].join(', ')}`,
+        )
+        continue
+      }
+      if (!VALID_BOX_BACKGROUNDS.has(box_background)) {
+        fieldErrors.push(
+          `box[${i}]: box_background must be one of: ${[...VALID_BOX_BACKGROUNDS].join(', ')}`,
+        )
+        continue
+      }
+
       validatedBoxes.push({
         position,
         row_start: row_start as number,
@@ -414,6 +481,11 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         density_b,
         title_size_b,
         title_align_b,
+        subtitle_override,
+        subtitle_override_b,
+        box_border,
+        box_radius,
+        box_background,
       })
     }
     if (fieldErrors.length > 0) {
@@ -625,6 +697,12 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         density_b: b.density_b,
         title_size_b: b.title_size_b,
         title_align_b: b.title_align_b,
+        // Phase 6 addendum — featured_list subtitle + per-box chrome.
+        subtitle_override: b.subtitle_override,
+        subtitle_override_b: b.subtitle_override_b,
+        box_border: b.box_border,
+        box_radius: b.box_radius,
+        box_background: b.box_background,
       }))
       const { data: inserted, error: insertError } = await supabase
         .from('kds_grid_boxes')
