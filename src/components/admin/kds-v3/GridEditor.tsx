@@ -105,10 +105,13 @@ const BOX_BORDER_DEFAULT: BoxBorder = 'none'
 const BOX_RADIUS_DEFAULT: BoxRadius = 'none'
 const BOX_BACKGROUND_DEFAULT: BoxBackground = 'none'
 
-// Layouts that don't honor a price display mode — we disable the dropdown
-// with a hint when one of these is selected. (variation_column_header
-// renders columns of prices; compact_list shows a group-level price range.)
-const LAYOUTS_WITHOUT_PRICE_DISPLAY = new Set<LayoutMode>([
+// Layouts where the price-display dropdown's "lowest / range / base" values
+// all collapse to the same rendering (because the layout has its own
+// inherent price presentation — column matrix or group-level range). Only
+// `none` is meaningfully distinct for these — it suppresses prices entirely.
+// We surface a hint in the dropdown's tooltip but keep it enabled so the
+// operator can still pick `none` to hide prices.
+const LAYOUTS_WITH_INHERENT_PRICING = new Set<LayoutMode>([
   'variation_column_header',
   'compact_list',
 ])
@@ -224,7 +227,7 @@ function renderSlotControls(props: SlotControlsProps) {
     subtitleOverride,
     onSubtitleOverrideChange,
   } = props
-  const priceDisplayDisabled = LAYOUTS_WITHOUT_PRICE_DISPLAY.has(layoutMode)
+  const inherentPricing = LAYOUTS_WITH_INHERENT_PRICING.has(layoutMode)
   const subtitleVisible = layoutMode === 'featured_list'
 
   // If the box is bound to a group that's not in the fetched list (sync
@@ -342,18 +345,13 @@ function renderSlotControls(props: SlotControlsProps) {
             <label className="text-xs font-medium text-gray-600">Price display</label>
             <select
               value={priceDisplayMode}
-              disabled={priceDisplayDisabled}
               title={
-                priceDisplayDisabled
-                  ? '(not used by this layout — column / range pricing is derived from items)'
+                inherentPricing
+                  ? 'This layout has its own price presentation. Pick "none" to hide prices; other modes all show the layout\'s default pricing.'
                   : undefined
               }
               onChange={(e) => onPriceDisplayModeChange(e.target.value as PriceDisplayMode)}
-              className={`flex-1 rounded border px-2 py-1 text-xs ${
-                priceDisplayDisabled
-                  ? 'border-gray-200 bg-gray-50 text-gray-400'
-                  : 'border-gray-300 text-gray-700'
-              }`}
+              className="flex-1 rounded border border-gray-300 px-2 py-1 text-xs text-gray-700"
             >
               <option value="none">none</option>
               <option value="lowest">lowest (&quot;from $5.95&quot;)</option>
@@ -361,6 +359,11 @@ function renderSlotControls(props: SlotControlsProps) {
               <option value="base">base ($5.95)</option>
             </select>
           </div>
+          {inherentPricing && (
+            <p className="ml-[5.5rem] text-[10px] text-gray-500">
+              This layout has its own price presentation. Pick &quot;none&quot; to hide prices.
+            </p>
+          )}
           <div className="grid grid-cols-3 gap-2">
             <div className="flex flex-col gap-1">
               <label className="text-[10px] font-medium uppercase tracking-wide text-gray-500">

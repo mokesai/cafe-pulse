@@ -53,6 +53,11 @@ export function VariationColumnHeaderRenderer({
 
   const canonical = deriveCanonicalVariationSet(group.items)
   const emphasizedIdx = canonical.findIndex((name) => EMPHASIZED_VARIATION_PATTERN.test(name))
+  // Operator can suppress prices entirely by picking price_display_mode='none'
+  // — the column headers (sizes available) still render, but the per-item
+  // price cells go blank. Useful for "we offer these sizes" without
+  // committing to prices on this particular screen.
+  const showPrices = formatting.price_display_mode !== 'none'
 
   // Map item → variation_name → price_cents, indexed by item position so
   // each item row can look up its prices in O(1) inside the grid.
@@ -119,7 +124,7 @@ export function VariationColumnHeaderRenderer({
                       : 'font-medium text-[color:var(--kds-price)]'
                   }`}
                 >
-                  {typeof cents === 'number' ? formatPriceCents(cents) : ''}
+                  {showPrices && typeof cents === 'number' ? formatPriceCents(cents) : ''}
                 </span>
               )
             })}

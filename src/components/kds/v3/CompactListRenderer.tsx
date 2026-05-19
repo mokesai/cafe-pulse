@@ -34,7 +34,10 @@ export function CompactListRenderer({ group, formatting }: CompactListRendererPr
   const bodyClass = BODY_SIZE_FOR_TITLE[formatting.title_size]
   const rowPadding = DENSITY_TO_ROW_PADDING[formatting.density]
 
-  const priceRange = derivePriceRangeForGroup(group.items)
+  // Operator can suppress the range header by picking price_display_mode='none'
+  // — other modes (lowest/range/base) all show the auto-derived group range.
+  const priceRange =
+    formatting.price_display_mode === 'none' ? null : derivePriceRangeForGroup(group.items)
 
   return (
     <div className="flex h-full w-full flex-col px-4 py-3 text-[color:var(--kds-text)]">
