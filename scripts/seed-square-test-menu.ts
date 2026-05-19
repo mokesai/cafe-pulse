@@ -251,10 +251,13 @@ const MENU_GROUPS: MenuGroupDef[] = [
     slug: 'smoothies',
     name: 'Smoothies',
     items: [
-      { kind: 'simple', slug: 'strawberry-banana-smoothie', name: 'Strawberry Banana', priceCents: 695 },
-      { kind: 'simple', slug: 'mango-pineapple-smoothie', name: 'Mango Pineapple', priceCents: 695 },
-      { kind: 'simple', slug: 'mixed-berry-smoothie', name: 'Mixed Berry', priceCents: 695 },
-      { kind: 'simple', slug: 'green-detox-smoothie', name: 'Green Detox', priceCents: 695 },
+      // Sized variations matching the canonical Tall/Grande/Venti set used
+      // by Hot Drinks / Cold Drinks / Frappuccinos / Seasonal / Teas — so
+      // variation_column_header renders cleanly across the menu.
+      { kind: 'sized', slug: 'strawberry-banana-smoothie', name: 'Strawberry Banana', prices: [625, 695, 765] },
+      { kind: 'sized', slug: 'mango-pineapple-smoothie', name: 'Mango Pineapple', prices: [625, 695, 765] },
+      { kind: 'sized', slug: 'mixed-berry-smoothie', name: 'Mixed Berry', prices: [625, 695, 765] },
+      { kind: 'sized', slug: 'green-detox-smoothie', name: 'Green Detox', prices: [675, 745, 815] },
     ],
   },
   {
