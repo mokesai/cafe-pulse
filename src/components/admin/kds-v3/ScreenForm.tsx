@@ -18,11 +18,33 @@
  * Client-side validation via validateBoxLayout for fast UX feedback; server
  * is the source of truth (T4 route enforces the same rules).
  */
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { GridEditor, type EditableBox } from './GridEditor'
 import { validateBoxLayout } from '@/lib/kds/grid-validation'
+
+const UNDO_CAPTURE_DEBOUNCE_MS = 400
+const UNDO_HISTORY_LIMIT = 50
+
+/** Snapshot of all editable form state — used by the in-form undo/redo. */
+interface FormSnapshot {
+  name: string
+  rows: number
+  cols: number
+  theme: InitialScreen['theme']
+  boxes: EditableBox[]
+}
+
+function snapshotsEqual(a: FormSnapshot, b: FormSnapshot): boolean {
+  if (a.name !== b.name || a.rows !== b.rows || a.cols !== b.cols || a.theme !== b.theme) {
+    return false
+  }
+  // Boxes change frequently — cheap shallow check first, JSON-equal fallback.
+  if (a.boxes === b.boxes) return true
+  if (a.boxes.length !== b.boxes.length) return false
+  return JSON.stringify(a.boxes) === JSON.stringify(b.boxes)
+}
 
 export interface InitialScreen {
   id: string
@@ -35,11 +57,23 @@ export interface InitialScreen {
 
 interface Props {
   initialScreen?: InitialScreen
+  /**
+   * When true, the form omits its own back-link + heading block — the
+   * parent renders them (used by the edit page's tabbed shell where the
+   * page owns the heading + tab strip).
+   */
+  hideHeader?: boolean
+  /**
+   * Called after a successful save instead of the default navigation back
+   * to /admin/kds-v3/screens. Lets the edit page stay in place so the
+   * operator can toggle to the Preview tab without a transition.
+   */
+  onSaved?: () => void
 }
 
 const THEMES: Array<InitialScreen['theme']> = ['warm', 'dark', 'wps']
 
-export function ScreenForm({ initialScreen }: Props) {
+export function ScreenForm({ initialScreen, hideHeader = false, onSaved }: Props) {
   const router = useRouter()
   const editing = Boolean(initialScreen)
 
@@ -50,6 +84,108 @@ export function ScreenForm({ initialScreen }: Props) {
   const [boxes, setBoxes] = useState<EditableBox[]>(initialScreen?.boxes ?? [])
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
+
+  // ── Undo / Redo ───────────────────────────────────────────────────────────
+  // History stack of pre-change snapshots. Debounce captures so a single
+  // logical edit (typing a header, dragging a box through a path of cells)
+  // becomes one undo step, not many. The form's `key` resets on save, so
+  // history is naturally scoped to the current pre-save iteration.
+  const initialSnapshot: FormSnapshot = {
+    name: initialScreen?.name ?? '',
+    rows: initialScreen?.grid_rows ?? 4,
+    cols: initialScreen?.grid_cols ?? 6,
+    theme: initialScreen?.theme ?? 'warm',
+    boxes: initialScreen?.boxes ?? [],
+  }
+  const [history, setHistory] = useState<FormSnapshot[]>([])
+  const [future, setFuture] = useState<FormSnapshot[]>([])
+  const lastCapturedRef = useRef<FormSnapshot>(initialSnapshot)
+  const restoringRef = useRef(false)
+  const captureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const applySnapshot = useCallback((s: FormSnapshot) => {
+    restoringRef.current = true
+    setName(s.name)
+    setRows(s.rows)
+    setCols(s.cols)
+    setTheme(s.theme)
+    setBoxes(s.boxes)
+    lastCapturedRef.current = s
+    // Allow the effect to re-arm one tick later; the restoring-flag prevents
+    // the next state-change effect from re-capturing the snapshot we just
+    // applied.
+    setTimeout(() => {
+      restoringRef.current = false
+    }, 0)
+  }, [])
+
+  const undo = useCallback(() => {
+    setHistory((h) => {
+      if (h.length === 0) return h
+      const prev = h[h.length - 1]
+      setFuture((f) => [lastCapturedRef.current, ...f].slice(0, UNDO_HISTORY_LIMIT))
+      applySnapshot(prev)
+      return h.slice(0, -1)
+    })
+  }, [applySnapshot])
+
+  const redo = useCallback(() => {
+    setFuture((f) => {
+      if (f.length === 0) return f
+      const next = f[0]
+      setHistory((h) => [...h, lastCapturedRef.current].slice(-UNDO_HISTORY_LIMIT))
+      applySnapshot(next)
+      return f.slice(1)
+    })
+  }, [applySnapshot])
+
+  // Debounced capture: when state diverges from lastCaptured, after a quiet
+  // period, push lastCaptured to history and update the ref.
+  useEffect(() => {
+    if (restoringRef.current) return
+    const current: FormSnapshot = { name, rows, cols, theme, boxes }
+    if (snapshotsEqual(current, lastCapturedRef.current)) return
+
+    if (captureTimerRef.current) clearTimeout(captureTimerRef.current)
+    captureTimerRef.current = setTimeout(() => {
+      // Re-check inside the timer in case state changed back during the wait.
+      if (snapshotsEqual(current, lastCapturedRef.current)) return
+      setHistory((h) => [...h, lastCapturedRef.current].slice(-UNDO_HISTORY_LIMIT))
+      setFuture([]) // forking history clears the redo branch
+      lastCapturedRef.current = current
+    }, UNDO_CAPTURE_DEBOUNCE_MS)
+
+    return () => {
+      if (captureTimerRef.current) clearTimeout(captureTimerRef.current)
+    }
+  }, [name, rows, cols, theme, boxes])
+
+  // Keyboard shortcuts: Cmd/Ctrl+Z = undo, Cmd/Ctrl+Shift+Z or Ctrl+Y = redo.
+  // Bypass when focus is in a text input/textarea so the browser's native
+  // text-undo (typing in a header field) still works as expected.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const meta = e.metaKey || e.ctrlKey
+      if (!meta) return
+      const target = document.activeElement as HTMLElement | null
+      const isInTextInput =
+        target?.tagName === 'INPUT' ||
+        target?.tagName === 'TEXTAREA' ||
+        target?.isContentEditable === true
+      const key = e.key.toLowerCase()
+      if (key === 'z' && !e.shiftKey) {
+        if (isInTextInput) return
+        e.preventDefault()
+        undo()
+      } else if ((key === 'z' && e.shiftKey) || (key === 'y' && !e.shiftKey)) {
+        if (isInTextInput) return
+        e.preventDefault()
+        redo()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [undo, redo])
 
   // When the operator shrinks the grid, prevent invalid layouts by clamping
   // boxes that would now exceed the bounds. Conservative: flag rather than
@@ -110,8 +246,12 @@ export function ScreenForm({ initialScreen }: Props) {
         return
       }
 
-      router.push('/admin/kds-v3/screens')
-      router.refresh()
+      if (onSaved) {
+        onSaved()
+      } else {
+        router.push('/admin/kds-v3/screens')
+        router.refresh()
+      }
     } finally {
       setSaving(false)
     }
@@ -119,17 +259,19 @@ export function ScreenForm({ initialScreen }: Props) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link
-          href="/admin/kds-v3/screens"
-          className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700"
-        >
-          ← Back to screens
-        </Link>
-        <h1 className="mt-2 text-2xl font-semibold text-gray-900">
-          {editing ? `Edit screen: ${initialScreen!.name}` : 'New screen'}
-        </h1>
-      </div>
+      {!hideHeader && (
+        <div>
+          <Link
+            href="/admin/kds-v3/screens"
+            className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700"
+          >
+            ← Back to screens
+          </Link>
+          <h1 className="mt-2 text-2xl font-semibold text-gray-900">
+            {editing ? `Edit screen: ${initialScreen!.name}` : 'New screen'}
+          </h1>
+        </div>
+      )}
 
       {errors.length > 0 && (
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -140,6 +282,30 @@ export function ScreenForm({ initialScreen }: Props) {
           </ul>
         </div>
       )}
+
+      <div className="flex items-center gap-2 text-xs text-gray-500">
+        <button
+          type="button"
+          onClick={undo}
+          disabled={history.length === 0}
+          title="Undo (⌘Z)"
+          className="rounded-md border border-gray-300 bg-white px-2 py-1 font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          ↶ Undo
+        </button>
+        <button
+          type="button"
+          onClick={redo}
+          disabled={future.length === 0}
+          title="Redo (⇧⌘Z)"
+          className="rounded-md border border-gray-300 bg-white px-2 py-1 font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          ↷ Redo
+        </button>
+        <span className="ml-1 text-gray-400">
+          ⌘Z to undo · ⇧⌘Z to redo
+        </span>
+      </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <div className="md:col-span-2">
