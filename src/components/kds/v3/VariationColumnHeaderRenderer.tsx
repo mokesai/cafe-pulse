@@ -5,16 +5,24 @@
  *
  * For groups where items share size variations (e.g. Hot Drinks at
  * Tall / Grande / Venti). Header row shows the canonical variation set on
- * the right; each item row shows the item name + per-column prices, with
- * blank cells for items missing a variation.
+ * the right; each item row shows the item name on the left + per-column
+ * prices to its right.
  *
- * The canonical variation set is derived via deriveCanonicalVariationSet —
- * union of variation names sorted by frequency desc (stable on tie).
+ * Uses a single unified CSS Grid for the column-header row + every item
+ * row so column tracks are shared and never drift between rows. (The
+ * previous flex-based implementation had a separate grid per row, which
+ * let the header row and price rows take different widths — the operator
+ * surfaced this in UI/UX testing.)
+ *
+ * Emphasizes a "recommended size" column (case-insensitive match against
+ * `grande` / `medium` / `m`) with the theme accent color + bold weight.
+ * Operator-configurable emphasis is deferred to phase 6.5+.
  *
  * price_display_mode is NOT consulted — column pricing is the layout's
  * inherent pricing mode. The editor disables the price-display dropdown
  * when this layout is selected.
  */
+import { Fragment } from 'react'
 import {
   deriveCanonicalVariationSet,
   formatPriceCents,
@@ -26,6 +34,8 @@ import {
   BODY_SIZE_FOR_TITLE,
   TITLE_ALIGN_CLASS,
 } from './style-mappings'
+
+const EMPHASIZED_VARIATION_PATTERN = /^(grande|medium|m)$/i
 
 export interface VariationColumnHeaderRendererProps {
   group: ResolvedGroup
@@ -42,8 +52,10 @@ export function VariationColumnHeaderRenderer({
   const rowPadding = DENSITY_TO_ROW_PADDING[formatting.density]
 
   const canonical = deriveCanonicalVariationSet(group.items)
+  const emphasizedIdx = canonical.findIndex((name) => EMPHASIZED_VARIATION_PATTERN.test(name))
 
-  // Per-item price index: name → cents (per variation name).
+  // Map item → variation_name → price_cents, indexed by item position so
+  // each item row can look up its prices in O(1) inside the grid.
   const priceByItem = group.items.map((item) => {
     const byName = new Map<string, number>()
     for (const v of item.variations) {
@@ -52,56 +64,77 @@ export function VariationColumnHeaderRenderer({
     return byName
   })
 
+  // Single CSS Grid track set shared by the column header row + every item
+  // row. First column = item name (fills remaining horizontal space);
+  // remaining columns = price columns sized to the wider of header label
+  // vs widest price in that column. Bottom-most clamp 4rem keeps narrow
+  // columns from collapsing.
+  const gridTemplateColumns =
+    canonical.length > 0
+      ? `minmax(0, 1fr) repeat(${canonical.length}, minmax(4rem, max-content))`
+      : 'minmax(0, 1fr)'
+
   return (
     <div className="flex h-full w-full flex-col px-4 py-3 text-[color:var(--kds-text)]">
-      <div className={`mb-2 flex items-baseline justify-between ${titleClass}`}>
-        <h2 className="font-bold">{headerText}</h2>
+      <h2 className={`font-bold ${titleClass} mb-2`}>{headerText}</h2>
+      <div
+        className={`grid items-baseline gap-x-4 ${bodyClass}`}
+        style={{ gridTemplateColumns }}
+      >
+        {/* Column header row */}
         {canonical.length > 0 && (
-          <div
-            className={`grid gap-3 font-semibold text-[color:var(--kds-text-secondary)] ${bodyClass}`}
-            style={{ gridTemplateColumns: `repeat(${canonical.length}, minmax(0, 1fr))` }}
+          <>
+            <div aria-hidden="true" /> {/* spacer above the item-name column */}
+            {canonical.map((name, idx) => {
+              const emphasized = emphasizedIdx === idx
+              return (
+                <span
+                  key={`hdr-${name}`}
+                  className={`${rowPadding} text-center font-bold ${
+                    emphasized
+                      ? 'text-[color:var(--kds-accent)]'
+                      : 'text-[color:var(--kds-text-secondary)]'
+                  }`}
+                >
+                  {name}
+                </span>
+              )
+            })}
+          </>
+        )}
+
+        {/* Item rows */}
+        {group.items.map((item, itemIdx) => (
+          <Fragment key={item.id}>
+            <span className={`${rowPadding} truncate`}>{item.display_name}</span>
+            {canonical.map((name, colIdx) => {
+              const cents = priceByItem[itemIdx].get(name)
+              const emphasized = emphasizedIdx === colIdx
+              return (
+                <span
+                  key={`${item.id}-${name}`}
+                  className={`${rowPadding} text-center ${
+                    emphasized
+                      ? 'font-bold text-[color:var(--kds-accent)]'
+                      : 'font-medium text-[color:var(--kds-price)]'
+                  }`}
+                >
+                  {typeof cents === 'number' ? formatPriceCents(cents) : ''}
+                </span>
+              )
+            })}
+          </Fragment>
+        ))}
+
+        {group.items.length === 0 && (
+          <span
+            className="text-[color:var(--kds-text-muted)] italic"
+            style={{ gridColumn: '1 / -1' }}
           >
-            {canonical.map((name) => (
-              <span key={name} className="text-right">
-                {name}
-              </span>
-            ))}
-          </div>
+            (no items)
+          </span>
         )}
       </div>
-      <ul className={`flex-1 ${bodyClass}`}>
-        {group.items.map((item, idx) => (
-          <li
-            key={item.id}
-            className={`flex items-baseline gap-3 ${rowPadding} border-b border-[color:var(--kds-divider)] last:border-b-0`}
-          >
-            <span className="flex-1 truncate">{item.display_name}</span>
-            {canonical.length > 0 && (
-              <div
-                className="grid gap-3"
-                style={{ gridTemplateColumns: `repeat(${canonical.length}, minmax(0, 1fr))` }}
-              >
-                {canonical.map((name) => {
-                  const cents = priceByItem[idx].get(name)
-                  return (
-                    <span
-                      key={name}
-                      className="text-right font-medium text-[color:var(--kds-price)]"
-                    >
-                      {typeof cents === 'number' ? formatPriceCents(cents) : ''}
-                    </span>
-                  )
-                })}
-              </div>
-            )}
-          </li>
-        ))}
-        {group.items.length === 0 && (
-          <li className="text-[color:var(--kds-text-muted)] italic">
-            (no items)
-          </li>
-        )}
-      </ul>
     </div>
   )
 }
