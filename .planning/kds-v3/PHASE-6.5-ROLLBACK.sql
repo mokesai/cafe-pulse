@@ -31,6 +31,15 @@
 BEGIN;
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- Drop the publish + discard-draft PL/pgSQL functions (T2 migration). They
+-- reference both the draft + snapshot tables; safe to drop before either
+-- table is touched.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+DROP FUNCTION IF EXISTS public.publish_kds_screen(uuid, uuid);
+DROP FUNCTION IF EXISTS public.discard_kds_screen_draft(uuid, uuid);
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- Drop snapshot tables — CASCADE handles the FK back to themselves
 -- (published_grid_boxes.screen_id → published_screens.id).
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -63,10 +72,10 @@ ALTER TABLE public.kds_screens
   DROP COLUMN IF EXISTS draft_updated_at;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- Delete the schema_migrations row so `supabase db push` re-applies cleanly.
+-- Delete the schema_migrations rows so `supabase db push` re-applies cleanly.
 -- ─────────────────────────────────────────────────────────────────────────────
 
 DELETE FROM supabase_migrations.schema_migrations
-  WHERE version = '20260520125705';
+  WHERE version IN ('20260520125705', '20260520130424');
 
 COMMIT;
