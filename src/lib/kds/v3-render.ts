@@ -213,21 +213,45 @@ interface OverrideRow {
 // Main entry point
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Phase 6.5 (MOK-159) — controls which set of tables the screen + boxes are
+ * pulled from:
+ *   - 'published' (default) → snapshot tables (kds_published_screens +
+ *     kds_published_grid_boxes). Used by the Pi-facing route.
+ *   - 'draft' → live draft tables (kds_screens + kds_grid_boxes). Used by
+ *     the admin preview tab + the standalone admin preview page so the
+ *     operator sees their unsaved-but-saved iteration immediately.
+ *
+ * Override + image + menu-group resolution is unchanged across sources —
+ * only the screen-composition layer is snapshotted. Square data, display
+ * overrides, and aesthetic images are always live.
+ */
+export type RenderSource = 'published' | 'draft'
+
+interface ResolveOptions {
+  source?: RenderSource
+}
+
 export async function resolveScreenForRender(
   supabase: SupabaseClient,
   tenantId: string,
   screenId: string,
+  opts: ResolveOptions = {},
 ): Promise<ResolvedScreen | null> {
+  const source: RenderSource = opts.source ?? 'published'
+  const screensTable = source === 'published' ? 'kds_published_screens' : 'kds_screens'
+  const boxesTable = source === 'published' ? 'kds_published_grid_boxes' : 'kds_grid_boxes'
+
   // Step 1: screen + boxes in parallel.
   const [screenRes, boxesRes] = await Promise.all([
     supabase
-      .from('kds_screens')
+      .from(screensTable)
       .select('id, tenant_id, name, grid_rows, grid_cols, theme')
       .eq('id', screenId)
       .eq('tenant_id', tenantId)
       .maybeSingle(),
     supabase
-      .from('kds_grid_boxes')
+      .from(boxesTable)
       .select(
         'id, position, row_start, col_start, row_span, col_span, ' +
           'box_type, header_override, square_menu_group_id, aesthetic_image_id, ' +
@@ -241,9 +265,9 @@ export async function resolveScreenForRender(
       .order('position', { ascending: true }),
   ])
 
-  if (screenRes.error) throw new Error(`kds_screens fetch: ${screenRes.error.message}`)
+  if (screenRes.error) throw new Error(`${screensTable} fetch: ${screenRes.error.message}`)
   if (!screenRes.data) return null
-  if (boxesRes.error) throw new Error(`kds_grid_boxes fetch: ${boxesRes.error.message}`)
+  if (boxesRes.error) throw new Error(`${boxesTable} fetch: ${boxesRes.error.message}`)
 
   const screen = screenRes.data as ResolvedScreen['screen']
   const boxRows = (boxesRes.data ?? []) as BoxRow[]

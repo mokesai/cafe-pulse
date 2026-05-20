@@ -61,7 +61,11 @@ export default async function KDSv3DisplayPage({ params, searchParams }: PagePro
   // Load the screen — must belong to the device's tenant. The render-fetch
   // helper enforces tenant scope internally; if the screen is cross-tenant
   // or missing it returns null and we 404.
-  const resolved = await resolveScreenForRender(supabase, device.tenant_id, screenId)
+  // Pi-facing render reads the published snapshot — operators iterate on
+  // drafts in the admin without affecting what's on the wall.
+  const resolved = await resolveScreenForRender(supabase, device.tenant_id, screenId, {
+    source: 'published',
+  })
   if (!resolved) notFound()
 
   return (

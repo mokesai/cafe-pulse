@@ -30,7 +30,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
   try {
     const supabase = createServiceClient()
     const tenantId = await getCurrentTenantId()
-    const resolved = await resolveScreenForRender(supabase, tenantId, id)
+    // Admin preview shows the draft (operator's unpublished iteration).
+    // Allow ?source=published for an explicit "show what's live" view.
+    const url = new URL(request.url)
+    const sourceParam = url.searchParams.get('source')
+    const source =
+      sourceParam === 'published' ? ('published' as const) : ('draft' as const)
+    const resolved = await resolveScreenForRender(supabase, tenantId, id, { source })
     if (!resolved) {
       return NextResponse.json(
         { success: false, error: 'Screen not found.', code: 'KDS_SCREEN_NOT_FOUND' },
