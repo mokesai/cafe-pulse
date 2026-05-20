@@ -32,7 +32,9 @@ export async function GET(request: NextRequest) {
 
   const { data: screens, error } = await supabase
     .from('kds_screens')
-    .select('id, name, grid_rows, grid_cols, theme, square_menu_id, created_at, updated_at')
+    .select(
+      'id, name, grid_rows, grid_cols, theme, square_menu_id, created_at, updated_at, draft_updated_at',
+    )
     .eq('tenant_id', tenantId)
     .order('created_at', { ascending: true })
 
@@ -57,10 +59,34 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const data = (screens ?? []).map((s: { id: string }) => ({
-    ...s,
-    box_count: boxCounts.get(s.id) ?? 0,
-  }))
+  // MOK-159 — published_at per screen so the list page can render the
+  // "Unpublished changes" badge. One batched query, joined in JS.
+  const publishedAtById = new Map<string, string>()
+  if (screenIds.length > 0) {
+    const { data: pubs } = await supabase
+      .from('kds_published_screens')
+      .select('id, published_at')
+      .eq('tenant_id', tenantId)
+      .in('id', screenIds)
+    for (const row of (pubs ?? []) as Array<{ id: string; published_at: string }>) {
+      publishedAtById.set(row.id, row.published_at)
+    }
+  }
+
+  const data = (screens ?? []).map(
+    (s: { id: string; draft_updated_at?: string }) => {
+      const published_at = publishedAtById.get(s.id) ?? null
+      const unpublished =
+        published_at == null ||
+        (typeof s.draft_updated_at === 'string' && s.draft_updated_at > published_at)
+      return {
+        ...s,
+        box_count: boxCounts.get(s.id) ?? 0,
+        published_at,
+        unpublished,
+      }
+    },
+  )
 
   return NextResponse.json({
     success: true,
