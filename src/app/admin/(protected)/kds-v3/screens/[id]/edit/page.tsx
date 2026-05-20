@@ -28,6 +28,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import type { InitialScreen } from '@/components/admin/kds-v3/ScreenForm'
 import { KDSv3PreviewCanvas } from '@/components/kds/v3/KDSv3PreviewCanvas'
+import { PublishStatusBadge } from '@/components/admin/kds-v3/PublishStatusBadge'
 import type { ResolvedScreen } from '@/lib/kds/v3-render'
 import '@/app/kds/kds-themes.css'
 
@@ -134,6 +135,11 @@ function mapInitialFromApi(data: {
   }
 }
 
+interface PublishStatus {
+  unpublished: boolean
+  published_at: string | null
+}
+
 export default function EditScreenPage() {
   const params = useParams<{ id: string }>()
   const id = params?.id
@@ -144,6 +150,15 @@ export default function EditScreenPage() {
   const [resolvedError, setResolvedError] = useState<string | null>(null)
   const [resolvedLoading, setResolvedLoading] = useState(false)
   const [formKey, setFormKey] = useState(0)
+  // MOK-159 — publish status surfaced from GET /screens/[id]; ticks on save,
+  // publish, and discard so the badge + buttons reflect current state.
+  const [publishStatus, setPublishStatus] = useState<PublishStatus>({
+    unpublished: false,
+    published_at: null,
+  })
+  const [publishing, setPublishing] = useState(false)
+  const [discarding, setDiscarding] = useState(false)
+  const [publishError, setPublishError] = useState<string | null>(null)
 
   // Initial fetch: editable screen data.
   const loadInitial = useCallback(async () => {
@@ -156,6 +171,10 @@ export default function EditScreenPage() {
         return
       }
       setInitial(mapInitialFromApi(body.data))
+      setPublishStatus({
+        unpublished: Boolean(body.data.unpublished),
+        published_at: body.data.published_at ?? null,
+      })
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load')
@@ -205,6 +224,58 @@ export default function EditScreenPage() {
     setResolved(null)
   }, [loadInitial])
 
+  const onPublish = useCallback(async () => {
+    if (!id) return
+    if (!confirm('Publish your draft to the Pi displays? Visible on Pi within ~30s.')) return
+    setPublishing(true)
+    setPublishError(null)
+    try {
+      const res = await fetch(`/api/admin/kds-v3/screens/${id}/publish`, { method: 'POST' })
+      const body = await res.json()
+      if (!res.ok || !body.success) {
+        setPublishError(body.error ?? `Publish failed (HTTP ${res.status})`)
+        return
+      }
+      // Refresh status (badge → "Up to date") + invalidate preview cache.
+      await loadInitial()
+      setResolved(null)
+    } catch (e) {
+      setPublishError(e instanceof Error ? e.message : 'Publish failed')
+    } finally {
+      setPublishing(false)
+    }
+  }, [id, loadInitial])
+
+  const onDiscardDraft = useCallback(async () => {
+    if (!id) return
+    if (
+      !confirm(
+        'Discard your unpublished changes? The draft will revert to the last-published version.',
+      )
+    )
+      return
+    setDiscarding(true)
+    setPublishError(null)
+    try {
+      const res = await fetch(`/api/admin/kds-v3/screens/${id}/discard-draft`, {
+        method: 'POST',
+      })
+      const body = await res.json()
+      if (!res.ok || !body.success) {
+        setPublishError(body.error ?? `Discard failed (HTTP ${res.status})`)
+        return
+      }
+      // Reload form data from the (now-reverted) draft.
+      setFormKey((k) => k + 1)
+      await loadInitial()
+      setResolved(null)
+    } catch (e) {
+      setPublishError(e instanceof Error ? e.message : 'Discard failed')
+    } finally {
+      setDiscarding(false)
+    }
+  }, [id, loadInitial])
+
   if (error) {
     return (
       <div className="max-w-5xl mx-auto px-4 py-6">
@@ -231,42 +302,88 @@ export default function EditScreenPage() {
           ← Back to screens
         </Link>
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold text-gray-900">
-            Edit screen: {initial.name}
-          </h1>
-          <div
-            role="tablist"
-            aria-label="Edit / Preview"
-            className="inline-flex overflow-hidden rounded-md border border-gray-300"
-          >
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-semibold text-gray-900">
+              Edit screen: {initial.name}
+            </h1>
+            <PublishStatusBadge
+              unpublished={publishStatus.unpublished}
+              publishedAt={publishStatus.published_at}
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              role="tab"
-              aria-selected={tab === 'edit'}
-              onClick={() => setTab('edit')}
-              className={`px-3 py-1.5 text-sm ${
-                tab === 'edit'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
-              }`}
+              onClick={onDiscardDraft}
+              disabled={
+                !publishStatus.unpublished ||
+                publishStatus.published_at == null ||
+                publishing ||
+                discarding
+              }
+              title={
+                publishStatus.published_at == null
+                  ? 'Nothing published yet — no version to revert to'
+                  : !publishStatus.unpublished
+                    ? 'No unpublished changes to discard'
+                    : 'Discard draft → revert to last-published version'
+              }
+              className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              Edit
+              {discarding ? 'Discarding…' : 'Discard draft'}
             </button>
             <button
               type="button"
-              role="tab"
-              aria-selected={tab === 'preview'}
-              onClick={() => setTab('preview')}
-              className={`px-3 py-1.5 text-sm ${
-                tab === 'preview'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
-              }`}
+              onClick={onPublish}
+              disabled={!publishStatus.unpublished || publishing || discarding}
+              title={
+                !publishStatus.unpublished
+                  ? 'No unpublished changes'
+                  : 'Publish draft → live on Pi displays within ~30s'
+              }
+              className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              Preview
+              {publishing ? 'Publishing…' : 'Publish'}
             </button>
+            <div
+              role="tablist"
+              aria-label="Edit / Preview"
+              className="inline-flex overflow-hidden rounded-md border border-gray-300"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === 'edit'}
+                onClick={() => setTab('edit')}
+                className={`px-3 py-1.5 text-sm ${
+                  tab === 'edit'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === 'preview'}
+                onClick={() => setTab('preview')}
+                className={`px-3 py-1.5 text-sm ${
+                  tab === 'preview'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Preview
+              </button>
+            </div>
           </div>
         </div>
+        {publishError && (
+          <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {publishError}
+          </div>
+        )}
       </div>
 
       {tab === 'edit' ? (

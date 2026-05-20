@@ -149,7 +149,25 @@ export async function GET(request: NextRequest, context: RouteContext) {
     )
   }
 
-  return NextResponse.json({ success: true, data: { ...screen, boxes: boxes ?? [] } })
+  // MOK-159 — published_at + unpublished computed from the snapshot table.
+  // null published_at means the screen has never been published.
+  const { data: pub } = await supabase
+    .from('kds_published_screens')
+    .select('published_at')
+    .eq('id', id)
+    .eq('tenant_id', tenantId)
+    .maybeSingle()
+
+  const draft = screen as { draft_updated_at?: string } & Record<string, unknown>
+  const published_at = (pub as { published_at?: string } | null)?.published_at ?? null
+  const unpublished =
+    published_at == null ||
+    (typeof draft.draft_updated_at === 'string' && draft.draft_updated_at > published_at)
+
+  return NextResponse.json({
+    success: true,
+    data: { ...screen, boxes: boxes ?? [], published_at, unpublished },
+  })
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -613,7 +631,14 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   // Best-effort transactionality: delete-then-insert in sequence; failure of
   // the insert step is logged but the screen update has already landed. For a
   // future hardening pass we'd move this to an RPC function for true atomicity.
-  const screenUpdate: Record<string, unknown> = { updated_at: new Date().toISOString() }
+  const nowIso = new Date().toISOString()
+  // draft_updated_at (MOK-159) ticks on every save so the screens-list page
+  // can compute "unpublished changes" via a cheap timestamp compare against
+  // kds_published_screens.published_at.
+  const screenUpdate: Record<string, unknown> = {
+    updated_at: nowIso,
+    draft_updated_at: nowIso,
+  }
   if (name !== undefined) screenUpdate.name = name
   if (grid_rows !== undefined) screenUpdate.grid_rows = grid_rows
   if (grid_cols !== undefined) screenUpdate.grid_cols = grid_cols
