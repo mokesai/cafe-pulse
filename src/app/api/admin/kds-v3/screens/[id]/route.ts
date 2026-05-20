@@ -93,6 +93,11 @@ interface PutBoxInput {
   box_border?: string
   box_radius?: string
   box_background?: string
+  // Phase 6.5 (MOK-159) — per-slot variation emphasis.
+  emphasized_variation_name?: string | null
+  emphasized_variation_explicit_none?: boolean
+  emphasized_variation_name_b?: string | null
+  emphasized_variation_explicit_none_b?: boolean
 }
 
 interface PutBody {
@@ -260,6 +265,11 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         box_border: string
         box_radius: string
         box_background: string
+        // Phase 6.5 (MOK-159)
+        emphasized_variation_name: string | null
+        emphasized_variation_explicit_none: boolean
+        emphasized_variation_name_b: string | null
+        emphasized_variation_explicit_none_b: boolean
       }
   > = []
   if (body.boxes !== undefined) {
@@ -474,6 +484,32 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         continue
       }
 
+      // Phase 6.5 (MOK-159) — variation emphasis fields. No enum validation
+      // on the name (it's a free-form Square variation name); the renderer
+      // does case-insensitive lookup against the canonical set and silently
+      // ignores stale names. Slot-B name forced NULL when undivided (DB
+      // CHECK kds_grid_boxes_emphasized_variation_b_gated defends too).
+      const emphasized_variation_name =
+        typeof b.emphasized_variation_name === 'string' && b.emphasized_variation_name.length > 0
+          ? b.emphasized_variation_name
+          : null
+      const emphasized_variation_explicit_none = Boolean(b.emphasized_variation_explicit_none)
+      const emphasized_variation_name_b = !dividedB
+        ? null
+        : typeof b.emphasized_variation_name_b === 'string' &&
+            b.emphasized_variation_name_b.length > 0
+          ? b.emphasized_variation_name_b
+          : null
+      const emphasized_variation_explicit_none_b = Boolean(b.emphasized_variation_explicit_none_b)
+      if (emphasized_variation_name != null && emphasized_variation_name.length > 120) {
+        fieldErrors.push(`box[${i}]: emphasized_variation_name must be 120 chars or fewer`)
+        continue
+      }
+      if (emphasized_variation_name_b != null && emphasized_variation_name_b.length > 120) {
+        fieldErrors.push(`box[${i}]: emphasized_variation_name_b must be 120 chars or fewer`)
+        continue
+      }
+
       validatedBoxes.push({
         position,
         row_start: row_start as number,
@@ -504,6 +540,10 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         box_border,
         box_radius,
         box_background,
+        emphasized_variation_name,
+        emphasized_variation_explicit_none,
+        emphasized_variation_name_b,
+        emphasized_variation_explicit_none_b,
       })
     }
     if (fieldErrors.length > 0) {
@@ -728,6 +768,11 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         box_border: b.box_border,
         box_radius: b.box_radius,
         box_background: b.box_background,
+        // Phase 6.5 (MOK-159) — variation emphasis.
+        emphasized_variation_name: b.emphasized_variation_name,
+        emphasized_variation_explicit_none: b.emphasized_variation_explicit_none,
+        emphasized_variation_name_b: b.emphasized_variation_name_b,
+        emphasized_variation_explicit_none_b: b.emphasized_variation_explicit_none_b,
       }))
       const { data: inserted, error: insertError } = await supabase
         .from('kds_grid_boxes')

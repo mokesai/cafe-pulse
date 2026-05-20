@@ -82,6 +82,11 @@ interface ApiBox {
   box_border?: 'none' | 'thin' | 'thick'
   box_radius?: 'none' | 'sm' | 'lg'
   box_background?: 'none' | 'white' | 'accent' | 'warm' | 'cool'
+  // Phase 6.5 (MOK-159) — variation emphasis.
+  emphasized_variation_name?: string | null
+  emphasized_variation_explicit_none?: boolean
+  emphasized_variation_name_b?: string | null
+  emphasized_variation_explicit_none_b?: boolean
 }
 
 type Tab = 'edit' | 'preview'
@@ -131,6 +136,11 @@ function mapInitialFromApi(data: {
       box_border: b.box_border ?? 'none',
       box_radius: b.box_radius ?? 'none',
       box_background: b.box_background ?? 'none',
+      // Phase 6.5 (MOK-159)
+      emphasized_variation_name: b.emphasized_variation_name ?? null,
+      emphasized_variation_explicit_none: b.emphasized_variation_explicit_none ?? false,
+      emphasized_variation_name_b: b.emphasized_variation_name_b ?? null,
+      emphasized_variation_explicit_none_b: b.emphasized_variation_explicit_none_b ?? false,
     })),
   }
 }

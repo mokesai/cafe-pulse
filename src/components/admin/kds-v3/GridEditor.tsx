@@ -91,6 +91,11 @@ export interface EditableBox extends GridBox {
   // Phase 6 addendum — per-slot subtitle + per-box chrome.
   subtitle_override?: string | null
   subtitle_override_b?: string | null
+  // Phase 6.5 (MOK-159) — variation emphasis (variation_column_header only).
+  emphasized_variation_name?: string | null
+  emphasized_variation_explicit_none?: boolean
+  emphasized_variation_name_b?: string | null
+  emphasized_variation_explicit_none_b?: boolean
   box_border?: BoxBorder
   box_radius?: BoxRadius
   box_background?: BoxBackground
@@ -199,6 +204,11 @@ interface SlotControlsProps {
   // Phase 6 addendum — per-slot subtitle (used by featured_list).
   subtitleOverride: string
   onSubtitleOverrideChange: (text: string) => void
+  // Phase 6.5 (MOK-159) — variation emphasis (used by variation_column_header).
+  emphasizedVariationName: string
+  onEmphasizedVariationNameChange: (text: string) => void
+  emphasizedVariationExplicitNone: boolean
+  onEmphasizedVariationExplicitNoneChange: (value: boolean) => void
 }
 
 function renderSlotControls(props: SlotControlsProps) {
@@ -226,9 +236,14 @@ function renderSlotControls(props: SlotControlsProps) {
     onTitleAlignChange,
     subtitleOverride,
     onSubtitleOverrideChange,
+    emphasizedVariationName,
+    onEmphasizedVariationNameChange,
+    emphasizedVariationExplicitNone,
+    onEmphasizedVariationExplicitNoneChange,
   } = props
   const inherentPricing = LAYOUTS_WITH_INHERENT_PRICING.has(layoutMode)
   const subtitleVisible = layoutMode === 'featured_list'
+  const emphasisVisible = layoutMode === 'variation_column_header'
 
   // If the box is bound to a group that's not in the fetched list (sync
   // hasn't caught up yet, or the id was fabricated and is about to fail
@@ -309,6 +324,37 @@ function renderSlotControls(props: SlotControlsProps) {
                 placeholder="e.g. Popular Flavors"
                 className="flex-1 rounded border border-gray-300 px-2 py-1 text-xs text-gray-700"
               />
+            </div>
+          )}
+
+          {/* Phase 6.5 (MOK-159) — variation emphasis (variation_column_header only) */}
+          {emphasisVisible && (
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-medium text-gray-600">Emphasize size</label>
+                <input
+                  type="text"
+                  maxLength={120}
+                  value={emphasizedVariationName}
+                  disabled={emphasizedVariationExplicitNone}
+                  onChange={(e) => onEmphasizedVariationNameChange(e.target.value)}
+                  placeholder="e.g. Grande (blank = Auto)"
+                  className="flex-1 rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 disabled:bg-gray-50 disabled:text-gray-400"
+                />
+              </div>
+              <label className="ml-[6rem] inline-flex items-center gap-1.5 text-[11px] text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={emphasizedVariationExplicitNone}
+                  onChange={(e) => onEmphasizedVariationExplicitNoneChange(e.target.checked)}
+                  className="rounded"
+                />
+                No emphasis (overrides Auto)
+              </label>
+              <p className="ml-[6rem] text-[10px] text-gray-500">
+                Blank = Auto (matches Grande/Medium/M). Name must match a Square variation in
+                this group, case-insensitive.
+              </p>
             </div>
           )}
 
@@ -640,6 +686,8 @@ export function GridEditor({ grid_rows, grid_cols, boxes, onChange }: Props) {
             title_size_b: null,
             title_align_b: null,
             subtitle_override_b: null,
+            emphasized_variation_name_b: null,
+            emphasized_variation_explicit_none_b: false,
           }
         }
         return {
@@ -744,6 +792,27 @@ export function GridEditor({ grid_rows, grid_cols, boxes, onChange }: Props) {
   ) => {
     const key = slot === 'a' ? 'subtitle_override' : 'subtitle_override_b'
     onChange(boxes.map((b) => (b.position === position ? { ...b, [key]: subtitle_override } : b)))
+  }
+
+  // Phase 6.5 (MOK-159) — emphasized-variation helpers.
+  const updateEmphasizedVariationName = (
+    position: number,
+    slot: 'a' | 'b',
+    name: string | null,
+  ) => {
+    const key = slot === 'a' ? 'emphasized_variation_name' : 'emphasized_variation_name_b'
+    onChange(boxes.map((b) => (b.position === position ? { ...b, [key]: name } : b)))
+  }
+  const updateEmphasizedVariationExplicitNone = (
+    position: number,
+    slot: 'a' | 'b',
+    value: boolean,
+  ) => {
+    const key =
+      slot === 'a'
+        ? 'emphasized_variation_explicit_none'
+        : 'emphasized_variation_explicit_none_b'
+    onChange(boxes.map((b) => (b.position === position ? { ...b, [key]: value } : b)))
   }
 
   // Phase 6 addendum — per-box chrome (single set, wraps both slots).
@@ -1033,6 +1102,13 @@ export function GridEditor({ grid_rows, grid_cols, boxes, onChange }: Props) {
                   subtitleOverride: selectedBox.subtitle_override ?? '',
                   onSubtitleOverrideChange: (text) =>
                     updateSubtitleOverride(selectedBox.position, 'a', text || null),
+                  emphasizedVariationName: selectedBox.emphasized_variation_name ?? '',
+                  onEmphasizedVariationNameChange: (text) =>
+                    updateEmphasizedVariationName(selectedBox.position, 'a', text || null),
+                  emphasizedVariationExplicitNone:
+                    selectedBox.emphasized_variation_explicit_none ?? false,
+                  onEmphasizedVariationExplicitNoneChange: (value) =>
+                    updateEmphasizedVariationExplicitNone(selectedBox.position, 'a', value),
                 })}
                 {divided &&
                   renderSlotControls({
@@ -1063,6 +1139,13 @@ export function GridEditor({ grid_rows, grid_cols, boxes, onChange }: Props) {
                     subtitleOverride: selectedBox.subtitle_override_b ?? '',
                     onSubtitleOverrideChange: (text) =>
                       updateSubtitleOverride(selectedBox.position, 'b', text || null),
+                    emphasizedVariationName: selectedBox.emphasized_variation_name_b ?? '',
+                    onEmphasizedVariationNameChange: (text) =>
+                      updateEmphasizedVariationName(selectedBox.position, 'b', text || null),
+                    emphasizedVariationExplicitNone:
+                      selectedBox.emphasized_variation_explicit_none_b ?? false,
+                    onEmphasizedVariationExplicitNoneChange: (value) =>
+                      updateEmphasizedVariationExplicitNone(selectedBox.position, 'b', value),
                   })}
               </div>
             </div>

@@ -52,7 +52,18 @@ export function VariationColumnHeaderRenderer({
   const rowPadding = DENSITY_TO_ROW_PADDING[formatting.density]
 
   const canonical = deriveCanonicalVariationSet(group.items)
-  const emphasizedIdx = canonical.findIndex((name) => EMPHASIZED_VARIATION_PATTERN.test(name))
+  // Phase 6.5 (MOK-159): operator-pickable emphasis overrides the regex.
+  //   - explicit_none = true → no emphasis at all
+  //   - name set → emphasize matching column (case-insensitive)
+  //   - name null + not explicit_none → "Auto" → regex heuristic (phase 6)
+  const emphasizedIdx = formatting.emphasized_variation_explicit_none
+    ? -1
+    : formatting.emphasized_variation_name != null
+      ? canonical.findIndex(
+          (name) =>
+            name.toLowerCase() === formatting.emphasized_variation_name!.toLowerCase(),
+        )
+      : canonical.findIndex((name) => EMPHASIZED_VARIATION_PATTERN.test(name))
   // Operator can suppress prices entirely by picking price_display_mode='none'
   // — the column headers (sizes available) still render, but the per-item
   // price cells go blank. Useful for "we offer these sizes" without
