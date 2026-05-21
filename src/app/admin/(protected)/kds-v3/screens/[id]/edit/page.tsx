@@ -169,6 +169,11 @@ export default function EditScreenPage() {
   const [publishing, setPublishing] = useState(false)
   const [discarding, setDiscarding] = useState(false)
   const [publishError, setPublishError] = useState<string | null>(null)
+  // MOK-159 — preview can show either the draft (default; what the operator
+  // is iterating on) or the published snapshot (what Pi devices currently
+  // render). Letting the operator flip between the two without leaving the
+  // edit page is the natural pre-publish check.
+  const [previewSource, setPreviewSource] = useState<'draft' | 'published'>('draft')
 
   // Initial fetch: editable screen data.
   const loadInitial = useCallback(async () => {
@@ -196,13 +201,16 @@ export default function EditScreenPage() {
   }, [loadInitial])
 
   // Preview fetch: resolved-for-render shape. Lazy — only on first switch
-  // to the Preview tab, on Save success, or on manual Refresh.
+  // to the Preview tab, on Save success, on manual Refresh, or when the
+  // Draft / Published toggle flips.
   const loadResolved = useCallback(async () => {
     if (!id) return
     setResolvedLoading(true)
     setResolvedError(null)
     try {
-      const res = await fetch(`/api/admin/kds-v3/screens/${id}/render`)
+      const res = await fetch(
+        `/api/admin/kds-v3/screens/${id}/render?source=${previewSource}`,
+      )
       const body = await res.json()
       if (!res.ok || !body.success) {
         setResolvedError(body.error ?? `Failed to load preview (HTTP ${res.status})`)
@@ -215,13 +223,17 @@ export default function EditScreenPage() {
     } finally {
       setResolvedLoading(false)
     }
-  }, [id])
+  }, [id, previewSource])
 
   useEffect(() => {
-    if (tab === 'preview' && !resolved && !resolvedLoading && !resolvedError) {
+    // Re-fetch whenever the source toggle flips, OR on first switch to the
+    // Preview tab if we haven't fetched yet. We intentionally don't depend
+    // on `resolved` — flipping the source should re-fetch even when a
+    // previous fetch is already cached.
+    if (tab === 'preview' && !resolvedLoading && !resolvedError) {
       void loadResolved()
     }
-  }, [tab, resolved, resolvedLoading, resolvedError, loadResolved])
+  }, [tab, previewSource, resolvedLoading, resolvedError, loadResolved])
 
   const onSaved = useCallback(() => {
     // Refresh the editable form data so server-side normalization round-trips
@@ -403,16 +415,68 @@ export default function EditScreenPage() {
           hideHeader
           onSaved={onSaved}
         />
-      ) : resolvedLoading ? (
-        <div className="text-sm text-gray-500">Loading preview…</div>
-      ) : resolvedError ? (
-        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {resolvedError}
-        </div>
-      ) : resolved ? (
-        <KDSv3PreviewCanvas resolved={resolved} onRefresh={loadResolved} />
       ) : (
-        <div className="text-sm text-gray-500">Switching to preview…</div>
+        <div className="space-y-3">
+          {/* Source toggle: draft (default) vs published. */}
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm text-gray-600">Showing:</span>
+            <div
+              role="tablist"
+              aria-label="Preview source"
+              className="inline-flex overflow-hidden rounded-md border border-gray-300"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={previewSource === 'draft'}
+                onClick={() => setPreviewSource('draft')}
+                className={`px-3 py-1 text-xs font-medium ${
+                  previewSource === 'draft'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Draft
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={previewSource === 'published'}
+                onClick={() => setPreviewSource('published')}
+                disabled={publishStatus.published_at == null}
+                title={
+                  publishStatus.published_at == null
+                    ? 'Nothing published yet — publish your draft first'
+                    : 'Show what Pi devices are currently rendering'
+                }
+                className={`px-3 py-1 text-xs font-medium ${
+                  previewSource === 'published'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                } disabled:opacity-40 disabled:cursor-not-allowed`}
+              >
+                Published
+              </button>
+            </div>
+            <span className="text-xs text-gray-500">
+              {previewSource === 'draft'
+                ? '— your unpublished iteration'
+                : '— what Pi devices currently render'}
+            </span>
+          </div>
+
+          {resolvedLoading ? (
+            <div className="text-sm text-gray-500">Loading preview…</div>
+          ) : resolvedError ? (
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {resolvedError}
+            </div>
+          ) : resolved ? (
+            <KDSv3PreviewCanvas resolved={resolved} onRefresh={loadResolved} />
+          ) : (
+            <div className="text-sm text-gray-500">Switching to preview…</div>
+          )}
+        </div>
       )}
     </div>
   )
