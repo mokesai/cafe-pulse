@@ -226,14 +226,17 @@ export default function EditScreenPage() {
   }, [id, previewSource])
 
   useEffect(() => {
-    // Re-fetch whenever the source toggle flips, OR on first switch to the
-    // Preview tab if we haven't fetched yet. We intentionally don't depend
-    // on `resolved` — flipping the source should re-fetch even when a
-    // previous fetch is already cached.
-    if (tab === 'preview' && !resolvedLoading && !resolvedError) {
-      void loadResolved()
-    }
-  }, [tab, previewSource, resolvedLoading, resolvedError, loadResolved])
+    // Fetch on first switch to the Preview tab + whenever the source
+    // toggle flips (loadResolved's identity changes with previewSource via
+    // its useCallback deps, so depending on loadResolved alone is enough).
+    //
+    // Do NOT depend on resolvedLoading / resolvedError here — that would
+    // re-fire the effect on every fetch completion (loading: false →
+    // condition true → fetch again → loading: true → loading: false → …
+    // → tight loop, stuck on the spinner).
+    if (tab !== 'preview') return
+    void loadResolved()
+  }, [tab, loadResolved])
 
   const onSaved = useCallback(() => {
     // Refresh the editable form data so server-side normalization round-trips
