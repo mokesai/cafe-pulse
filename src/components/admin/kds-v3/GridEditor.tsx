@@ -315,13 +315,13 @@ function renderSlotControls(props: SlotControlsProps) {
           </div>
           {subtitleVisible && (
             <div className="flex items-center gap-2">
-              <label className="text-xs font-medium text-gray-600">Subtitle</label>
+              <label className="text-xs font-medium text-gray-600">Feature title</label>
               <input
                 type="text"
                 maxLength={120}
                 value={subtitleOverride}
                 onChange={(e) => onSubtitleOverrideChange(e.target.value)}
-                placeholder="e.g. Popular Flavors"
+                placeholder="e.g. Most Popular"
                 className="flex-1 rounded border border-gray-300 px-2 py-1 text-xs text-gray-700"
               />
             </div>
