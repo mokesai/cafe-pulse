@@ -39,17 +39,29 @@ export function FeaturedListRenderer({ group, formatting }: FeaturedListRenderer
   const bodyClass = BODY_SIZE_FOR_TITLE[formatting.title_size]
   const rowPadding = DENSITY_TO_ROW_PADDING[formatting.density]
 
+  // Spacing: the subtitle belongs visually to the items it introduces, not
+  // to the title above. A larger gap above the subtitle separates it from
+  // the title; a small gap below keeps it tight to the bulleted list. When
+  // no subtitle is present, the list gets a medium gap directly from the
+  // title.
+  const hasSubtitle = Boolean(formatting.subtitle_override)
+  const listTopMargin = hasSubtitle ? 'mt-0.5' : 'mt-3'
+
   return (
     <div className="flex h-full w-full flex-col px-4 py-3 text-[color:var(--kds-text)]">
       <h2 className={`font-bold ${titleClass}`}>{headerText}</h2>
-      {formatting.subtitle_override && (
+      {hasSubtitle && (
+        // Rendered as a "feature title" — a section heading that
+        // introduces the items below. Bold + uppercase + slight letter-
+        // spacing distinguishes it from a subtitle-style flourish (italic
+        // muted) while still being clearly secondary to the main title.
         <p
-          className={`mb-2 text-[color:var(--kds-text-secondary)] italic ${TITLE_ALIGN_CLASS[formatting.title_align]}`}
+          className={`mt-4 font-bold uppercase tracking-wide text-[color:var(--kds-text)] ${TITLE_ALIGN_CLASS[formatting.title_align]}`}
         >
           {formatting.subtitle_override}
         </p>
       )}
-      <ul className={`flex-1 ${bodyClass}`}>
+      <ul className={`flex-1 ${listTopMargin} ${bodyClass}`}>
         {group.items.map((item, idx) => {
           const colorClass = featuredBulletColorClass(idx)
           const flavors = item.variations.map((v) => v.display_name).join(' • ')

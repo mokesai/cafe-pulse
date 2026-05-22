@@ -28,6 +28,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import type { InitialScreen } from '@/components/admin/kds-v3/ScreenForm'
 import { KDSv3PreviewCanvas } from '@/components/kds/v3/KDSv3PreviewCanvas'
+import { PublishStatusBadge } from '@/components/admin/kds-v3/PublishStatusBadge'
 import type { ResolvedScreen } from '@/lib/kds/v3-render'
 import '@/app/kds/kds-themes.css'
 
@@ -81,6 +82,11 @@ interface ApiBox {
   box_border?: 'none' | 'thin' | 'thick'
   box_radius?: 'none' | 'sm' | 'lg'
   box_background?: 'none' | 'white' | 'accent' | 'warm' | 'cool'
+  // Phase 6.5 (MOK-159) — variation emphasis.
+  emphasized_variation_name?: string | null
+  emphasized_variation_explicit_none?: boolean
+  emphasized_variation_name_b?: string | null
+  emphasized_variation_explicit_none_b?: boolean
 }
 
 type Tab = 'edit' | 'preview'
@@ -130,8 +136,18 @@ function mapInitialFromApi(data: {
       box_border: b.box_border ?? 'none',
       box_radius: b.box_radius ?? 'none',
       box_background: b.box_background ?? 'none',
+      // Phase 6.5 (MOK-159)
+      emphasized_variation_name: b.emphasized_variation_name ?? null,
+      emphasized_variation_explicit_none: b.emphasized_variation_explicit_none ?? false,
+      emphasized_variation_name_b: b.emphasized_variation_name_b ?? null,
+      emphasized_variation_explicit_none_b: b.emphasized_variation_explicit_none_b ?? false,
     })),
   }
+}
+
+interface PublishStatus {
+  unpublished: boolean
+  published_at: string | null
 }
 
 export default function EditScreenPage() {
@@ -144,6 +160,20 @@ export default function EditScreenPage() {
   const [resolvedError, setResolvedError] = useState<string | null>(null)
   const [resolvedLoading, setResolvedLoading] = useState(false)
   const [formKey, setFormKey] = useState(0)
+  // MOK-159 — publish status surfaced from GET /screens/[id]; ticks on save,
+  // publish, and discard so the badge + buttons reflect current state.
+  const [publishStatus, setPublishStatus] = useState<PublishStatus>({
+    unpublished: false,
+    published_at: null,
+  })
+  const [publishing, setPublishing] = useState(false)
+  const [discarding, setDiscarding] = useState(false)
+  const [publishError, setPublishError] = useState<string | null>(null)
+  // MOK-159 — preview can show either the draft (default; what the operator
+  // is iterating on) or the published snapshot (what Pi devices currently
+  // render). Letting the operator flip between the two without leaving the
+  // edit page is the natural pre-publish check.
+  const [previewSource, setPreviewSource] = useState<'draft' | 'published'>('draft')
 
   // Initial fetch: editable screen data.
   const loadInitial = useCallback(async () => {
@@ -156,6 +186,10 @@ export default function EditScreenPage() {
         return
       }
       setInitial(mapInitialFromApi(body.data))
+      setPublishStatus({
+        unpublished: Boolean(body.data.unpublished),
+        published_at: body.data.published_at ?? null,
+      })
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load')
@@ -167,13 +201,16 @@ export default function EditScreenPage() {
   }, [loadInitial])
 
   // Preview fetch: resolved-for-render shape. Lazy — only on first switch
-  // to the Preview tab, on Save success, or on manual Refresh.
+  // to the Preview tab, on Save success, on manual Refresh, or when the
+  // Draft / Published toggle flips.
   const loadResolved = useCallback(async () => {
     if (!id) return
     setResolvedLoading(true)
     setResolvedError(null)
     try {
-      const res = await fetch(`/api/admin/kds-v3/screens/${id}/render`)
+      const res = await fetch(
+        `/api/admin/kds-v3/screens/${id}/render?source=${previewSource}`,
+      )
       const body = await res.json()
       if (!res.ok || !body.success) {
         setResolvedError(body.error ?? `Failed to load preview (HTTP ${res.status})`)
@@ -186,13 +223,20 @@ export default function EditScreenPage() {
     } finally {
       setResolvedLoading(false)
     }
-  }, [id])
+  }, [id, previewSource])
 
   useEffect(() => {
-    if (tab === 'preview' && !resolved && !resolvedLoading && !resolvedError) {
-      void loadResolved()
-    }
-  }, [tab, resolved, resolvedLoading, resolvedError, loadResolved])
+    // Fetch on first switch to the Preview tab + whenever the source
+    // toggle flips (loadResolved's identity changes with previewSource via
+    // its useCallback deps, so depending on loadResolved alone is enough).
+    //
+    // Do NOT depend on resolvedLoading / resolvedError here — that would
+    // re-fire the effect on every fetch completion (loading: false →
+    // condition true → fetch again → loading: true → loading: false → …
+    // → tight loop, stuck on the spinner).
+    if (tab !== 'preview') return
+    void loadResolved()
+  }, [tab, loadResolved])
 
   const onSaved = useCallback(() => {
     // Refresh the editable form data so server-side normalization round-trips
@@ -204,6 +248,58 @@ export default function EditScreenPage() {
     // Invalidate the preview so the next switch to the Preview tab re-fetches.
     setResolved(null)
   }, [loadInitial])
+
+  const onPublish = useCallback(async () => {
+    if (!id) return
+    if (!confirm('Publish your draft to the Pi displays? Visible on Pi within ~30s.')) return
+    setPublishing(true)
+    setPublishError(null)
+    try {
+      const res = await fetch(`/api/admin/kds-v3/screens/${id}/publish`, { method: 'POST' })
+      const body = await res.json()
+      if (!res.ok || !body.success) {
+        setPublishError(body.error ?? `Publish failed (HTTP ${res.status})`)
+        return
+      }
+      // Refresh status (badge → "Up to date") + invalidate preview cache.
+      await loadInitial()
+      setResolved(null)
+    } catch (e) {
+      setPublishError(e instanceof Error ? e.message : 'Publish failed')
+    } finally {
+      setPublishing(false)
+    }
+  }, [id, loadInitial])
+
+  const onDiscardDraft = useCallback(async () => {
+    if (!id) return
+    if (
+      !confirm(
+        'Discard your unpublished changes? The draft will revert to the last-published version.',
+      )
+    )
+      return
+    setDiscarding(true)
+    setPublishError(null)
+    try {
+      const res = await fetch(`/api/admin/kds-v3/screens/${id}/discard-draft`, {
+        method: 'POST',
+      })
+      const body = await res.json()
+      if (!res.ok || !body.success) {
+        setPublishError(body.error ?? `Discard failed (HTTP ${res.status})`)
+        return
+      }
+      // Reload form data from the (now-reverted) draft.
+      setFormKey((k) => k + 1)
+      await loadInitial()
+      setResolved(null)
+    } catch (e) {
+      setPublishError(e instanceof Error ? e.message : 'Discard failed')
+    } finally {
+      setDiscarding(false)
+    }
+  }, [id, loadInitial])
 
   if (error) {
     return (
@@ -231,42 +327,88 @@ export default function EditScreenPage() {
           ← Back to screens
         </Link>
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold text-gray-900">
-            Edit screen: {initial.name}
-          </h1>
-          <div
-            role="tablist"
-            aria-label="Edit / Preview"
-            className="inline-flex overflow-hidden rounded-md border border-gray-300"
-          >
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-semibold text-gray-900">
+              Edit screen: {initial.name}
+            </h1>
+            <PublishStatusBadge
+              unpublished={publishStatus.unpublished}
+              publishedAt={publishStatus.published_at}
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              role="tab"
-              aria-selected={tab === 'edit'}
-              onClick={() => setTab('edit')}
-              className={`px-3 py-1.5 text-sm ${
-                tab === 'edit'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
-              }`}
+              onClick={onDiscardDraft}
+              disabled={
+                !publishStatus.unpublished ||
+                publishStatus.published_at == null ||
+                publishing ||
+                discarding
+              }
+              title={
+                publishStatus.published_at == null
+                  ? 'Nothing published yet — no version to revert to'
+                  : !publishStatus.unpublished
+                    ? 'No unpublished changes to discard'
+                    : 'Discard draft → revert to last-published version'
+              }
+              className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              Edit
+              {discarding ? 'Discarding…' : 'Discard draft'}
             </button>
             <button
               type="button"
-              role="tab"
-              aria-selected={tab === 'preview'}
-              onClick={() => setTab('preview')}
-              className={`px-3 py-1.5 text-sm ${
-                tab === 'preview'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
-              }`}
+              onClick={onPublish}
+              disabled={!publishStatus.unpublished || publishing || discarding}
+              title={
+                !publishStatus.unpublished
+                  ? 'No unpublished changes'
+                  : 'Publish draft → live on Pi displays within ~30s'
+              }
+              className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              Preview
+              {publishing ? 'Publishing…' : 'Publish'}
             </button>
+            <div
+              role="tablist"
+              aria-label="Edit / Preview"
+              className="inline-flex overflow-hidden rounded-md border border-gray-300"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === 'edit'}
+                onClick={() => setTab('edit')}
+                className={`px-3 py-1.5 text-sm ${
+                  tab === 'edit'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === 'preview'}
+                onClick={() => setTab('preview')}
+                className={`px-3 py-1.5 text-sm ${
+                  tab === 'preview'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Preview
+              </button>
+            </div>
           </div>
         </div>
+        {publishError && (
+          <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {publishError}
+          </div>
+        )}
       </div>
 
       {tab === 'edit' ? (
@@ -276,16 +418,68 @@ export default function EditScreenPage() {
           hideHeader
           onSaved={onSaved}
         />
-      ) : resolvedLoading ? (
-        <div className="text-sm text-gray-500">Loading preview…</div>
-      ) : resolvedError ? (
-        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {resolvedError}
-        </div>
-      ) : resolved ? (
-        <KDSv3PreviewCanvas resolved={resolved} onRefresh={loadResolved} />
       ) : (
-        <div className="text-sm text-gray-500">Switching to preview…</div>
+        <div className="space-y-3">
+          {/* Source toggle: draft (default) vs published. */}
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm text-gray-600">Showing:</span>
+            <div
+              role="tablist"
+              aria-label="Preview source"
+              className="inline-flex overflow-hidden rounded-md border border-gray-300"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={previewSource === 'draft'}
+                onClick={() => setPreviewSource('draft')}
+                className={`px-3 py-1 text-xs font-medium ${
+                  previewSource === 'draft'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Draft
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={previewSource === 'published'}
+                onClick={() => setPreviewSource('published')}
+                disabled={publishStatus.published_at == null}
+                title={
+                  publishStatus.published_at == null
+                    ? 'Nothing published yet — publish your draft first'
+                    : 'Show what Pi devices are currently rendering'
+                }
+                className={`px-3 py-1 text-xs font-medium ${
+                  previewSource === 'published'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                } disabled:opacity-40 disabled:cursor-not-allowed`}
+              >
+                Published
+              </button>
+            </div>
+            <span className="text-xs text-gray-500">
+              {previewSource === 'draft'
+                ? '— your unpublished iteration'
+                : '— what Pi devices currently render'}
+            </span>
+          </div>
+
+          {resolvedLoading ? (
+            <div className="text-sm text-gray-500">Loading preview…</div>
+          ) : resolvedError ? (
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {resolvedError}
+            </div>
+          ) : resolved ? (
+            <KDSv3PreviewCanvas resolved={resolved} onRefresh={loadResolved} />
+          ) : (
+            <div className="text-sm text-gray-500">Switching to preview…</div>
+          )}
+        </div>
       )}
     </div>
   )

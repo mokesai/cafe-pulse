@@ -32,7 +32,9 @@ export default async function KDSv3ScreenPreviewPage({ params }: PageProps) {
   const { id } = await params
   const supabase = createServiceClient()
   const tenantId = await getCurrentTenantId()
-  const resolved = await resolveScreenForRender(supabase, tenantId, id)
+  // Admin preview always shows the draft so the operator can iterate
+  // without publishing. Pi devices see the published snapshot instead.
+  const resolved = await resolveScreenForRender(supabase, tenantId, id, { source: 'draft' })
   if (!resolved) notFound()
 
   return (

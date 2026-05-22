@@ -13,6 +13,7 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { PublishStatusBadge } from '@/components/admin/kds-v3/PublishStatusBadge'
 
 interface ScreenSummary {
   id: string
@@ -22,6 +23,9 @@ interface ScreenSummary {
   theme: string
   box_count: number
   created_at: string
+  // MOK-159 — derived per row from kds_published_screens.published_at.
+  published_at: string | null
+  unpublished: boolean
 }
 
 interface ListResponse {
@@ -132,7 +136,13 @@ export default function KdsV3ScreensPage() {
               {screens.map((screen) => (
                 <li key={screen.id} className="flex items-center justify-between px-4 py-3">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-gray-900">{screen.name}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-sm font-medium text-gray-900">{screen.name}</p>
+                      <PublishStatusBadge
+                        unpublished={screen.unpublished}
+                        publishedAt={screen.published_at}
+                      />
+                    </div>
                     <p className="mt-0.5 text-xs text-gray-500">
                       Grid {screen.grid_rows}×{screen.grid_cols} · Theme {screen.theme} ·{' '}
                       {screen.box_count} {screen.box_count === 1 ? 'box' : 'boxes'}

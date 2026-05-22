@@ -189,7 +189,7 @@ describe('MOK-158 — resolveScreenForRender', () => {
       layout_mode: 'variation_column_header',
     })
 
-    const resolved = await resolveScreenForRender(supabase, tenantA.id, screen.id)
+    const resolved = await resolveScreenForRender(supabase, tenantA.id, screen.id, { source: 'draft' })
     expect(resolved).not.toBeNull()
     expect(resolved!.screen.name).toBe('Test 1')
     expect(resolved!.boxes).toHaveLength(1)
@@ -244,7 +244,7 @@ describe('MOK-158 — resolveScreenForRender', () => {
       layout_mode_b: 'simple_list',
     })
 
-    const resolved = await resolveScreenForRender(supabase, tenantA.id, screen.id)
+    const resolved = await resolveScreenForRender(supabase, tenantA.id, screen.id, { source: 'draft' })
     expect(resolved!.boxes).toHaveLength(1)
     const box = resolved!.boxes[0]
     expect(box.division).toBe('vertical')
@@ -276,7 +276,7 @@ describe('MOK-158 — resolveScreenForRender', () => {
 
     await seedBox(tenantA, screen.id, { position: 1, square_menu_group_id: group.id })
 
-    const resolved = await resolveScreenForRender(supabase, tenantA.id, screen.id)
+    const resolved = await resolveScreenForRender(supabase, tenantA.id, screen.id, { source: 'draft' })
     const box = resolved!.boxes[0]
     if (box.slotA.kind !== 'menu_group') throw new Error('expected menu_group')
     expect(box.slotA.group.items.map((it) => it.display_name)).toEqual(['Caffè'])
@@ -299,7 +299,7 @@ describe('MOK-158 — resolveScreenForRender', () => {
 
     await seedBox(tenantA, screen.id, { position: 1, square_menu_group_id: group.id })
 
-    const resolved = await resolveScreenForRender(supabase, tenantA.id, screen.id)
+    const resolved = await resolveScreenForRender(supabase, tenantA.id, screen.id, { source: 'draft' })
     const box = resolved!.boxes[0]
     if (box.slotA.kind !== 'menu_group') throw new Error('expected menu_group')
     expect(box.slotA.group.items[0].display_name).toBe('Café Latte')
@@ -310,7 +310,7 @@ describe('MOK-158 — resolveScreenForRender', () => {
     const supabase = getServiceClient()
     const screenB = await seedScreen(tenantB, { name: 'B screen' })
 
-    const resolved = await resolveScreenForRender(supabase, tenantA.id, screenB.id)
+    const resolved = await resolveScreenForRender(supabase, tenantA.id, screenB.id, { source: 'draft' })
     expect(resolved).toBeNull()
   })
 
@@ -330,7 +330,7 @@ describe('MOK-158 — resolveScreenForRender', () => {
       header_override: 'Welcome',
     })
 
-    const resolved = await resolveScreenForRender(supabase, tenantA.id, screen.id)
+    const resolved = await resolveScreenForRender(supabase, tenantA.id, screen.id, { source: 'draft' })
     const box = resolved!.boxes[0]
     if (box.slotA.kind !== 'image_only') throw new Error('expected image_only')
     expect(box.slotA.image).not.toBeNull()

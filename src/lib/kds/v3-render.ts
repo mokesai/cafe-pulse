@@ -61,6 +61,14 @@ export interface SlotFormatting {
   /** Phase 6 addendum — optional second-line subtitle. Operator controls
    *  the content; the renderer styles it as muted secondary text. */
   subtitle_override: string | null
+  /** Phase 6.5 (MOK-159) — variation emphasis for variation_column_header.
+   *  - explicit_none = true  → no column emphasis at all
+   *  - name set, explicit_none = false → emphasize column whose canonical
+   *    name matches (case-insensitive)
+   *  - name null, explicit_none = false → "Auto" — falls back to the
+   *    phase 6 regex heuristic (/^(grande|medium|m)$/i) */
+  emphasized_variation_name: string | null
+  emphasized_variation_explicit_none: boolean
 }
 
 /**
@@ -169,6 +177,11 @@ interface BoxRow {
   box_border: BoxBorder
   box_radius: BoxRadius
   box_background: BoxBackground
+  // Phase 6.5 (MOK-159) — variation emphasis (per slot).
+  emphasized_variation_name: string | null
+  emphasized_variation_explicit_none: boolean
+  emphasized_variation_name_b: string | null
+  emphasized_variation_explicit_none_b: boolean
 }
 
 interface CategoryRow {
@@ -213,37 +226,63 @@ interface OverrideRow {
 // Main entry point
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Phase 6.5 (MOK-159) — controls which set of tables the screen + boxes are
+ * pulled from:
+ *   - 'published' (default) → snapshot tables (kds_published_screens +
+ *     kds_published_grid_boxes). Used by the Pi-facing route.
+ *   - 'draft' → live draft tables (kds_screens + kds_grid_boxes). Used by
+ *     the admin preview tab + the standalone admin preview page so the
+ *     operator sees their unsaved-but-saved iteration immediately.
+ *
+ * Override + image + menu-group resolution is unchanged across sources —
+ * only the screen-composition layer is snapshotted. Square data, display
+ * overrides, and aesthetic images are always live.
+ */
+export type RenderSource = 'published' | 'draft'
+
+interface ResolveOptions {
+  source?: RenderSource
+}
+
 export async function resolveScreenForRender(
   supabase: SupabaseClient,
   tenantId: string,
   screenId: string,
+  opts: ResolveOptions = {},
 ): Promise<ResolvedScreen | null> {
+  const source: RenderSource = opts.source ?? 'published'
+  const screensTable = source === 'published' ? 'kds_published_screens' : 'kds_screens'
+  const boxesTable = source === 'published' ? 'kds_published_grid_boxes' : 'kds_grid_boxes'
+
   // Step 1: screen + boxes in parallel.
   const [screenRes, boxesRes] = await Promise.all([
     supabase
-      .from('kds_screens')
+      .from(screensTable)
       .select('id, tenant_id, name, grid_rows, grid_cols, theme')
       .eq('id', screenId)
       .eq('tenant_id', tenantId)
       .maybeSingle(),
     supabase
-      .from('kds_grid_boxes')
+      .from(boxesTable)
       .select(
         'id, position, row_start, col_start, row_span, col_span, ' +
           'box_type, header_override, square_menu_group_id, aesthetic_image_id, ' +
           'division, box_type_b, header_override_b, square_menu_group_id_b, aesthetic_image_id_b, ' +
           'layout_mode, price_display_mode, density, title_size, title_align, ' +
           'layout_mode_b, price_display_mode_b, density_b, title_size_b, title_align_b, ' +
-          'subtitle_override, subtitle_override_b, box_border, box_radius, box_background',
+          'subtitle_override, subtitle_override_b, box_border, box_radius, box_background, ' +
+          'emphasized_variation_name, emphasized_variation_explicit_none, ' +
+          'emphasized_variation_name_b, emphasized_variation_explicit_none_b',
       )
       .eq('tenant_id', tenantId)
       .eq('screen_id', screenId)
       .order('position', { ascending: true }),
   ])
 
-  if (screenRes.error) throw new Error(`kds_screens fetch: ${screenRes.error.message}`)
+  if (screenRes.error) throw new Error(`${screensTable} fetch: ${screenRes.error.message}`)
   if (!screenRes.data) return null
-  if (boxesRes.error) throw new Error(`kds_grid_boxes fetch: ${boxesRes.error.message}`)
+  if (boxesRes.error) throw new Error(`${boxesTable} fetch: ${boxesRes.error.message}`)
 
   const screen = screenRes.data as ResolvedScreen['screen']
   const boxRows = (boxesRes.data ?? []) as BoxRow[]
@@ -504,6 +543,8 @@ export async function resolveScreenForRender(
       title_align: b.title_align,
       header_override: b.header_override,
       subtitle_override: b.subtitle_override,
+      emphasized_variation_name: b.emphasized_variation_name,
+      emphasized_variation_explicit_none: b.emphasized_variation_explicit_none,
     }
     const slotA = buildSlot(
       b.box_type,
@@ -523,6 +564,8 @@ export async function resolveScreenForRender(
         title_align: b.title_align_b,
         header_override: b.header_override_b,
         subtitle_override: b.subtitle_override_b,
+        emphasized_variation_name: b.emphasized_variation_name_b,
+        emphasized_variation_explicit_none: b.emphasized_variation_explicit_none_b,
       }
       slotB = buildSlot(
         b.box_type_b,
