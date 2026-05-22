@@ -35,11 +35,12 @@ const navigation = [
   { name: 'COGS', href: '/admin/cogs', icon: DollarSign },
   { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
   { name: 'Customers', href: '/admin/customers', icon: Users },
-  { name: 'KDS Setup', href: '/admin/kds-config', icon: Monitor },
-  // KDS v3 collapses to a single sidebar entry; sub-areas live as tabs
-  // inside /admin/kds-v3/* via the shared layout in that route segment.
-  // Renames to "KDS Setup" after the phase 7 v2 cutover (MOK-159).
-  { name: 'KDS v3 (beta)', href: '/admin/kds-v3/screens', icon: Monitor },
+  // Phase 7 v2 cutover (MOK-160): the v2 admin shell at /admin/kds-config
+  // is gone; the v3 admin is now the canonical KDS surface. Sidebar entry
+  // renamed from "KDS v3 (beta)" → "KDS Setup". Sub-areas (Screens /
+  // Images / Overrides) live as tabs inside /admin/kds-v3/* via the
+  // shared layout in that route segment.
+  { name: 'KDS Setup', href: '/admin/kds-v3/screens', icon: Monitor },
   { name: 'Team', href: '/admin/team', icon: Users },
   { name: 'Settings', href: '/admin/settings', icon: Settings },
   { name: 'Invoice Pipeline', href: '/admin/settings/invoices', icon: SlidersHorizontal },
