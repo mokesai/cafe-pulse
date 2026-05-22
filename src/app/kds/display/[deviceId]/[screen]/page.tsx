@@ -3,8 +3,8 @@ import { cookies } from 'next/headers'
 import crypto from 'crypto'
 import { createServiceClient } from '@/lib/supabase/server'
 import KDSDynamicScreen from '@/app/kds/components/KDSDynamicScreen'
-import KDSHeartbeat from './KDSHeartbeat'
-import KDSDisplayWrapper from './KDSDisplayWrapper'
+import KDSHeartbeat from '@/components/kds/v3/KDSHeartbeat'
+import KDSDisplayWrapper from '@/components/kds/v3/KDSDisplayWrapper'
 
 export const dynamic = 'force-dynamic'
 
