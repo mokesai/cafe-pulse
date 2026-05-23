@@ -123,8 +123,12 @@ export async function GET(
     'echo "  KDS setup complete!"',
     'echo ""',
     'echo "  Device ID: $DEVICE_ID"',
-    'echo "  Screen 1:  $(jq -r \'.screen_1\' "$CONFIG_FILE")"',
-    'echo "  Screen 2:  $(jq -r \'.screen_2\' "$CONFIG_FILE")"',
+    // MOK-163 (phase 7) — v3-aware: print the screen_*_url path (or an
+    // explicit '(unassigned)' marker), not the legacy 'drinks'/'food' text.
+    'S1=$(jq -r \'.screen_1_url // empty\' "$CONFIG_FILE")',
+    'S2=$(jq -r \'.screen_2_url // empty\' "$CONFIG_FILE")',
+    'echo "  Screen 1:  ${S1:-(unassigned — bind in admin)}"',
+    'echo "  Screen 2:  ${S2:-(unassigned — bind in admin)}"',
     'echo ""',
     'echo "  Reboot to start displaying KDS screens:"',
     'echo "    sudo reboot"',

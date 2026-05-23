@@ -54,10 +54,23 @@ fi
 echo "$BODY" | jq '.' > "$CONFIG_FILE"
 chmod 600 "$CONFIG_FILE"
 
+# MOK-163 (phase 7) — describe slots in v3 terms. screen_*_url comes back as
+# null when the operator hasn't bound a screen yet; show that as
+# `(unassigned)` so the operator knows to bind it in admin.
+fmt_slot() {
+  local path
+  path=$(echo "$BODY" | jq -r ".$1 // empty")
+  if [ -n "$path" ]; then
+    echo "$path"
+  else
+    echo "(unassigned — bind in admin)"
+  fi
+}
+
 echo "✓ Device registered successfully!"
 echo ""
 echo "  Device ID:  $DEVICE_ID"
-echo "  Screen 1:   $(echo "$BODY" | jq -r '.screen_1')"
-echo "  Screen 2:   $(echo "$BODY" | jq -r '.screen_2')"
+echo "  Screen 1:   $(fmt_slot screen_1_url)"
+echo "  Screen 2:   $(fmt_slot screen_2_url)"
 echo "  Config:     $CONFIG_FILE"
 echo ""
