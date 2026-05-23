@@ -37,8 +37,8 @@ This is the first phase the Pi itself consumes end-to-end. Once merged + a real 
 |---|---|---|
 | D1 | Null URLs handled at extraction time | Single source of truth: `path=$(jq -r '.screen_1_url // empty')` → `[ -z "$path" ] && skip`. Eliminates `${API_BASE}null` accidents in any future code path. |
 | D2 | Awaiting-page on unbound slot | Operator-confirmed alternative. New app route `/kds/awaiting/[deviceId]/[slot]` — server component that reads the device's bound URL for that slot via the Phase 5 helper. If bound, `redirect()` to the v3 page. If unbound, render "Waiting for screen assignment" + device name + admin pointer, with `<meta http-equiv="refresh" content="30">` so the page re-evaluates server-side every 30s and auto-redirects the TV the moment the operator binds it. No Pi reboot needed. |
-| D3 | Heartbeat as inline background loop | `while true; do sleep 300; curl POST /api/kds/heartbeat; done &` started after Chromium is up. Dies with the script. Simpler than a separate `kds-heartbeat.sh` + systemd timer; v1+iterate. Phase 9 (systemd autostart) can lift this into a proper unit later. |
-| D4 | Heartbeat IP discovery | `curl -s ifconfig.me` for public IP, `hostname -I \| awk '{print $1}'` for local. v1: send the local IP only (private network, operator-meaningful). Skip the external lookup. |
+| D3 | Heartbeats stay in the browser, not bash | `src/components/kds/v3/KDSHeartbeat.tsx` already POSTs `/api/kds/heartbeat` every 60s while the v3 page is mounted. We render the same component inside the awaiting page so the Pi shows "online" even while unbound. **No bash heartbeat loop needed** — supersedes the original D3 plan. |
+| D4 | Token plumbing via `?token=` query param | The v3 renderer reads `kds_device_token` cookie OR `?token=` searchParam. The kiosk script today appends neither, which means `/kds/v3/...` would 404 on first nav. Phase 7 always appends `?token=$AUTH_TOKEN` for both the v3 URL and the awaiting URL. Token is constant per device, so simple string interpolation. |
 | D5 | Drop legacy `screen_1` / `screen_2` echoes | Replace with v3-aware lines that show the bound screen name (resolved client-side from the response, which already exposes `screen_1_id`/`screen_2_id`). When unassigned, print `(unassigned — bind in admin)`. |
 | D6 | Single Chromium-per-slot decision | If `screen_1_url` is empty → skip slot 1. If `screen_2_url` empty → skip slot 2 (also when no HDMI-2 attached, as today). Per slot, independent. |
 | D7 | No bash tests | shellcheck + manual walk in Phase 10. v1+iterate. |
@@ -49,9 +49,12 @@ This is the first phase the Pi itself consumes end-to-end. Once merged + a real 
 
 **File:** `src/app/kds/awaiting/[deviceId]/[slot]/page.tsx` (new)
 
-Server component. Reads the device by id, picks `screen_<slot>_id` (slot ∈ {1,2}). If bound, `redirect('/kds/v3/<deviceId>/<screenId>')`. Else render a black-background "Waiting for screen assignment" UI showing the device name and the admin URL. Adds `<meta http-equiv="refresh" content="30">` so a full re-render fires every 30s — the moment the operator binds the slot in admin, the next refresh server-redirects the TV without a Pi reboot.
-
-Public route, no token. The screen pages themselves at `/kds/v3/...` are public; this is just a sibling waiting state. Server-side lookup uses `createServiceClient()` + the device UUID (the operator's "secret" is the SD-card-baked setup code, not the device id).
+Server component, same auth pattern as `/kds/v3/[deviceId]/[screenId]/page.tsx`:
+- Read token from `kds_device_token` cookie OR `?token=` searchParam. 404 if missing.
+- Hash → lookup device by `(id, auth_token=hashed)`. 404 on miss (no leaking which condition failed).
+- Pick `screen_<slot>_id` (slot must be `'1'` or `'2'`; anything else 404s).
+- If bound: `redirect('/kds/v3/<deviceId>/<screenId>?token=<token>')` — token preserved so the v3 page authenticates without a cookie round-trip.
+- Else: render black-background "Waiting for screen assignment" UI showing device name + admin URL, with `<meta http-equiv="refresh" content="30">` for server-side re-eval every 30s, and `<KDSHeartbeat deviceId={...} authToken={...} screen="awaiting-{slot}" />` so the Pi shows "online" in admin while waiting.
 
 **Commit:** `feat(kds-v3-pi): MOK-163 T1 — awaiting page for unbound screen slots`
 
@@ -62,10 +65,10 @@ Public route, no token. The screen pages themselves at `/kds/v3/...` are public;
 Key changes:
 - `SCREEN1_PATH=$(jq -r '.screen_1_url // empty' "$CONFIG_FILE")` — extract once with `// empty`, never build `${API_BASE}null`.
 - Drop the L74–78 jq-write-back block. It's stale-state-on-disk prone to drift; always read fresh from server, fall back to cached file if server unreachable.
-- Per slot: if URL non-empty → use it; if empty → use `${API_BASE}/kds/awaiting/${DEVICE_ID}/${slot}`. Either way, one Chromium per connected HDMI output. Slot independence — no early-exit if slot 2 unbound.
-- After Chromium launches, spawn a background heartbeat loop: `while sleep 300; do curl -s -X POST -H "Authorization: Bearer $AUTH_TOKEN" -d "{\"device_id\":\"$DEVICE_ID\",\"ip_address\":\"$(hostname -I | awk '{print $1}')\"}" "$API_BASE/api/kds/heartbeat"; done &`. Log non-200 responses but don't kill the kiosk.
+- Per slot: if `screen_<n>_url` non-empty → URL is `${API_BASE}${path}?token=${AUTH_TOKEN}`; if empty → URL is `${API_BASE}/kds/awaiting/${DEVICE_ID}/${n}?token=${AUTH_TOKEN}`. Either way Chromium launches on the corresponding output. Slot independence — no early-exit if only one is bound.
+- No bash heartbeat loop. `KDSHeartbeat` in both the v3 page and the awaiting page handles it browser-side every 60s.
 
-**Commit:** `feat(kds-v3-pi): MOK-163 T2 — kiosk script: null guard, per-slot routing, heartbeat`
+**Commit:** `feat(kds-v3-pi): MOK-163 T2 — kiosk script: null guard, per-slot routing, token append`
 
 ### T3 — kds-register.sh: drop legacy text echoes
 
@@ -110,7 +113,7 @@ Run `shellcheck` on both shell scripts. Fix any warnings (likely a handful of qu
 | Acceptance | Met by |
 |---|---|
 | Kiosk script never navigates Chromium to a `${API_BASE}null` URL | T2 (extraction guard) |
-| Pi sends periodic heartbeats so admin status lights up | T2 (background loop, 5-min cadence) |
+| Pi sends periodic heartbeats so admin status lights up | T1 + T2 — browser-side `KDSHeartbeat` on both the v3 page (existing) and the awaiting page (new); kiosk script appends `?token=` so the page authenticates |
 | Operator-visible script output drops `screen_1`/`screen_2` legacy text | T3 + T4 |
 | Unbound slot shows an operator-friendly waiting state instead of crashing | T1 (awaiting page) + T2 (kiosk routes to it) |
 | Operator binding a screen mid-boot reaches the TV without a reboot | T1 (meta-refresh redirect on server-side eval) |
