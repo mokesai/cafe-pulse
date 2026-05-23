@@ -2,10 +2,22 @@
 # KDS Kiosk Launcher for Raspberry Pi
 # Runs on boot via .bash_profile → startx
 #
+# MOK-163 (KDS Pi Deployment phase 7) — v3-aware:
+#   - Reads screen_1_url / screen_2_url from the v3 config endpoint
+#   - Per-slot independent: each HDMI output goes to its bound URL OR the
+#     awaiting page if unbound (no Chromium navigation to `${API_BASE}null`)
+#   - Appends ?token=$AUTH_TOKEN on every Chromium URL — the v3 page reads it
+#     from the searchParam since the kiosk doesn't go through the browser
+#     for the /api/kds/register step that would otherwise set the cookie
+#   - Heartbeats are sent browser-side by KDSHeartbeat (both the v3 page and
+#     the awaiting page mount it), so this script doesn't do its own loop
+#
 # Boot sequence:
 #   1. Check if device is registered (kds-config.json has auth_token)
-#   2. If not: attempt registration with setup_code, or launch browser to setup page
-#   3. If yes: fetch latest config, launch dual Chromium kiosk windows
+#   2. If not: attempt registration with setup_code, or launch browser to
+#      setup page for manual code entry
+#   3. If yes: fetch latest config from server, launch one Chromium per
+#      connected HDMI output (bound URL or awaiting URL)
 
 set -e
 
@@ -67,27 +79,41 @@ LATEST=$(curl -s -w "\n%{http_code}" \
 HTTP_CODE=$(echo "$LATEST" | tail -1)
 BODY=$(echo "$LATEST" | sed '$d')
 
+# Prefer server response; fall back to cached config on any error so a
+# transient network blip doesn't black out the display on boot.
 if [ "$HTTP_CODE" = "200" ]; then
-  # Update screen URLs if assignments changed
-  NEW_S1=$(echo "$BODY" | jq -r '.screen_1_url // empty')
-  NEW_S2=$(echo "$BODY" | jq -r '.screen_2_url // empty')
-  if [ -n "$NEW_S1" ]; then
-    jq --arg s1 "$NEW_S1" --arg s2 "$NEW_S2" \
-      '.screen_1_url = $s1 | .screen_2_url = $s2' "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" \
-      && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
-    log "Config updated from server."
-  fi
+  SOURCE_JSON="$BODY"
 else
   log "Warning: Could not fetch latest config (HTTP $HTTP_CODE). Using cached config."
+  SOURCE_JSON=$(cat "$CONFIG_FILE")
 fi
 
-# ─── Read Display URLs ────────────────────────────────────────────────────────
+# ─── Resolve Per-Slot URLs ────────────────────────────────────────────────────
+#
+# `// empty` ensures jq emits an empty string (not "null") when the column
+# is unbound, so the [-z] guards work correctly.
+SCREEN1_PATH=$(echo "$SOURCE_JSON" | jq -r '.screen_1_url // empty')
+SCREEN2_PATH=$(echo "$SOURCE_JSON" | jq -r '.screen_2_url // empty')
 
-SCREEN1_URL="${API_BASE}$(jq -r '.screen_1_url' "$CONFIG_FILE")"
-SCREEN2_URL="${API_BASE}$(jq -r '.screen_2_url' "$CONFIG_FILE")"
+# URL-encode the token (alnum hex is safe but encodeURI-equivalent for
+# defense in depth).
+ENC_TOKEN=$(printf '%s' "$AUTH_TOKEN" | jq -sRr @uri)
 
-log "Screen 1: $SCREEN1_URL"
-log "Screen 2: $SCREEN2_URL"
+build_slot_url() {
+  local slot="$1"
+  local path="$2"
+  if [ -n "$path" ]; then
+    echo "${API_BASE}${path}?token=${ENC_TOKEN}"
+  else
+    echo "${API_BASE}/kds/awaiting/${DEVICE_ID}/${slot}?token=${ENC_TOKEN}"
+  fi
+}
+
+SCREEN1_URL=$(build_slot_url 1 "$SCREEN1_PATH")
+SCREEN2_URL=$(build_slot_url 2 "$SCREEN2_PATH")
+
+log "Screen 1: ${SCREEN1_PATH:-(unassigned — awaiting page)} → $SCREEN1_URL"
+log "Screen 2: ${SCREEN2_PATH:-(unassigned — awaiting page)} → $SCREEN2_URL"
 
 # ─── Display Setup ────────────────────────────────────────────────────────────
 
@@ -99,7 +125,7 @@ xset s noblank 2>/dev/null || true
 # Hide cursor
 unclutter -idle 0.5 -root &>/dev/null &
 
-# ─── Launch Dual Chromium ─────────────────────────────────────────────────────
+# ─── Launch Chromium per HDMI Output ──────────────────────────────────────────
 
 # Detect chromium binary (newer Pi OS uses 'chromium', older uses 'chromium-browser')
 if command -v chromium &>/dev/null; then
@@ -131,7 +157,8 @@ log "Launching Chromium on HDMI-1..."
 DISPLAY=:0.0 $CHROMIUM "${CHROMIUM_FLAGS[@]}" "$SCREEN1_URL" &>/dev/null &
 PID1=$!
 
-# Check if second display is connected
+# Check if second display is connected (X11-era detection — Phase 8 will
+# replace with Wayland-aware compositor logic).
 if xrandr 2>/dev/null | grep -q "HDMI-2 connected"; then
   log "Launching Chromium on HDMI-2..."
   DISPLAY=:0.1 $CHROMIUM "${CHROMIUM_FLAGS[@]}" "$SCREEN2_URL" &>/dev/null &
