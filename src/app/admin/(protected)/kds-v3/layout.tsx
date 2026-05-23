@@ -36,6 +36,11 @@ const TABS: Tab[] = [
     href: '/admin/kds-v3/display-overrides',
     match: (p) => p.startsWith('/admin/kds-v3/display-overrides'),
   },
+  {
+    name: 'Devices',
+    href: '/admin/kds-v3/devices',
+    match: (p) => p.startsWith('/admin/kds-v3/devices'),
+  },
 ]
 
 export default function KdsV3Layout({ children }: { children: React.ReactNode }) {
