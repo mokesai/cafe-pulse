@@ -1,0 +1,74 @@
+# Cafe Pulse KDS — sway compositor config
+#
+# MOK-49 / MOK-50 (KDS Pi Deployment phase 8).
+#
+# This file is installed at ~/.config/sway/config by the curl-bash setup
+# flow (/api/kds/setup/[setupCode]). Sway is launched as a systemd user
+# service (~/.config/systemd/user/kds-kiosk.service) on boot, with linger
+# enabled so no console login is required.
+#
+# Multi-output story: two Chromium instances launched with distinct
+# --class= app-ids. Each app-id is assigned to a workspace which is pinned
+# to a specific HDMI output. Sway routes each window to the correct TV
+# without xrandr-style detection logic in the kiosk script.
+
+### Outputs ###################################################################
+# Enable both HDMI outputs unconditionally. If only one is connected, sway
+# silently parks the second workspace in a hidden state — no error, no
+# crash. Output names follow the wlroots convention on Pi OS Bookworm.
+output HDMI-A-1 enable
+output HDMI-A-2 enable
+
+# Never blank or suspend. Kiosk displays are always-on.
+output * dpms on
+
+### Workspaces ################################################################
+# Pin workspace 1 to HDMI-A-1 (TV 1, screen slot 1).
+# Pin workspace 2 to HDMI-A-2 (TV 2, screen slot 2).
+workspace 1 output HDMI-A-1
+workspace 2 output HDMI-A-2
+
+### Window routing ############################################################
+# kds-kiosk.sh launches two Chromium instances with --class=kds-screen-{1,2}.
+# Chromium under Wayland exposes --class as the wl_surface app_id, so sway's
+# assign rules match and route each browser window to the right workspace.
+assign [app_id="kds-screen-1"] workspace 1
+assign [app_id="kds-screen-2"] workspace 2
+
+# Always fullscreen the routed windows so the KDS render fills each TV
+# without title bars, gaps, or sway's tiling layout intervening.
+for_window [app_id="kds-screen-1"] fullscreen enable
+for_window [app_id="kds-screen-2"] fullscreen enable
+
+### Kiosk niceties ############################################################
+# Hide window decorations entirely.
+default_border none
+default_floating_border none
+gaps inner 0
+gaps outer 0
+font monospace 0
+
+# Hide the cursor after 1s of inactivity. Replaces the v2 `unclutter` daemon.
+seat * hide_cursor 1000
+
+# Focus-follows-mouse off — no mouse in a kiosk; eliminates accidental focus
+# changes if a tech happens to plug in a keyboard for debugging.
+focus_follows_mouse no
+
+# Don't pop a 'sway started' message.
+exec swaymsg 'output * adaptive_sync off' 2>/dev/null || true
+
+### Autostart ################################################################
+# The kiosk script launches Chromium instances and waits on their PIDs.
+# Logs go to ~/kds-kiosk.log and the systemd journal (via the unit's
+# StandardOutput).
+exec /home/pi/kds-kiosk.sh
+
+### Debug / break-glass ######################################################
+# If you ever need to escape the kiosk to a terminal for debugging, plug in
+# a USB keyboard and press Mod4+Return. There's no default Mod for sway out
+# of the box on a fresh install, so this is the lone binding we add — and
+# only because operator debugging is the realistic on-Pi escape hatch.
+# Comment out for hardened production builds.
+set $mod Mod4
+bindsym $mod+Return exec foot
