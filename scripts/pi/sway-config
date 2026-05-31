@@ -46,7 +46,14 @@ default_border none
 default_floating_border none
 gaps inner 0
 gaps outer 0
-font monospace 0
+# Sway requires a positive font size even when there are no decorations to
+# render. Setting to 8 (was: 0, which sway rejects as 'Invalid font size').
+font pango:monospace 8
+
+# We don't run any X11 apps under sway — Chromium uses Ozone Wayland
+# natively. Skip Xwayland entirely so sway doesn't error trying to load
+# the (intentionally uninstalled) Xwayland binary.
+xwayland disable
 
 # Hide the cursor after 1s of inactivity. Replaces the v2 `unclutter` daemon.
 seat * hide_cursor 1000
@@ -54,9 +61,6 @@ seat * hide_cursor 1000
 # Focus-follows-mouse off — no mouse in a kiosk; eliminates accidental focus
 # changes if a tech happens to plug in a keyboard for debugging.
 focus_follows_mouse no
-
-# Don't pop a 'sway started' message.
-exec swaymsg 'output * adaptive_sync off' 2>/dev/null || true
 
 ### Autostart ################################################################
 # The kiosk script launches Chromium instances and waits on their PIDs.
