@@ -146,7 +146,14 @@ export async function GET(
     'echo "    sudo reboot"',
     'echo "==========================================="',
     'echo ""',
-    'read -p "  Reboot now? [y/N] " -n 1 -r',
+    // When this script is run via `curl … | bash`, stdin is the script
+    // body itself. A bare `read -n 1` would consume the next line's first
+    // char (the `e` from `echo`) and bash then complains about `cho:
+    // command not found`. Redirecting from /dev/tty reads from the
+    // operator's terminal instead. If there's no controlling tty (rare
+    // for the install flow) the `|| true` keeps `set -e` from killing
+    // an otherwise-successful install.
+    'read -p "  Reboot now? [y/N] " -n 1 -r </dev/tty || true',
     'echo',
     'if [[ $REPLY =~ ^[Yy]$ ]]; then',
     '  sudo reboot',
