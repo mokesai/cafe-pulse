@@ -3,13 +3,31 @@ import { readFileSync } from 'fs'
 import { join } from 'path'
 
 /**
- * GET /api/kds/kiosk-script?type=kiosk|register
- * Serves Pi-side shell scripts for the KDS kiosk setup.
+ * GET /api/kds/kiosk-script?type=kiosk|register|sway-config|systemd-unit
+ *
+ * Serves Pi-side artifacts that the curl-bash setup script drops onto the
+ * Pi. Phase 8 (MOK-49/50) added sway-config (the compositor config) and
+ * systemd-unit (the kds-kiosk.service file) on top of the original
+ * kiosk + register pair.
  */
+const TYPE_TO_FILENAME: Record<string, string> = {
+  kiosk: 'kds-kiosk.sh',
+  register: 'kds-register.sh',
+  'sway-config': 'sway-config',
+  'systemd-unit': 'kds-kiosk.service',
+}
+
 export async function GET(request: NextRequest) {
   const type = request.nextUrl.searchParams.get('type') ?? 'kiosk'
+  const filename = TYPE_TO_FILENAME[type]
 
-  const filename = type === 'register' ? 'kds-register.sh' : 'kds-kiosk.sh'
+  if (!filename) {
+    return new NextResponse(
+      `echo "Error: Unknown kiosk-script type '${type}'"\nexit 1\n`,
+      { status: 400, headers: { 'Content-Type': 'text/plain' } },
+    )
+  }
+
   const scriptPath = join(process.cwd(), 'scripts', 'pi', filename)
 
   try {
