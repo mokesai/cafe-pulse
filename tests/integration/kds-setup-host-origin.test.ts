@@ -90,6 +90,32 @@ describe('MOK-166 — setup script uses Host header for API_BASE', () => {
     )
   })
 
+  it('writes KDS_API_BASE to ~/.kds-env so the kiosk inherits the origin (MOK-167)', async () => {
+    const setupCode = `MOK167-${crypto.randomBytes(2).toString('hex').toUpperCase()}`
+    await seedPendingDevice(setupCode)
+
+    const req = buildSetupRequest({
+      setupCode,
+      url: 'http://localhost:3000/api/kds/setup/' + setupCode,
+      host: 'bigcafe.local-macbook:3000',
+    })
+
+    const res = await setupGET(req as Parameters<typeof setupGET>[0], {
+      params: Promise.resolve({ setupCode }),
+    })
+    const body = await res.text()
+    // The env-file write uses the same Host-derived origin so the kiosk
+    // script's `[ -f "$HOME/.kds-env" ] && . "$HOME/.kds-env"` picks it up
+    // before defaulting to https://cafepulse.com.
+    expect(body).toContain(
+      `echo 'export KDS_API_BASE="http://bigcafe.local-macbook:3000"' > "$HOME/.kds-env"`,
+    )
+    expect(body).toContain('chmod 600 "$HOME/.kds-env"')
+    // Re-runs are idempotent because the redirect is `>` (overwrite), not
+    // `>>` (append) — verify we don't accidentally regress to append.
+    expect(body).not.toContain('>> "$HOME/.kds-env"')
+  })
+
   it('honors x-forwarded-proto for https in front of a proxy', async () => {
     const setupCode = `MOK166-${crypto.randomBytes(2).toString('hex').toUpperCase()}`
     await seedPendingDevice(setupCode)

@@ -21,6 +21,12 @@
 
 set -e
 
+# MOK-167 — Source operator-configured env (KDS_API_BASE, etc.) if the
+# setup script wrote one. Decouples kiosk config from .bash_profile so
+# the file works under startx today and under systemd in Phase 9.
+# shellcheck source=/dev/null
+[ -f "$HOME/.kds-env" ] && . "$HOME/.kds-env"
+
 CONFIG_FILE="$HOME/kds-config.json"
 REGISTER_SCRIPT="$HOME/kds-register.sh"
 API_BASE="${KDS_API_BASE:-https://cafepulse.com}"
