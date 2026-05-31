@@ -3,18 +3,18 @@ import { readFileSync } from 'fs'
 import { join } from 'path'
 
 /**
- * GET /api/kds/kiosk-script?type=kiosk|register|sway-config|systemd-unit
+ * GET /api/kds/kiosk-script?type=kiosk|register|sway-config|greetd-config
  *
  * Serves Pi-side artifacts that the curl-bash setup script drops onto the
  * Pi. Phase 8 (MOK-49/50) added sway-config (the compositor config) and
- * systemd-unit (the kds-kiosk.service file) on top of the original
- * kiosk + register pair.
+ * greetd-config (the display-manager config that launches sway with a
+ * proper PAM session) on top of the original kiosk + register pair.
  */
 const TYPE_TO_FILENAME: Record<string, string> = {
   kiosk: 'kds-kiosk.sh',
   register: 'kds-register.sh',
   'sway-config': 'sway-config',
-  'systemd-unit': 'kds-kiosk.service',
+  'greetd-config': 'greetd-config.toml',
 }
 
 export async function GET(request: NextRequest) {

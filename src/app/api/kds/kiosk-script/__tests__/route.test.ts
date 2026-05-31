@@ -52,15 +52,21 @@ describe('GET /api/kds/kiosk-script', () => {
     expect(body).toContain('exec /home/pi/kds-kiosk.sh')
   })
 
-  it('serves kds-kiosk.service for type=systemd-unit (MOK-49/50)', async () => {
-    const res = await GET(buildRequest('systemd-unit'))
+  it('serves greetd-config.toml for type=greetd-config (MOK-49/50)', async () => {
+    // greetd is the system-level display manager that replaces the v2
+    // .bash_profile + startx dance AND the systemd-user + linger approach
+    // (which can't grant sway a PAM session). Phase 8 settled on this
+    // after the user-unit path failed to acquire a seat at boot.
+    const res = await GET(buildRequest('greetd-config'))
     expect(res.status).toBe(200)
     const body = await res.text()
-    expect(body).toContain('[Unit]')
-    expect(body).toContain('[Service]')
-    expect(body).toContain('ExecStart=/usr/bin/sway --config %h/.config/sway/config')
-    expect(body).toContain('[Install]')
-    expect(body).toContain('WantedBy=default.target')
+    // greetd config is TOML — anchor on the structural shape and the
+    // sway exec line so changes that break the launch get caught.
+    expect(body).toContain('[terminal]')
+    expect(body).toContain('vt = 1')
+    expect(body).toContain('[default_session]')
+    expect(body).toContain('command = "sway --config /home/pi/.config/sway/config"')
+    expect(body).toContain('user = "pi"')
   })
 
   it('returns 400 with a helpful error for an unknown type', async () => {

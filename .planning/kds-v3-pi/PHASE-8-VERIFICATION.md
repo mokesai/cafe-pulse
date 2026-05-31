@@ -112,11 +112,14 @@ Replaces the v2-era X11 / startx / `.bash_profile` autostart stack with a Waylan
 
 ---
 
-## Issues to capture
+## Issues captured
 
-(Fill as you walk — anything that surprises, fails, or needs a follow-up.)
+- **2026-05-31 — sway config errors blocking startup.** First operator walkthrough hit two fatal config errors before sway could attempt to grab a seat: `font monospace 0` (sway requires a positive font size) and a Xwayland load attempt (not installed). Fixed in commit `6593ad6` — changed to `font pango:monospace 8` and added `xwayland disable`.
+- **2026-05-31 — systemd-user + linger cannot grant sway a seat.** After config fix, sway ran cleanly from SSH and rendered the awaiting page to both TVs. But the systemd-user service still restart-looped with exit 1 and no logs. Root cause: `loginctl enable-linger` does not establish a PAM-managed login session, so seatd/logind refuse to grant sway a seat. Resolution: replaced systemd-user + linger with **greetd**, a system-level display manager that runs sway under a proper PAM session. greetd's packaged systemd unit has `Conflicts=getty@tty1.service` built in, so getty disables itself when greetd starts. Implemented in commit(s) following.
 
-- [ ] _(empty)_
+## Issues to capture (post-greetd walk)
+
+- [ ] _(empty — fill as you re-walk)_
 
 ---
 
