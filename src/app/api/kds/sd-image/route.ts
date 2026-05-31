@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { getRequestOrigin } from '@/lib/http/request-origin'
 
 /**
  * POST /api/kds/sd-image
@@ -35,7 +36,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Device not found or already registered' }, { status: 404 })
     }
 
-    const origin = request.nextUrl.origin
+    // MOK-166 — Host-derived origin so the README's curl instructions
+    // point at the right host in dev. nextUrl.origin reports the bind
+    // address in dev with -H 0.0.0.0; Host has what the client used.
+    const origin = getRequestOrigin(request)
 
     // Generate wpa_supplicant.conf content
     const wpaSupplicant = `country=US
