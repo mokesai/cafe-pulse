@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { getRequestOrigin } from '@/lib/http/request-origin'
 
 /**
  * GET /api/kds/setup/:setupCode
@@ -38,7 +39,10 @@ export async function GET(
     })
   }
 
-  const origin = request.nextUrl.origin
+  // MOK-166 — read from Host header so the dev-server origin (e.g.
+  // bigcafe.local-macbook:3000) propagates into the generated bash. Falls
+  // back to nextUrl.origin when there's no Host header.
+  const origin = getRequestOrigin(request)
 
   // Build script as array of lines to avoid template literal / bash variable collision
   const lines = [
