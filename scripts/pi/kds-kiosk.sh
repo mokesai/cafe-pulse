@@ -93,19 +93,43 @@ AUTH_TOKEN=$(jq -r '.auth_token' "$CONFIG_FILE")
 
 log "Device $DEVICE_ID registered. Fetching latest config..."
 
-LATEST=$(curl -s -w "\n%{http_code}" \
-  -H "Authorization: Bearer $AUTH_TOKEN" \
-  "${API_BASE}/api/kds/device/${DEVICE_ID}/config" 2>/dev/null)
-
-HTTP_CODE=$(echo "$LATEST" | tail -1)
-BODY=$(echo "$LATEST" | sed '$d')
+# Retry the config fetch — at boot, greetd starts sway before the network
+# is fully up. curl's exit code (6 DNS, 7 connect refused, 28 timeout)
+# would otherwise trip set -e and kill the script silently, leaving the
+# kiosk blank. Use a short loop with backoff; total ~30s of patience.
+# `set +e` around the curl so a temporary failure doesn't propagate.
+HTTP_CODE=""
+BODY=""
+RETRY=0
+MAX_RETRIES=10
+while [ "$RETRY" -lt "$MAX_RETRIES" ]; do
+  set +e
+  LATEST=$(curl -s -w "\n%{http_code}" \
+    -H "Authorization: Bearer $AUTH_TOKEN" \
+    "${API_BASE}/api/kds/device/${DEVICE_ID}/config" 2>/dev/null)
+  CURL_EXIT=$?
+  set -e
+  if [ "$CURL_EXIT" = "0" ]; then
+    HTTP_CODE=$(echo "$LATEST" | tail -1)
+    BODY=$(echo "$LATEST" | sed '$d')
+    break
+  fi
+  RETRY=$((RETRY + 1))
+  log "Network not ready (curl exit $CURL_EXIT). Retry $RETRY/$MAX_RETRIES in 3s..."
+  sleep 3
+done
 
 # Prefer server response; fall back to cached config on any error so a
-# transient network blip doesn't black out the displays on boot.
+# persistent network blip doesn't black out the displays. The awaiting
+# pages and v3 pages both auto-refresh, so transient outages recover
+# without operator intervention once the network comes back.
 if [ "$HTTP_CODE" = "200" ]; then
   SOURCE_JSON="$BODY"
-else
+elif [ -n "$HTTP_CODE" ]; then
   log "Warning: Could not fetch latest config (HTTP $HTTP_CODE). Using cached config."
+  SOURCE_JSON=$(cat "$CONFIG_FILE")
+else
+  log "Warning: Could not reach $API_BASE after $MAX_RETRIES retries. Using cached config."
   SOURCE_JSON=$(cat "$CONFIG_FILE")
 fi
 
