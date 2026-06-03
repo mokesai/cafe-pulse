@@ -44,6 +44,20 @@ CHROMIUM_BASE_FLAGS=(
   --kiosk
   --ozone-platform=wayland
   --enable-features=UseOzonePlatform
+  # Wayland's fractional-scale negotiation defaults Chromium to ~1.25-1.3x
+  # on 1080p TVs (computed from EDID physical-size metadata). For a kiosk
+  # we want 1:1 pixel mapping so the layout fits the screen as designed.
+  --force-device-scale-factor=1
+  # Under sway workspace pinning, the slot-2 Chromium never receives
+  # keyboard focus and Chromium's heuristics mark it "background" —
+  # which throttles setInterval / requestAnimationFrame to glacial rates.
+  # KDSv3Client polls router.refresh() every 30s to pick up operator
+  # publishes; without these flags that interval stretches to many
+  # minutes and the second screen "stops updating". A kiosk window is
+  # always meant to be active.
+  --disable-background-timer-throttling
+  --disable-backgrounding-occluded-windows
+  --disable-renderer-backgrounding
   --noerrdialogs
   --disable-infobars
   --disable-session-crashed-bubble
