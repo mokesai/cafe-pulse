@@ -19,6 +19,20 @@
 output HDMI-A-1 enable
 output HDMI-A-2 enable
 
+# Request 1920x1080@60Hz on every output. sway falls back to the EDID-
+# preferred mode if the requested mode isn't supported, so this is safe
+# to set unconditionally:
+#   - 16:9 1080p TVs use 1920x1080 (perfect 1:1 with the v3 canvas)
+#   - HD-ready 720p TVs that EDID-prefer 1366x768 / 1360x768 still get
+#     upgraded to 1920x1080 when they advertise it (most do)
+#   - 4:3 / lower-spec displays fall back to EDID-preferred and
+#     KDSDisplayWrapper letterboxes to preserve the canvas's 16:9 aspect
+#     (a hardware limitation, not a kiosk bug)
+# Verified hands-on 2026-06-02: a TV showing 1360x768 as EDID-preferred
+# moved to 1920x1080 after this line, eliminating the ~1px wrapper
+# artifact and giving sharper text on the bigger canvas scale.
+output * mode 1920x1080@60Hz
+
 # Never blank or suspend. Kiosk displays are always-on.
 output * dpms on
 
