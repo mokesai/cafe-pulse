@@ -238,13 +238,22 @@ export default function EditScreenPage() {
     void loadResolved()
   }, [tab, loadResolved])
 
-  const onSaved = useCallback(() => {
+  const onSaved = useCallback(async () => {
     // Refresh the editable form data so server-side normalization round-trips
     // (positions, defaults, etc.) are visible without a page transition. The
     // remount-by-key approach reinitializes the form's internal state from the
     // freshly-fetched data without disturbing the tab state.
+    //
+    // Critical ordering: await loadInitial() BEFORE bumping formKey. ScreenForm
+    // reads `initialScreen` only at mount time (useState init, no useEffect
+    // sync). If we bump the key before the fetch completes, the form
+    // remounts and re-initializes from STALE `initial` state — and the
+    // operator sees rows/cols revert to their pre-save values even though
+    // the server stored the new ones. Waiting here means the next render
+    // batches the new `initial` with the new `formKey`, so the remount
+    // sees fresh data.
+    await loadInitial()
     setFormKey((k) => k + 1)
-    void loadInitial()
     // Invalidate the preview so the next switch to the Preview tab re-fetches.
     setResolved(null)
   }, [loadInitial])
