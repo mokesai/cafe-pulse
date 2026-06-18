@@ -128,6 +128,19 @@ const TENANT_CHILD_TABLES = [
   'kds_settings',
   'kds_menu_items',
   'kds_categories',
+  // KDS v3 (phase 1 + 2 + 2.5 + 3 + 4)
+  // kds_grid_boxes has FK CASCADE to kds_screens, but listing both for clarity.
+  // kds_aesthetic_images: FK from kds_grid_boxes is ON DELETE SET NULL, so
+  // dropping boxes first leaves images cleanly droppable.
+  'kds_grid_boxes',
+  'kds_screens',
+  'kds_display_overrides',
+  'kds_aesthetic_images',
+  'square_menu_item_categories',
+  'square_menu_item_variations',
+  'square_menu_items',
+  'square_menu_categories',
+  'square_menu_sync_state',
   // Parents whose cascades cover many children
   'invoices',
   'purchase_orders',
@@ -168,6 +181,245 @@ export async function cleanupTenant(t: TestTenant | undefined): Promise<void> {
   }
 
   await supabase.auth.admin.deleteUser(t.adminUserId).catch(() => {})
+}
+
+/**
+ * MOK-155 / KDS v3 phase 3 — seed a row into the mirrored Square menu groups
+ * table for integration tests that need a tenant-scoped menu group to bind
+ * to. Bypasses the live Square sandbox so tests stay deterministic + isolated.
+ *
+ * Returns the synthetic Square ID so callers can pass it as
+ * `square_menu_group_id` in PUT bodies.
+ */
+export interface SeedTestMenuGroupOptions {
+  name?: string
+  is_deleted?: boolean
+  parentMenuId?: string | null
+  parentMenuName?: string | null
+  itemCount?: number
+}
+
+export async function seedTestMenuGroup(
+  tenant: TestTenant,
+  overrides: SeedTestMenuGroupOptions = {},
+): Promise<{ id: string; name: string }> {
+  const supabase = getServiceClient()
+  const suffix = crypto.randomBytes(3).toString('hex')
+  const groupId = `test-mg-${suffix}`
+  const parentId = overrides.parentMenuId ?? `test-menu-${suffix}`
+  const parentName = overrides.parentMenuName ?? `Test Menu ${suffix}`
+
+  const now = new Date().toISOString()
+
+  // Ensure the parent menu (top-level) row exists. Idempotent on (tenant_id, id).
+  // updated_at is NOT NULL with no default in the mirror schema — sync service
+  // sources it from the Square object's mtime; tests just pin to "now".
+  const { error: parentErr } = await supabase
+    .from('square_menu_categories')
+    .upsert(
+      {
+        tenant_id: tenant.id,
+        id: parentId,
+        name: parentName,
+        is_top_level: true,
+        parent_id: null,
+        ordinal: 0,
+        channels: [],
+        online_visibility: true,
+        square_version: 1,
+        raw_json: {},
+        is_deleted: false,
+        updated_at: now,
+      },
+      { onConflict: 'tenant_id,id' },
+    )
+  if (parentErr) {
+    throw new Error(`Failed to seed parent menu: ${parentErr.message}`)
+  }
+
+  // The group itself.
+  const groupName = overrides.name ?? `Test Group ${suffix}`
+  const { error: groupErr } = await supabase
+    .from('square_menu_categories')
+    .insert({
+      tenant_id: tenant.id,
+      id: groupId,
+      name: groupName,
+      is_top_level: false,
+      parent_id: parentId,
+      ordinal: 0,
+      channels: [],
+      online_visibility: true,
+      square_version: 1,
+      raw_json: {},
+      is_deleted: overrides.is_deleted ?? false,
+      updated_at: now,
+    })
+  if (groupErr) {
+    throw new Error(`Failed to seed menu group: ${groupErr.message}`)
+  }
+
+  // Optionally seed `itemCount` items + memberships so the route's item_count
+  // computation has something to report.
+  const want = overrides.itemCount ?? 0
+  if (want > 0) {
+    const itemRows = Array.from({ length: want }, (_, i) => ({
+      tenant_id: tenant.id,
+      id: `${groupId}-item-${i}`,
+      name: `Item ${i}`,
+      square_version: 1,
+      raw_json: {},
+      is_deleted: false,
+      updated_at: now,
+    }))
+    const { error: itemErr } = await supabase.from('square_menu_items').insert(itemRows)
+    if (itemErr) {
+      throw new Error(`Failed to seed menu items: ${itemErr.message}`)
+    }
+    const membershipRows = itemRows.map((it, i) => ({
+      tenant_id: tenant.id,
+      item_id: it.id,
+      category_id: groupId,
+      ordinal: i,
+    }))
+    const { error: memErr } = await supabase
+      .from('square_menu_item_categories')
+      .insert(membershipRows)
+    if (memErr) {
+      throw new Error(`Failed to seed menu memberships: ${memErr.message}`)
+    }
+  }
+
+  return { id: groupId, name: groupName }
+}
+
+/**
+ * MOK-156 / KDS v3 phase 4 — seed a tenant-scoped row into
+ * kds_aesthetic_images for integration tests that need an image binding to
+ * exist. Bypasses Storage entirely: for source_kind='uploaded' we just
+ * write a synthetic storage_path that points nowhere (route-level upload
+ * validation is the boundary we care about; the actual Storage write is a
+ * third-party concern covered by the manual walk).
+ *
+ * Returns the synthetic image id so callers can pass it as
+ * `aesthetic_image_id` in PUT bodies.
+ */
+export interface SeedTestAestheticImageOptions {
+  source_kind?: 'uploaded' | 'external'
+  name?: string
+  external_url?: string
+  storage_path?: string
+  is_deleted?: boolean
+  alt_text?: string | null
+}
+
+export async function seedTestAestheticImage(
+  tenant: TestTenant,
+  overrides: SeedTestAestheticImageOptions = {},
+): Promise<{ id: string; name: string; source_kind: 'uploaded' | 'external' }> {
+  const supabase = getServiceClient()
+  const suffix = crypto.randomBytes(3).toString('hex')
+  const source_kind = overrides.source_kind ?? 'external'
+  const name = overrides.name ?? `Test image ${suffix}`
+
+  const row: Record<string, unknown> = {
+    tenant_id: tenant.id,
+    name,
+    source_kind,
+    alt_text: overrides.alt_text ?? null,
+    is_deleted: overrides.is_deleted ?? false,
+  }
+  if (source_kind === 'uploaded') {
+    row.storage_path = overrides.storage_path ?? `${tenant.id}/test-${suffix}.png`
+    row.mime_type = 'image/png'
+    row.bytes = 1024
+  } else {
+    row.external_url = overrides.external_url ?? `https://example.com/${suffix}.png`
+  }
+
+  const { data, error } = await supabase
+    .from('kds_aesthetic_images')
+    .insert(row)
+    .select('id, name, source_kind')
+    .single()
+  if (error || !data) {
+    throw new Error(`Failed to seed aesthetic image: ${error?.message}`)
+  }
+  return data as { id: string; name: string; source_kind: 'uploaded' | 'external' }
+}
+
+/**
+ * MOK-157 / KDS v3 phase 5 — seed a Square menu item row directly in the
+ * mirror. Used by display-overrides integration tests that need an item
+ * to bind an override to. Bypasses the live Square sandbox.
+ */
+export interface SeedTestSquareItemOptions {
+  id?: string
+  name?: string
+  is_deleted?: boolean
+}
+
+export async function seedTestSquareItem(
+  tenant: TestTenant,
+  overrides: SeedTestSquareItemOptions = {},
+): Promise<{ id: string; name: string }> {
+  const supabase = getServiceClient()
+  const suffix = crypto.randomBytes(3).toString('hex')
+  const id = overrides.id ?? `test-item-${suffix}`
+  const name = overrides.name ?? `Test Item ${suffix}`
+  const now = new Date().toISOString()
+  const { error } = await supabase.from('square_menu_items').insert({
+    tenant_id: tenant.id,
+    id,
+    name,
+    square_version: 1,
+    raw_json: {},
+    is_deleted: overrides.is_deleted ?? false,
+    updated_at: now,
+  })
+  if (error) {
+    throw new Error(`Failed to seed Square item: ${error.message}`)
+  }
+  return { id, name }
+}
+
+/**
+ * MOK-157 — seed a Square variation row referencing an existing item.
+ * Caller is responsible for ensuring the parent item exists (otherwise the
+ * composite FK fires). Use seedTestSquareItem() first.
+ */
+export interface SeedTestSquareVariationOptions {
+  id?: string
+  item_id: string
+  name?: string
+  price_cents?: number | null
+  is_deleted?: boolean
+  ordinal?: number
+}
+
+export async function seedTestSquareVariation(
+  tenant: TestTenant,
+  overrides: SeedTestSquareVariationOptions,
+): Promise<{ id: string; item_id: string; name: string | null }> {
+  const supabase = getServiceClient()
+  const suffix = crypto.randomBytes(3).toString('hex')
+  const id = overrides.id ?? `test-var-${suffix}`
+  const name = overrides.name ?? `Test Variation ${suffix}`
+  const now = new Date().toISOString()
+  const { error } = await supabase.from('square_menu_item_variations').insert({
+    tenant_id: tenant.id,
+    id,
+    item_id: overrides.item_id,
+    name,
+    price_cents: overrides.price_cents ?? null,
+    ordinal: overrides.ordinal ?? 0,
+    is_deleted: overrides.is_deleted ?? false,
+    updated_at: now,
+  })
+  if (error) {
+    throw new Error(`Failed to seed Square variation: ${error.message}`)
+  }
+  return { id, item_id: overrides.item_id, name }
 }
 
 export interface CreateInventoryItemOptions {

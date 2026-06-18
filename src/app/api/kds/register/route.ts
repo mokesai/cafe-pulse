@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { getDeviceScreenUrls } from '@/lib/kds/devices'
 import crypto from 'crypto'
 
 /**
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
     // Find device by setup code
     const { data: device, error: findError } = await supabase
       .from('kds_devices')
-      .select('id, tenant_id, status, setup_code_expires_at, screen_1, screen_2')
+      .select('id, tenant_id, status, setup_code_expires_at, screen_1, screen_2, screen_1_id, screen_2_id')
       .eq('setup_code', setup_code)
       .maybeSingle()
 
@@ -66,13 +67,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Registration failed' }, { status: 500 })
     }
 
+    const { screen_1_url, screen_2_url } = getDeviceScreenUrls(device)
+
     const response = NextResponse.json({
       device_id: device.id,
       auth_token: plainToken,
       screen_1: device.screen_1,
       screen_2: device.screen_2,
-      screen_1_url: `/kds/display/${device.id}/${device.screen_1}`,
-      screen_2_url: `/kds/display/${device.id}/${device.screen_2}`,
+      screen_1_id: device.screen_1_id,
+      screen_2_id: device.screen_2_id,
+      screen_1_url,
+      screen_2_url,
       tenant_slug: tenant?.slug ?? '',
     })
 
