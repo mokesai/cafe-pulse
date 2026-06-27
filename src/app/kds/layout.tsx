@@ -1,15 +1,19 @@
 import type { Metadata, Viewport } from 'next'
-import { Suspense } from 'react'
-import { getSetting } from '@/lib/kds/queries'
-import { getCurrentTenantId } from '@/lib/tenant/context'
-import type { KDSTheme } from '@/lib/kds/types'
-import KDSThemeWrapper from './components/KDSThemeWrapper'
 import './kds-themes.css'
 
+/**
+ * Top-level layout for /kds/* public routes. v3 owns its own theme class
+ * application (set in KDSv3GridCanvas per the kds_screens.theme column);
+ * this layout's only responsibility is to import kds-themes.css so the
+ * CSS variables (--kds-text, --kds-price, etc.) are available downstream.
+ *
+ * Phase 7 (MOK-160) removed the v2 KDSThemeWrapper + v2 settings lookup
+ * that used to live here — both were v2-only.
+ */
 export const metadata: Metadata = {
-  title: 'Little Cafe - Menu Display',
-  description: 'Kitchen Display System for Little Cafe',
-  robots: 'noindex, nofollow', // Don't index KDS pages
+  title: 'KDS — Cafe Pulse',
+  description: 'Kitchen Display System',
+  robots: 'noindex, nofollow',
 }
 
 export const viewport: Viewport = {
@@ -19,19 +23,6 @@ export const viewport: Viewport = {
   userScalable: false,
 }
 
-export default async function KDSLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  const tenantId = await getCurrentTenantId()
-  const dbTheme = (await getSetting(tenantId, 'theme')) as KDSTheme | null
-
-  return (
-    <Suspense fallback={<div className="kds-root theme-warm">{children}</div>}>
-      <KDSThemeWrapper dbTheme={dbTheme ?? 'warm'}>
-        {children}
-      </KDSThemeWrapper>
-    </Suspense>
-  )
+export default function KDSLayout({ children }: { children: React.ReactNode }) {
+  return <>{children}</>
 }

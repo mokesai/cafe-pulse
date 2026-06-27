@@ -90,13 +90,19 @@ async function resolveFromHost(): Promise<Tenant | null> {
 /**
  * Extract the subdomain from a Host header value.
  * Handles both development (slug.localhost:PORT) and production (slug.domain.com).
- * Returns null for bare localhost or bare domain (no subdomain).
+ * Returns null for bare localhost, IPv4 addresses, or bare domain.
+ *
+ * MOK-165 — also handles dev-host variants where the second segment starts
+ * with `local` (e.g. `bigcafe.local-macbook`), and rejects IPv4 explicitly
+ * so middleware doesn't try to resolve the first octet as a tenant slug.
  *
  * Examples:
- *   'littlecafe.localhost:3000' -> 'littlecafe'
- *   'localhost:3000'            -> null
- *   'littlecafe.example.com'   -> 'littlecafe'
- *   'example.com'              -> null
+ *   'littlecafe.localhost:3000'    -> 'littlecafe'
+ *   'bigcafe.local-macbook:3000'   -> 'bigcafe'
+ *   'localhost:3000'               -> null
+ *   '192.168.4.114:3000'           -> null
+ *   'littlecafe.example.com'       -> 'littlecafe'
+ *   'example.com'                  -> null
  */
 export function extractSubdomain(host: string): string | null {
   // Strip port number if present
@@ -105,10 +111,19 @@ export function extractSubdomain(host: string): string | null {
   // Bare localhost — no subdomain
   if (hostname === 'localhost') return null
 
+  // IPv4 — no subdomain concept applies. Without this guard,
+  // '192.168.4.114' would split into 4 parts and the length>=3 branch below
+  // would return '192' as the "slug", causing middleware to rewrite to /404.
+  if (/^(\d{1,3}\.){3}\d{1,3}$/.test(hostname)) return null
+
   const parts = hostname.split('.')
 
-  // slug.localhost pattern (development)
-  if (parts.length === 2 && parts[1] === 'localhost') {
+  // Dev-host 2-part patterns: slug.localhost (existing), slug.local-macbook,
+  // slug.local-anything. We deliberately don't generalize this to any 2-part
+  // host — that would mis-classify `example.com` as `example` when
+  // NEXT_PUBLIC_SITE_URL isn't configured. `local*` is conservative and
+  // covers the dev-server-on-a-LAN case operators actually hit.
+  if (parts.length === 2 && parts[1].startsWith('local')) {
     return parts[0]
   }
 

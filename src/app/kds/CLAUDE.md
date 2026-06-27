@@ -2,40 +2,39 @@
 
 KDS pages are displayed on TVs in the cafe via Raspberry Pi + Chromium in kiosk mode.
 
+Post-phase-7 (MOK-160): v3 is the only live KDS surface. v2 admin + public routes deleted.
+
 ## Display Environment
 - Target resolution: 1920x1080 (TV display)
-- Managed by pm2 (see `ecosystem.config.js` in project root)
-- Auto-refreshes via KDSAutoRefresh component
+- Managed by the Pi project's pm2/cage setup (see `ecosystem.config.js` and the **KDS Raspberry Pi Deployment** Linear project)
+- 30s polling refresh on `/kds/v3/[deviceId]/[screenId]` picks up operator edits
 
-## Pages
-- `page.tsx` — KDS index/redirect
-- `drinks/page.tsx` — Redirect only (actual drinks page is at `/admin/(kds)/kds/drinks/page.tsx`)
-- `food/page.tsx` — Food display screen
+## Routes (post-v2-cutover)
+- `page.tsx` — bare `/kds` redirects to `/admin/kds-v3/screens`
+- `v3/[deviceId]/[screenId]/page.tsx` — Pi-facing renderer. Reads from
+  `kds_published_screens` + `kds_published_grid_boxes` via the
+  `resolveScreenForRender(supabase, tenantId, screenId, { source: 'published' })`
+  helper in `src/lib/kds/v3-render.ts`. Reuses `KDSDisplayWrapper` + `KDSHeartbeat`
+  from `src/components/kds/v3/`.
 
 ## Themes
-Three themes: `warm`, `dark`, `wps` — controlled via `KDSThemeWrapper` component.
-- All theme CSS lives in `kds-themes.css` (the single entry point)
-- CSS variable scoping: `.theme-warm`, `.theme-dark`, `.theme-wps`
+Three themes: `warm`, `dark`, `wps`. CSS variables defined in `kds-themes.css`.
+v3 sets the theme class (`theme-warm` / `theme-dark` / `theme-wps`) inside
+`KDSv3GridCanvas` per `kds_screens.theme`. No wrapper component needed.
+
+## Layout
+`layout.tsx` is intentionally minimal: imports `kds-themes.css` and passes
+children through. v3 owns its own theming + scaling (canvas wrapper).
+
+## Schema
+v3 tables under `kds_screens` + `kds_grid_boxes` + their `_published_` snapshot
+counterparts (phase 6.5). Plus `kds_aesthetic_images` (phase 4),
+`kds_display_overrides` (phase 5).
+
+**Legacy v2 tables (`kds_categories`, `kds_menu_items`, `kds_settings`, `kds_images`)**
+are marked DEPRECATED (see `COMMENT ON TABLE`); drop in phase 7.5.
 
 ## Do NOT
-- Don't use `revalidate` — always use `dynamic = 'force-dynamic'` to prevent stale data
-- Don't import from `kds-warm.css` or `kds.css` — these are deprecated and not imported
-- Don't use CSS `display: none` for theme-conditional elements — use component-level props
-- Don't forget that food screen uses banner header style (hides subtitle by design)
-
-## Components
-All KDS components are prefixed with `KDS` and live in `./components/`:
-- `KDSScreen` — Main layout wrapper
-- `KDSHeader` / `KDSPanelHeader` — Screen headers (banner vs standard)
-- `KDSFooter` / `KDSPromoFooter` — Footer variants
-- `KDSCategorySection` / `KDSCategoryGrid` / `KDSCategoryCompact` — Category layouts
-- `KDSMenuItem` / `KDSSizedItemRow` — Item display
-- `KDSDrinksMagazine` / `KDSFoodMagazine` — Magazine-style layouts
-- `KDSFlexGrid` / `KDSDualPanelScreen` — Grid layouts
-
-## Data
-KDS data comes from four Supabase tables:
-- `kds_categories` — Display sections per screen
-- `kds_menu_items` — Items with prices and Square IDs
-- `kds_settings` — Key-value config (hours, taglines, refresh interval)
-- `kds_images` — Rotating footer images
+- Don't use `revalidate` on KDS pages — use `dynamic = 'force-dynamic'` to prevent stale data
+- Don't reintroduce v2 components (`KDSThemeWrapper`, `KDSScreen`, etc.) — deleted in phase 7
+- Don't read from v2 tables — the deprecation comment is the runtime signal; phase 7.5 drops them entirely

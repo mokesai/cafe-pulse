@@ -1,0 +1,144 @@
+# MOK-153 — Migration Drift Reconciliation
+
+**Spec:** [MOK-153](https://linear.app/mokesai/issue/MOK-153)
+**Script:** [`scripts/migrations/mok-153-drift-reconciliation-2026-05-15.sql`](../../scripts/migrations/mok-153-drift-reconciliation-2026-05-15.sql)
+**Branch:** `jerrym/mok-153-migration-drift-reconciliation`
+
+---
+
+## Background
+
+The Supabase MCP `apply_migration` tool generates its own version at apply-time, separate from the on-disk file's timestamp prefix. Past sessions used it as the default path for applying migrations to cafe-pulse-dev and cafe-pulse-prod, which left `supabase_migrations.schema_migrations` with version IDs that don't match any local file. The result: `supabase db push --dry-run` errors with **"Remote migration versions not found in local migrations directory"** and refuses to dry-run anything against either env.
+
+The drift habit predates KDS v3 — the affected migrations (mok121–139) shipped 2026-04-26 to 2026-05-02, before phase 1 of KDS v3 started on 2026-05-07.
+
+## Scope
+
+This reconciliation **only touches the 4 pre-KDS-v3 migrations** (mok121, mok122, mok123, mok139). On dev there are *also* drift entries for `kds_v3_phase_1` (two rows from an early draft + the final) and `kds_v3_phase_2` T1 (`20260512015508`), but those are intentionally **out of scope**:
+
+- KDS v3 is on a long-lived integration branch (`kds-v3`); the rollout is a single staging PR after all 7 phases land. None of those migrations have shipped to staging or prod yet.
+- The cleanest exit either way:
+  - **KDS v3 ships eventually:** when `kds-v3` → `staging`, `supabase db push` will apply the migrations to staging/prod with the local file timestamps — zero drift introduced. Dev's stale entries can be cleaned up at that point (or left alone since dev is sandbox).
+  - **KDS v3 is abandoned:** run `PHASE-1-ROLLBACK.sql` + `PHASE-2-ROLLBACK.sql` on dev to wipe tables + schema_migrations entries cleanly.
+
+Keeping kds-v3 out of this PR means it can merge to `staging` with zero kds-v3 surface area.
+
+## Side-by-side drift table
+
+### cafe-pulse-dev (`ettmabcwfhidcpapphgm`)
+
+| Remote version (before) | Migration name | Local file | Remote version (after) |
+|---|---|---|---|
+| `20260426011425` | mok121_invoice_exception_severity | `20260425191406_…` | `20260425191406` |
+| `20260426152749` | mok122_invoice_variance_history | `20260426092709_…` | `20260426092709` |
+| `20260426155853` | mok123_exception_status_acknowledged | `20260426095840_…` | `20260426095840` |
+| `20260502214755` | mok139_inventory_unit_cost_precision | `20260502214725_…` | `20260502214725` |
+
+### cafe-pulse-prod (`tjxarjzohmwqiqdruczv`)
+
+| Remote version (before) | Migration name | Local file | Remote version (after) |
+|---|---|---|---|
+| `20260426193647` | mok121_invoice_exception_severity | `20260425191406_…` | `20260425191406` |
+| `20260426193705` | mok122_invoice_variance_history | `20260426092709_…` | `20260426092709` |
+| `20260426193715` | mok123_exception_status_acknowledged | `20260426095840_…` | `20260426095840` |
+| `20260502220525` | mok139_inventory_unit_cost_precision | `20260502214725_…` | `20260502214725` |
+
+Each env has its own drift IDs (different wall-clock apply times) but the same on-disk source-of-truth file timestamps. The reconciliation SQL has separate `BEGIN/COMMIT` blocks for dev and prod.
+
+**Staging note:** the `staging` branch's Vercel deploy currently points at the **cafe-pulse-dev** Supabase project (per the "Staging-side testing temporarily skipped" working note). So the dev block above implicitly fixed staging at the same time — no separate staging-env SQL is needed. When staging eventually gets its own Supabase project, this reconciliation will need a third block; for now, dev + prod is the complete set.
+
+## Safety analysis
+
+- **Table structure:** `supabase_migrations.schema_migrations` PK is `version` (text); no FK constraints reference this table. `UPDATE` of `version` is safe and atomic.
+- **Schema integrity:** these migrations have already been applied (the schema is correct on both envs and has been for weeks). The reconciliation only rewrites the bookkeeping row's `version` value — it does not re-run any DDL.
+- **Idempotent:** each `UPDATE` is qualified by both the drift version AND the migration name. Re-running the script after the first execution is a no-op (no matching rows). Marked "ONE-TIME, DO NOT RE-RUN" anyway for clarity.
+- **Reversibility:** if needed, the inverse UPDATEs (swap WHERE/SET clauses) restore the drift versions exactly. The script preserves enough context (drift version + name + local file path) to reconstruct the inverse if required. No content is destroyed.
+
+## Execution log
+
+### cafe-pulse-dev — 2026-05-15 (paired session)
+
+Pre-reconciliation snapshot:
+
+```
+version          name
+20260426011425   mok121_invoice_exception_severity
+20260426152749   mok122_invoice_variance_history
+20260426155853   mok123_exception_status_acknowledged
+20260502214755   mok139_inventory_unit_cost_precision
+```
+
+Post-reconciliation snapshot:
+
+```
+version          name
+20260425191406   mok121_invoice_exception_severity   ✓ matches local
+20260426092709   mok122_invoice_variance_history     ✓ matches local
+20260426095840   mok123_exception_status_acknowledged ✓ matches local
+20260502214725   mok139_inventory_unit_cost_precision ✓ matches local
+```
+
+All 4 UPDATEs applied; 0 rows affected on re-run (idempotent).
+
+### cafe-pulse-prod — 2026-05-15 (post-PR-115-merge)
+
+Pre-reconciliation snapshot:
+
+```
+version          name
+20260426193647   mok121_invoice_exception_severity
+20260426193705   mok122_invoice_variance_history
+20260426193715   mok123_exception_status_acknowledged
+20260502220525   mok139_inventory_unit_cost_precision
+```
+
+Post-reconciliation snapshot:
+
+```
+version          name
+20260425191406   mok121_invoice_exception_severity   ✓ matches local
+20260426092709   mok122_invoice_variance_history     ✓ matches local
+20260426095840   mok123_exception_status_acknowledged ✓ matches local
+20260502214725   mok139_inventory_unit_cost_precision ✓ matches local
+```
+
+All 4 UPDATEs applied; same shape as dev execution.
+
+## Follow-up (2026-05-16) — KDS v3 bookkeeping cleanup on dev
+
+After the initial reconciliation (PRs #115 + #116), `supabase db push --dry-run` from the `staging` branch (which points at cafe-pulse-dev) still surfaced 4 orphan rows — all KDS v3 work applied to dev via mcp during phase 1 + phase 2 development:
+
+```
+20260507011219  kds_v3_phase_1_square_menu_mirror (early draft attempt)
+20260507033640  kds_v3_phase_1_square_menu_mirror (successful)
+20260512015358  kds_v3_phase_2_screen_designer
+20260513023650  kds_v3_phase_2_grid_max_24
+```
+
+These were intentionally out of scope of PRs #115 / #116 (per the "no kds-v3 commits to staging" rule). The follow-up script `scripts/migrations/mok-153-followup-kds-v3-bookkeeping-cleanup-2026-05-16.sql` drops just the schema_migrations rows for these 4 entries. The `kds_screens` and `kds_grid_boxes` tables and their data on dev are preserved (2 screens + 8 boxes still present at the time of execution).
+
+Net effect:
+- `staging` branch: `db push --dry-run` reports zero drift.
+- `kds-v3` branch: `db push` will think the migrations need to be applied; the SQL is idempotent (`CREATE TABLE IF NOT EXISTS`, `DROP POLICY IF EXISTS`, `DROP CONSTRAINT IF EXISTS`), so tables remain unchanged and schema_migrations rows get re-added with local file timestamps. KDS v3 self-heals to drift-free state on its own branch.
+- Rollback path unchanged: `PHASE-{1,2}-ROLLBACK.sql` use `DROP TABLE IF EXISTS`, so missing schema_migrations rows don't matter.
+
+Executed against cafe-pulse-dev on 2026-05-16. Prod is unaffected (KDS v3 has not shipped there).
+
+## Going-forward rule
+
+Always author + apply migrations via the Supabase CLI:
+
+```bash
+supabase migration new <descriptive_name>   # creates the file with the right timestamp
+# ...edit the SQL...
+supabase db push                            # records the file's timestamp in schema_migrations
+```
+
+Captured in working-style memory at `feedback_supabase_cli_for_migrations.md`. The mcp `apply_migration` and raw `execute_sql` paths must not be used for authoring migrations that will land on staging/prod.
+
+## Acceptance
+
+- [x] Dev execution: pre-snapshot recorded → SQL run → post-snapshot recorded → 4 rows show local-file versions (2026-05-15)
+- [x] PR #115 merged to `staging` (2026-05-15)
+- [x] Prod execution: pre-snapshot recorded → SQL run → post-snapshot recorded → 4 rows show local-file versions (2026-05-15)
+- [x] MOK-153 closed with link to this doc + PR #115 + PR (this update)

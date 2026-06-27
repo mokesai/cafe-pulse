@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+/* MOK-152 / KDS v3 phase 2 — react-grid-layout styles.
+ * Imported here (not in the component) because Next.js app router only
+ * permits global third-party CSS via the root layout's globals.css.
+ * Component-level CSS imports from node_modules broke webpack chunk
+ * resolution in dev mode. */
+@import "react-grid-layout/css/styles.css";
+@import "react-resizable/css/styles.css";
+
 /* Design System - CSS Custom Properties */
 :root {
   /* Base Colors */

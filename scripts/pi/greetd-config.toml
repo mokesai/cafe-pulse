@@ -1,0 +1,33 @@
+# Cafe Pulse KDS — greetd display manager config
+#
+# MOK-49 / MOK-50 (KDS Pi Deployment phase 8).
+#
+# Installed at /etc/greetd/config.toml by the curl-bash setup flow
+# (/api/kds/setup/[setupCode]). greetd runs as a system service via
+# systemd, claims VT-1 (where getty was), establishes a PAM-managed
+# login session for the pi user, and execs sway under it.
+#
+# Why greetd instead of systemd-user + linger:
+#   - systemd-user services started via `loginctl enable-linger` don't
+#     get a PAM-managed seat (verified hands-on 2026-05-31). sway
+#     wlroots fails the seat0 acquisition and exits with status 1, no
+#     logs.
+#   - greetd is purpose-built for Wayland kiosk launchers. It runs
+#     pam_systemd → seatd/logind → sway with a real session, real
+#     XDG_RUNTIME_DIR, real seat permissions.
+#
+# How conflicts with getty@tty1 are handled:
+#   - greetd.service ships with `Conflicts=getty@tty1.service` on
+#     Debian Bookworm so getty disables itself the moment greetd
+#     starts. No manual disable needed.
+
+[terminal]
+# Claim VT-1 (where getty was running). This is the same tty the TVs
+# render by default, so what sway draws is what shows up on screen.
+vt = 1
+
+[default_session]
+# Autologin the pi user and exec sway with the kiosk config. No login
+# prompt, no display manager UI — straight to compositor.
+command = "sway --config /home/pi/.config/sway/config"
+user = "pi"
