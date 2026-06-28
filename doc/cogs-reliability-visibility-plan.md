@@ -108,10 +108,27 @@ This effort is **one Linear project, two sequenced clusters**: fix data trust fi
 
 ---
 
+## Cluster C — Validation & seed data
+
+Make the trunk fully testable before it merges to staging. This also restores the deferred staging-side test gate (`project_staging_test_skip`), which was blocked only by cafe-pulse-dev lacking realistic data.
+
+### C1 · Seed harness — ~3 months of realistic data on cafe-pulse-dev · `testing` · High
+
+- **Goal:** one reusable command seeds suppliers, inventory (pack/single pairs + A2 `package_label` and A3 `package_cost` cases), ~3 months of POs across the lifecycle, and invoices that flow through pipeline stages 1–6 with intentional sub- and above-threshold variances — producing multi-month daily COGS summaries.
+- **Why:** gives A1–A4 and B1–B3 real data to validate against; idempotent / re-runnable.
+- **Depends on:** A2 + A3 schema landing (to seed those cases). Target cafe-pulse-dev only — never prod.
+
+### C2 · End-to-end validation pass (manual + automated) · `testing` · High
+
+- **Goal:** the exit gate for the `cogs-reliability-visibility` → staging PR. Automated (unit + integration + E2E across all changed surfaces) plus a manual operator walkthrough against the seeded dataset.
+- **Blocked by:** C1 + all shippable features (A1–A4, B1–B3). B4 is icebox, excluded from this release.
+
+---
+
 ## Linear structure (created 2026-06-27)
 
 - **Project:** [COGS Reliability & Visibility](https://linear.app/mokesai/project/cogs-reliability-and-visibility-8060e9a6f2f4) (MOK team).
-- **Milestones:** _Cluster A — Data trust_ (A1–A4), _Cluster B — Visibility & COGS-first UX_ (B1–B4).
+- **Milestones:** _Cluster A — Data trust_ (A1–A4), _Cluster B — Visibility & COGS-first UX_ (B1–B4), _Cluster C — Validation & seed data_ (C1–C2).
 
 | Spec | Issue | Priority | Labels |
 |------|-------|----------|--------|
@@ -123,5 +140,15 @@ This effort is **one Linear project, two sequenced clusters**: fix data trust fi
 | B2 — COGS-first IA (#7) | MOK-174 | Medium | Feature |
 | B3 — price/margin warnings (#5a) | MOK-175 | Medium | Feature |
 | B4 — gamification badges (#5b, icebox) | MOK-176 | Low | Feature |
+| C1 — seed harness | MOK-177 | High | Testing |
+| C2 — E2E validation pass | MOK-178 | High | Testing |
 
-- **Blocking:** MOK-173 (B1) is blocked by MOK-169 (A1) and MOK-171 (A3).
+- **Blocking:** MOK-173 (B1) blocked by MOK-169 (A1) + MOK-171 (A3). MOK-178 (C2) blocked by MOK-177 (C1) + all shippable features (A1–A4, B1–B3). MOK-177 (C1) related to A2/A3 (seeds their schema).
+
+## Branch / integration model
+
+`cogs-reliability-visibility` is the **integration trunk** (mirrors the kds-v3 model):
+
+- Each MOK-* implementation branch is cut **off the trunk** (never off `staging`/`main`), tested in isolation, then merged back onto the trunk one at a time.
+- When the full feature is implemented and **C2 passes**, open one PR: `cogs-reliability-visibility` → `staging`, then the release PR `staging` → `main` (+ tag).
+- This design doc lives on the trunk and is kept current as clusters land.
