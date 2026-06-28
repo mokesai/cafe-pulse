@@ -62,7 +62,8 @@ export default function InventoryCreateModal({ suppliers, isOpen, onClose }: Inv
     item_type: 'ingredient' as 'ingredient' | 'prepackaged' | 'prepared' | 'supply',
     supplier_id: '',
     location: 'main',
-    notes: ''
+    notes: '',
+    package_label: ''
   })
 
   const resetForm = () => {
@@ -79,7 +80,8 @@ export default function InventoryCreateModal({ suppliers, isOpen, onClose }: Inv
       item_type: 'ingredient',
       supplier_id: '',
       location: 'main',
-      notes: ''
+      notes: '',
+      package_label: ''
     })
     setPackPrice('0')
     setSquareResults([])
@@ -391,6 +393,20 @@ export default function InventoryCreateModal({ suppliers, isOpen, onClose }: Inv
                 onUnitCost={handleApplyUnitCost}
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Package Label</label>
+            <input
+              type="text"
+              value={formData.package_label}
+              onChange={(e) => setFormData((prev) => ({ ...prev, package_label: e.target.value }))}
+              className="w-full rounded-lg border px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              placeholder="Optional — e.g. Standalone 35-pack, From variety pack"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Only needed to distinguish two products from the same supplier that share a Square item ID and pack size.
+            </p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
