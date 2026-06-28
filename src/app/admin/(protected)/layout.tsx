@@ -1,5 +1,6 @@
 import { requireAdmin } from '@/lib/admin/auth'
 import { AdminNavigation } from '@/components/admin/AdminNavigation'
+import { AdminTopBar } from '@/components/admin/AdminTopBar'
 import { getTenantIdentity } from '@/lib/tenant/identity'
 import { TenantProvider } from '@/providers/TenantProvider'
 
@@ -19,6 +20,9 @@ export default async function ProtectedAdminLayout({
       <div className="min-h-screen bg-gray-50">
         {/* Admin Navigation */}
         <AdminNavigation />
+
+        {/* App-wide top bar with the persistent COGS status chip (MOK-174) */}
+        <AdminTopBar />
 
         {/* Main Content */}
         <main className="pl-64 pt-16">

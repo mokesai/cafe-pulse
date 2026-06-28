@@ -51,3 +51,8 @@ export function computeCogsStatus(input: CogsStatusInput): CogsStatus {
     signal,
   }
 }
+
+/** Compact label for the always-visible app-shell COGS chip (B2 / MOK-174). */
+export function cogsChipLabel(cogsPct: number | null): string {
+  return cogsPct == null ? 'COGS —' : `COGS ${cogsPct}%`
+}
