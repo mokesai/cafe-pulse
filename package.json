@@ -36,6 +36,7 @@
     "import-cogs-product-codes": "node scripts/import-cogs-product-codes-from-sheets.js",
     "estimate-sim-recipes": "npx tsx scripts/estimate-sim-recipes.ts",
     "simulate-cogs-sales": "npx tsx scripts/simulate-cogs-sales.ts",
+    "seed-cogs-demo": "npx tsx scripts/seed-cogs-dataset.ts",
     "export-cogs-product-codes-template": "node scripts/export-cogs-product-code-mapping-template.js",
     "export-kds-menu": "node scripts/export-kds-menu-to-sheets.js",
     "import-kds-menu": "node scripts/import-kds-menu-from-sheets.js",
