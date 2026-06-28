@@ -23,6 +23,7 @@ interface InventoryItem {
   location: string
   notes?: string
   package_label?: string | null
+  package_cost?: number | null
 }
 
 interface Supplier {
@@ -74,8 +75,14 @@ export default function InventoryEditModal({ item, suppliers, isOpen, onClose }:
   useEffect(() => {
     if (item && isOpen) {
       const isPack = (item.pack_size || 1) > 1
-      // Stored unit_cost is per-unit; derive pack cost when pack size > 1
-      const initialPackPrice = isPack ? (item.unit_cost || 0) * (item.pack_size || 1) : (item.unit_cost || 0)
+      // MOK-171: prefer the stored package_cost (the exact figure the operator entered) so it
+      // doesn't drift from re-deriving unit_cost * pack_size off a 4dp-rounded unit_cost.
+      const initialPackPrice =
+        item.package_cost != null
+          ? item.package_cost
+          : isPack
+            ? (item.unit_cost || 0) * (item.pack_size || 1)
+            : (item.unit_cost || 0)
       const derivedUnitCost = item.unit_cost || 0
       setFormData({
         item_name: item.item_name,
@@ -115,7 +122,10 @@ export default function InventoryEditModal({ item, suppliers, isOpen, onClose }:
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: item?.id,
-          ...data
+          ...data,
+          // MOK-171: the Pack Cost field is canonical for pack rows; send it so the entered
+          // value is persisted and unit_cost is derived server-side (no rounding drift).
+          package_cost: Number(packPrice) > 0 ? Number(parseFloat(packPrice).toFixed(4)) : undefined,
         })
       })
 
