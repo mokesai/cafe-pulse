@@ -43,6 +43,8 @@ export interface Invoice {
   pipeline_error?: string | null
   vision_confidence?: number | null  // 0.0–1.0
   open_exception_count?: number
+  // MOK-169: count of sub-threshold price changes (applied automatically, no per-line exception)
+  minor_price_variance_count?: number
   
   // AI parsing results
   parsed_data?: ParsedInvoiceData
