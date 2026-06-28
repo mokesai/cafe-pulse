@@ -22,7 +22,7 @@ case "$ENV_CHOICE" in
     LABEL="SANDBOX"
     ;;
   production|prod)
-    TEMPLATE_PATH="$ROOT_DIR/../ENV"
+    TEMPLATE_PATH="$ROOT_DIR/../ENV_PROD"
     LABEL="PRODUCTION"
     ;;
   *)
@@ -61,5 +61,5 @@ if [[ -z "${SUPABASE_ACCESS_TOKEN:-}" ]]; then
 fi
 
 echo "Linking Supabase project ($PROJECT_REF)..."
-(cd "$ROOT_DIR" && npx supabase link --project-ref "$PROJECT_REF")
+(cd "$ROOT_DIR" && supabase link --project-ref "$PROJECT_REF")
 echo "Environment switched to $LABEL and Supabase link is updated."
