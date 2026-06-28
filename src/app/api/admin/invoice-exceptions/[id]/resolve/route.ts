@@ -207,11 +207,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     if (exception.status !== 'open') {
-      return apiError(
-        `This exception is already ${exception.status} and cannot be resolved again.`,
-        422,
-        'EXCEPTION_ALREADY_RESOLVED'
-      )
+      // MOK-182: idempotent — the exception is already resolved/acknowledged/dismissed. Return
+      // success (not 422) so a stale UI list clears the row instead of getting stuck on
+      // "failed to resolve" when a prior response errored after the resolution had committed.
+      return NextResponse.json({
+        success: true,
+        exception_id: id,
+        already_resolved: true,
+        status: exception.status,
+      })
     }
 
     // Validate: price_variance rejection requires notes
@@ -500,8 +504,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return formatApiError('resolve invoice exception', resolveError)
     }
 
-    // Attempt auto-confirmation if this was the last open exception
-    const invoiceAutoConfirmed = await tryAutoConfirmInvoice(supabase, exception.invoice_id, tenantId)
+    // Attempt auto-confirmation if this was the last open exception. MOK-182: the resolution has
+    // already committed above, so auto-confirm (+ its PO promotion / fee distribution) must never
+    // fail the resolution response — a post-commit error would leave the operator stuck on a
+    // "failed to resolve" message for an exception that is in fact resolved.
+    let invoiceAutoConfirmed = false
+    try {
+      invoiceAutoConfirmed = await tryAutoConfirmInvoice(supabase, exception.invoice_id, tenantId)
+    } catch (autoConfirmError) {
+      console.error('[resolve] post-resolution auto-confirm failed (non-fatal):', autoConfirmError)
+    }
 
     console.log(`✅ Exception ${id} resolved with action=${action.type}`)
 
