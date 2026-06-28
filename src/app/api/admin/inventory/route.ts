@@ -4,6 +4,19 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrentTenantId } from '@/lib/tenant/context'
 import { formatApiError, apiError, unexpectedError } from '@/lib/api/errors'
 
+// MOK-170: a free-form package_label distinguishes multiple supplier products that share the
+// same square_item_id + pack_size. Empty/whitespace collapses to NULL (the default packaging).
+function normalizePackageLabel(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
+}
+
+// MOK-170: the (tenant, supplier, square_item_id, pack_size, package_label) unique index raises
+// 23505 when a second packaging lacks a distinct label. Surface an actionable message instead of
+// the raw Postgres duplicate-key error.
+const DUPLICATE_PACKAGE_MESSAGE =
+  'This supplier already has an item with the same Square item ID, pack size, and package label. ' +
+  'Give this packaging a distinct Package Label to add it alongside the existing one.'
+
 export async function GET(request: NextRequest) {
   try {
     // Verify admin authentication
@@ -135,7 +148,8 @@ export async function POST(request: NextRequest) {
       supplier_id, 
       location, 
       notes,
-      pack_size
+      pack_size,
+      package_label
     } = body
 
     const finalItemType = item_type || (is_ingredient ? 'ingredient' : 'prepackaged')
@@ -184,12 +198,16 @@ export async function POST(request: NextRequest) {
         supplier_id: supplier_id || null,
         location: location || 'main',
         notes: notes || null,
+        package_label: normalizePackageLabel(package_label),
         last_restocked_at: new Date().toISOString()
       })
       .select()
       .single()
 
     if (error) {
+      if (error.code === '23505') {
+        return apiError(DUPLICATE_PACKAGE_MESSAGE, 409, 'DUPLICATE_PACKAGE')
+      }
       return formatApiError('create inventory item', error)
     }
 
@@ -248,7 +266,8 @@ export async function PUT(request: NextRequest) {
       supplier_id, 
       location, 
       notes,
-      pack_size
+      pack_size,
+      package_label
     } = body
 
     if (!id) {
@@ -293,6 +312,7 @@ export async function PUT(request: NextRequest) {
     if (supplier_id !== undefined) updateData.supplier_id = supplier_id || null
     if (location !== undefined) updateData.location = location
     if (notes !== undefined) updateData.notes = notes || null
+    if (package_label !== undefined) updateData.package_label = normalizePackageLabel(package_label)
 
     // Update inventory item
     const { data: updatedItem, error } = await supabase
@@ -303,6 +323,9 @@ export async function PUT(request: NextRequest) {
       .single()
 
     if (error) {
+      if (error.code === '23505') {
+        return apiError(DUPLICATE_PACKAGE_MESSAGE, 409, 'DUPLICATE_PACKAGE')
+      }
       return formatApiError('update inventory item', error)
     }
 

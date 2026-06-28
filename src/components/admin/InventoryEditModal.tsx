@@ -22,6 +22,7 @@ interface InventoryItem {
   supplier_id?: string
   location: string
   notes?: string
+  package_label?: string | null
 }
 
 interface Supplier {
@@ -89,7 +90,8 @@ export default function InventoryEditModal({ item, suppliers, isOpen, onClose }:
         is_ingredient: item.is_ingredient,
         item_type: item.item_type || (item.is_ingredient ? 'ingredient' : 'prepackaged'),
         auto_decrement: item.auto_decrement ?? false,
-        square_item_id: item.square_item_id || ''
+        square_item_id: item.square_item_id || '',
+        package_label: item.package_label ?? ''
       })
       setPackPrice(initialPackPrice.toString())
       loadCostHistory(item.id)
@@ -431,6 +433,23 @@ export default function InventoryEditModal({ item, suppliers, isOpen, onClose }:
               <p className="text-xs text-gray-500 mt-1">Full pack/case price; auto-derives unit cost.</p>
             </div>
           </div>
+          {/* Package label — MOK-170 discriminator */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Package Label
+            </label>
+            <input
+              type="text"
+              value={formData.package_label ?? ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, package_label: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              placeholder="Optional — e.g. Standalone 35-pack, From variety pack"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Distinguishes two products from the same supplier that share a Square item ID and pack size.
+            </p>
+          </div>
+
           {/* Supplier */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">

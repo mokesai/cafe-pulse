@@ -50,6 +50,7 @@ interface InventoryItem {
   supplier_name?: string
   location: string
   notes?: string
+  package_label?: string | null
   last_restocked_at?: string
   created_at: string
   updated_at: string
@@ -729,6 +730,14 @@ const InventoryManagement = () => {
                                   {item.auto_decrement && (
                                     <span className="px-2 py-1 text-xs font-medium bg-amber-100 text-amber-700 rounded-full">
                                       Auto Sync
+                                    </span>
+                                  )}
+                                  {item.package_label && (
+                                    <span
+                                      className="px-2 py-1 text-xs font-medium bg-indigo-100 text-indigo-700 rounded-full"
+                                      title="Package label — distinguishes packagings that share a Square item ID"
+                                    >
+                                      {item.package_label}
                                     </span>
                                   )}
                                 </div>
