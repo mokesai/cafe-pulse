@@ -373,6 +373,21 @@ export async function PUT(
 
     console.log('✅ Invoice import confirmed successfully')
 
+    // MOK-172: reconcile Square POS sales into inventory after a manual confirm. Non-fatal —
+    // confirmation already succeeded; the scheduled sales-sync job will catch up regardless.
+    try {
+      const { runSalesSync } = await import('@/lib/square/sales-sync')
+      const syncResult = await runSalesSync(supabase, tenantId, { adminId: authResult.userId ?? null })
+      if (!syncResult.ok && 'error' in syncResult) {
+        console.warn(`[confirm-invoice] sales-sync error for tenant=${tenantId}: ${syncResult.error}`)
+      }
+    } catch (salesSyncError) {
+      console.warn(
+        `[confirm-invoice] sales-sync failed for tenant=${tenantId} (non-fatal):`,
+        salesSyncError instanceof Error ? salesSyncError.message : salesSyncError,
+      )
+    }
+
     // Generate summary stats
     const totalItems = invoice.invoice_items.length
     const matchedCount = matchedItems.length
