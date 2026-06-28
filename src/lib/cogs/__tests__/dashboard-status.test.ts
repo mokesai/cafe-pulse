@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest'
 
-import { computeCogsStatus } from '../dashboard-status'
+import { computeCogsStatus, cogsChipLabel } from '../dashboard-status'
 
 const base = { priorWeeklyCogs: 0, priorWeeklyRevenue: 0, targetPct: 30 }
 
@@ -51,5 +51,15 @@ describe('computeCogsStatus (MOK-173)', () => {
     expect(s.cogsPct).toBe(32)
     expect(s.priorCogsPct).toBe(26)
     expect(s.trendPp).toBe(6)
+  })
+})
+
+describe('cogsChipLabel (MOK-174)', () => {
+  it('shows the percentage when available', () => {
+    expect(cogsChipLabel(28)).toBe('COGS 28%')
+  })
+
+  it('shows a dash when there are no sales', () => {
+    expect(cogsChipLabel(null)).toBe('COGS —')
   })
 })
