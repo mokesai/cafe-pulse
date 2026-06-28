@@ -17,6 +17,27 @@ const DUPLICATE_PACKAGE_MESSAGE =
   'This supplier already has an item with the same Square item ID, pack size, and package label. ' +
   'Give this packaging a distinct Package Label to add it alongside the existing one.'
 
+// MOK-171: package_cost (the entered pack/case price) is canonical for pack rows; unit_cost is the
+// derived per-unit value used by stock/COGS math. Whichever the caller supplies, derive the other
+// so the two stay consistent and the entered package cost never drifts from 4dp unit_cost rounding.
+function resolveCosts(opts: {
+  unit_cost?: unknown
+  package_cost?: unknown
+  packSize: unknown
+  fallbackUnitCost?: number
+}): { unit_cost: number; package_cost: number } {
+  const packSize = Math.max(1, Number(opts.packSize) || 1)
+  const round4 = (n: number) => Number((Number.isFinite(n) ? n : 0).toFixed(4))
+  const hasPackage =
+    opts.package_cost !== undefined && opts.package_cost !== null && opts.package_cost !== ''
+  if (hasPackage) {
+    const packageCost = Number(opts.package_cost) || 0
+    return { package_cost: round4(packageCost), unit_cost: round4(packageCost / packSize) }
+  }
+  const unitCost = Number(opts.unit_cost ?? opts.fallbackUnitCost ?? 0) || 0
+  return { unit_cost: round4(unitCost), package_cost: round4(unitCost * packSize) }
+}
+
 export async function GET(request: NextRequest) {
   try {
     // Verify admin authentication
@@ -149,7 +170,8 @@ export async function POST(request: NextRequest) {
       location, 
       notes,
       pack_size,
-      package_label
+      package_label,
+      package_cost
     } = body
 
     const finalItemType = item_type || (is_ingredient ? 'ingredient' : 'prepackaged')
@@ -180,6 +202,9 @@ export async function POST(request: NextRequest) {
     const supabase = createServiceClient()
     const tenantId = await getCurrentTenantId()
 
+    // MOK-171: keep package_cost (entered) and unit_cost (derived) consistent.
+    const costs = resolveCosts({ unit_cost, package_cost, packSize: pack_size })
+
     // Insert new inventory item
     const { data: newItem, error } = await supabase
       .from('inventory_items')
@@ -190,9 +215,10 @@ export async function POST(request: NextRequest) {
         current_stock,
         minimum_threshold: minimum_threshold || 5,
         reorder_point: reorder_point || 10,
-        unit_cost: unit_cost || 0,
+        unit_cost: costs.unit_cost,
         unit_type: unit_type || 'each',
         pack_size: pack_size || 1,
+        package_cost: costs.package_cost,
         is_ingredient: derivedIsIngredient,
         item_type: finalItemType,
         supplier_id: supplier_id || null,
@@ -221,7 +247,7 @@ export async function POST(request: NextRequest) {
         quantity_change: current_stock,
         previous_stock: 0,
         new_stock: current_stock,
-        unit_cost: unit_cost || 0,
+        unit_cost: costs.unit_cost,
         notes: 'Initial stock entry',
         created_by: userId
       })
@@ -267,7 +293,8 @@ export async function PUT(request: NextRequest) {
       location, 
       notes,
       pack_size,
-      package_label
+      package_label,
+      package_cost
     } = body
 
     if (!id) {
@@ -299,8 +326,21 @@ export async function PUT(request: NextRequest) {
     if (item_name !== undefined) updateData.item_name = item_name
     if (minimum_threshold !== undefined) updateData.minimum_threshold = minimum_threshold
     if (reorder_point !== undefined) updateData.reorder_point = reorder_point
-    if (unit_cost !== undefined) updateData.unit_cost = unit_cost
     if (pack_size !== undefined) updateData.pack_size = pack_size
+    // MOK-171: when either cost is supplied, derive the other so package_cost (entered) and
+    // unit_cost (per-unit) stay consistent. package_cost wins for pack rows; uses the new
+    // pack size when it's being changed in the same request.
+    if (unit_cost !== undefined || package_cost !== undefined) {
+      const packSizeForCalc = pack_size !== undefined ? pack_size : existing.pack_size
+      const costs = resolveCosts({
+        unit_cost,
+        package_cost,
+        packSize: packSizeForCalc,
+        fallbackUnitCost: Number(existing.unit_cost) || 0,
+      })
+      updateData.unit_cost = costs.unit_cost
+      updateData.package_cost = costs.package_cost
+    }
     if (unit_type !== undefined) updateData.unit_type = unit_type
     if (square_item_id !== undefined) {
       const trimmed = typeof square_item_id === 'string' ? square_item_id.trim() : ''
@@ -329,8 +369,10 @@ export async function PUT(request: NextRequest) {
       return formatApiError('update inventory item', error)
     }
 
-    // Cost history: log when unit_cost changes
-    if (unit_cost !== undefined && Number(existing.unit_cost) !== Number(unit_cost)) {
+    // Cost history: log when the (derived) unit_cost changes — covers edits made via either the
+    // unit cost or the package cost field (MOK-171).
+    const newUnitCost = updateData.unit_cost as number | undefined
+    if (newUnitCost !== undefined && Number(existing.unit_cost) !== Number(newUnitCost)) {
       const packSize = Number(updatedItem.pack_size) || 1
       await supabase
         .from('inventory_item_cost_history')
@@ -338,7 +380,7 @@ export async function PUT(request: NextRequest) {
           tenant_id: tenantId,
           inventory_item_id: id,
           previous_unit_cost: existing.unit_cost,
-          new_unit_cost: unit_cost,
+          new_unit_cost: newUnitCost,
           pack_size: packSize,
           source: 'manual_edit',
           source_ref: null,

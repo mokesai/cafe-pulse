@@ -160,6 +160,8 @@ export default function InventoryCreateModal({ suppliers, isOpen, onClose }: Inv
           reorder_point: parsedReorderPoint,
           unit_cost: parsedUnitCost,
           pack_size: parsedPackSize > 0 ? parsedPackSize : 1,
+          // MOK-171: send the entered pack cost as canonical; server derives unit_cost from it.
+          package_cost: parsedPackPrice > 0 ? Number(parsedPackPrice.toFixed(4)) : undefined,
           is_ingredient: derivedIsIngredient,
           item_type: formData.item_type,
           supplier_id: formData.supplier_id || null,
