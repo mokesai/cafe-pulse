@@ -322,6 +322,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // MOK-172: refresh the Square catalog mirror before the pipeline runs, so item matching
+    // (stage 4) compares against up-to-date products. Non-fatal — a sync failure must not block
+    // the upload (the pipeline can still match against the existing mirror).
+    try {
+      const { syncMenusFromSquare } = await import('@/lib/square/menu-sync')
+      await syncMenusFromSquare(supabase, tenantId)
+    } catch (menuSyncError) {
+      console.warn(
+        `[invoice-upload] menu-sync failed for tenant=${tenantId} (non-fatal):`,
+        menuSyncError instanceof Error ? menuSyncError.message : menuSyncError,
+      )
+    }
+
     const { data: insertedInvoice, error: dbError } = await supabase
       .from('invoices')
       .insert({
