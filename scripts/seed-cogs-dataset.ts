@@ -422,7 +422,18 @@ async function seedPurchasesAndInvoices(
               invoice_item_id: lineRow?.id ?? null,
               exception_type: 'price_variance',
               exception_message: `Unit price for "${l.it.name}" changed +${l.variancePct}% (exceeds ${PRICE_VARIANCE_THRESHOLD_PCT}% threshold).`,
-              exception_context: { comparator_cost: l.comparator, invoice_unit_price: l.unitPrice, variance_pct: l.variancePct },
+              // Full pack-aware context so approving the variance (MOK-183) applies the
+              // per-individual effective price to inventory cost — mirrors a real stage-4 exception.
+              exception_context: {
+                inventory_item_id: l.it.id,
+                comparator_cost: l.comparator,
+                invoice_unit_price: l.unitPrice,
+                effective_unit_price: round(l.unitPrice / Math.max(1, l.it.packSize), 4),
+                previous_unit_cost: l.it.unitCostFinal,
+                price_mode: l.it.packSize > 1 ? 'per_pack' : 'per_unit',
+                pack_size: l.it.packSize,
+                variance_pct: l.variancePct,
+              },
               pipeline_stage_at_creation: 'matching_items',
               status: 'open',
               severity: 'block',
