@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { X, Trash2, CheckCircle2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import type { InvoiceException, InvoiceExceptionType } from '@/types/invoice-exceptions'
+import { bulkResolveAction, bulkResolveApplies } from '@/lib/invoice-exceptions/bulk-resolve-action'
 
 interface Props {
   selected: InvoiceException[]
@@ -66,7 +67,9 @@ export function ExceptionBulkActions({ selected, onClear, onBulkDismissed, onBul
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               resolution_notes: notes || undefined,
-              action: { type: 'approve_and_continue' },
+              // MOK-183: send the per-type approve action so bulk-resolve applies the accepted
+              // value (price → cost update) instead of the old no-op approve_and_continue.
+              action: bulkResolveAction(selected[0].exception_type),
             }),
           })
           if (res.ok) {
@@ -199,7 +202,12 @@ export function ExceptionBulkActions({ selected, onClear, onBulkDismissed, onBul
               Resolve {selected.length} <span className="font-bold">{selectedType}</span> exception{selected.length !== 1 ? 's' : ''}?
             </h3>
             <p className="text-sm text-gray-500 mb-4">
-              This will mark all selected exceptions as resolved. For each invoice, auto-confirmation will trigger if this resolves all remaining open exceptions.
+              {selectedType && bulkResolveApplies(selectedType)
+                ? selectedType === 'price_variance'
+                  ? 'This approves the selected price variances — the new invoice prices are applied to inventory cost. '
+                  : 'This accepts the invoice quantities for the selected quantity variances. '
+                : 'This will mark all selected exceptions as resolved. '}
+              For each invoice, auto-confirmation triggers if this clears all remaining open exceptions.
             </p>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
