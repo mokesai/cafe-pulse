@@ -25,6 +25,24 @@ export function getServiceClient() {
   return createSupabaseJs(url, key, { auth: { persistSession: false } })
 }
 
+/**
+ * Supabase Auth admin/sign-in calls are rate-limited. When the whole integration suite runs in
+ * parallel, createTenantForTest bursts many at once and hits "Request rate limit reached". Retry
+ * such calls with exponential backoff + jitter so the parallel run stays green.
+ */
+async function retryOnAuthRateLimit<R extends { error: { message: string } | null }>(
+  op: () => Promise<R>,
+  attempts = 8,
+): Promise<R> {
+  let result = await op()
+  for (let i = 1; i < attempts && result.error && /rate limit/i.test(result.error.message); i++) {
+    const delayMs = Math.min(15000, 400 * 2 ** (i - 1)) + Math.floor(Math.random() * 500)
+    await new Promise((resolve) => setTimeout(resolve, delayMs))
+    result = await op()
+  }
+  return result
+}
+
 export async function createTenantForTest(prefix = 'itest'): Promise<TestTenant> {
   const supabase = getServiceClient()
   const stamp = Date.now()
@@ -48,11 +66,16 @@ export async function createTenantForTest(prefix = 'itest'): Promise<TestTenant>
     throw new Error(`Failed to create test tenant: ${tenantError?.message}`)
   }
 
-  const { data: userData, error: userError } = await supabase.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-  })
+  // Stagger the initial auth burst across parallel workers to stay under the auth rate limit.
+  await new Promise((resolve) => setTimeout(resolve, Math.floor(Math.random() * 2500)))
+
+  const { data: userData, error: userError } = await retryOnAuthRateLimit(() =>
+    supabase.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+    }),
+  )
   if (userError || !userData.user) {
     await supabase.from('tenants').delete().eq('id', tenant.id)
     throw new Error(`Failed to create test user: ${userError?.message}`)
@@ -83,7 +106,9 @@ export async function createTenantForTest(prefix = 'itest'): Promise<TestTenant>
       },
     },
   )
-  const { error: signInErr } = await ssr.auth.signInWithPassword({ email, password })
+  const { error: signInErr } = await retryOnAuthRateLimit(() =>
+    ssr.auth.signInWithPassword({ email, password }),
+  )
   if (signInErr) {
     await supabase.auth.admin.deleteUser(userData.user.id)
     await supabase.from('tenants').delete().eq('id', tenant.id)
