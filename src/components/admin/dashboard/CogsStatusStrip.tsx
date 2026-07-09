@@ -7,6 +7,7 @@ import type { CogsStatus, CogsSignal } from '@/lib/cogs/dashboard-status'
 
 interface CogsStatusData extends CogsStatus {
   openBlockExceptions: number
+  itemsNeedingPriceReview: number
   sparkline: number[]
   weekRange: { start: string; end: string }
 }
@@ -112,6 +113,19 @@ export function CogsStatusStrip() {
               {data.openBlockExceptions} invoice exception{data.openBlockExceptions === 1 ? '' : 's'} need{data.openBlockExceptions === 1 ? 's' : ''} resolution
             </span>
             <span className="ml-auto text-sm font-semibold text-red-700">Review →</span>
+          </Link>
+        )}
+
+        {data.itemsNeedingPriceReview > 0 && (
+          <Link
+            href="/admin/inventory"
+            className="mt-3 flex items-center gap-3 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 hover:bg-amber-100 transition-colors"
+          >
+            <TrendingUp className="w-5 h-5 text-amber-600 shrink-0" />
+            <span className="text-sm font-medium text-amber-900">
+              {data.itemsNeedingPriceReview} item{data.itemsNeedingPriceReview === 1 ? '' : 's'} had a supplier cost jump — review menu price{data.itemsNeedingPriceReview === 1 ? '' : 's'}
+            </span>
+            <span className="ml-auto text-sm font-semibold text-amber-700">Review →</span>
           </Link>
         )}
       </div>
