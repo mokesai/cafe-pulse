@@ -3,6 +3,7 @@ import { requireAdminAuth, isAdminAuthSuccess } from '@/lib/admin/middleware'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrentTenantId } from '@/lib/tenant/context'
 import { computeCogsStatus } from '@/lib/cogs/dashboard-status'
+import { getCostJumpItems } from '@/lib/inventory/cost-jump'
 
 // B1 / MOK-173: consolidated payload for the dashboard COGS strip — this-week vs prior-week COGS
 // (from ai_cogs_daily_summaries) and revenue (from orders), the tenant target %, the derived
@@ -100,11 +101,15 @@ export async function GET(request: NextRequest) {
       targetPct,
     })
 
+    // B3 (MOK-175): count of items whose supplier cost jumped recently — a "review menu price" nudge.
+    const priceReviewItems = await getCostJumpItems(supabase, tenantId)
+
     return NextResponse.json({
       success: true,
       data: {
         ...status,
         openBlockExceptions: openBlockExceptions ?? 0,
+        itemsNeedingPriceReview: priceReviewItems.length,
         sparkline,
         weekRange: { start: thisStartStr, end: dateStr(today) },
       },
