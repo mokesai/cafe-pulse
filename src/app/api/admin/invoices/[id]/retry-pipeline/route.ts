@@ -153,6 +153,18 @@ export async function POST(request: NextRequest, context: RouteContext) {
       )
     }
 
+    // MOK-172: refresh the Square catalog before re-running the pipeline (same rationale as the
+    // upload path — fresh products to match against). Non-fatal.
+    try {
+      const { syncMenusFromSquare } = await import('@/lib/square/menu-sync')
+      await syncMenusFromSquare(supabase, tenantId)
+    } catch (menuSyncError) {
+      console.warn(
+        `[retry-pipeline] menu-sync failed for tenant=${tenantId} (non-fatal):`,
+        menuSyncError instanceof Error ? menuSyncError.message : menuSyncError,
+      )
+    }
+
     // Directly call the Edge Function since DB webhooks only fire on INSERT, not UPDATE.
     // We mimic the webhook payload format so the Edge Function handles it identically.
     const edgeFunctionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/invoice-pipeline`

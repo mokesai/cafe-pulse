@@ -9,6 +9,7 @@ interface PipelineSettingsPayload {
   total_variance_threshold_pct?: number
   match_confidence_threshold_pct?: number
   vision_confidence_threshold_pct?: number
+  target_cogs_percentage_pct?: number
 }
 
 const VALID_NO_PO_MATCH_BEHAVIORS = ['always_create', 'auto_dismiss', 'notify_continue'] as const
@@ -61,6 +62,16 @@ function validateSettings(settings: PipelineSettingsPayload): string | null {
     }
   }
 
+  if (settings.target_cogs_percentage_pct !== undefined) {
+    if (
+      !Number.isInteger(settings.target_cogs_percentage_pct) ||
+      settings.target_cogs_percentage_pct < 1 ||
+      settings.target_cogs_percentage_pct > 100
+    ) {
+      return 'target_cogs_percentage_pct must be an integer between 1 and 100'
+    }
+  }
+
   return null
 }
 
@@ -81,7 +92,8 @@ export async function GET(request: NextRequest) {
         invoice_price_variance_threshold_pct,
         invoice_total_variance_threshold_pct,
         invoice_match_confidence_threshold_pct,
-        invoice_vision_confidence_threshold_pct
+        invoice_vision_confidence_threshold_pct,
+        target_cogs_percentage_pct
       `)
       .eq('id', tenantId)
       .single()
@@ -101,7 +113,8 @@ export async function GET(request: NextRequest) {
         price_variance_threshold_pct: tenant.invoice_price_variance_threshold_pct,
         total_variance_threshold_pct: tenant.invoice_total_variance_threshold_pct,
         match_confidence_threshold_pct: tenant.invoice_match_confidence_threshold_pct,
-        vision_confidence_threshold_pct: tenant.invoice_vision_confidence_threshold_pct
+        vision_confidence_threshold_pct: tenant.invoice_vision_confidence_threshold_pct,
+        target_cogs_percentage_pct: tenant.target_cogs_percentage_pct
       }
     })
   } catch (error) {
@@ -156,6 +169,9 @@ export async function PUT(request: NextRequest) {
     if (body.vision_confidence_threshold_pct !== undefined) {
       updatePayload.invoice_vision_confidence_threshold_pct = body.vision_confidence_threshold_pct
     }
+    if (body.target_cogs_percentage_pct !== undefined) {
+      updatePayload.target_cogs_percentage_pct = body.target_cogs_percentage_pct
+    }
 
     if (Object.keys(updatePayload).length === 1) {
       // Only updated_at was set — no actual fields to update
@@ -171,7 +187,8 @@ export async function PUT(request: NextRequest) {
         invoice_price_variance_threshold_pct,
         invoice_total_variance_threshold_pct,
         invoice_match_confidence_threshold_pct,
-        invoice_vision_confidence_threshold_pct
+        invoice_vision_confidence_threshold_pct,
+        target_cogs_percentage_pct
       `)
       .single()
 
@@ -192,7 +209,8 @@ export async function PUT(request: NextRequest) {
         price_variance_threshold_pct: updatedTenant.invoice_price_variance_threshold_pct,
         total_variance_threshold_pct: updatedTenant.invoice_total_variance_threshold_pct,
         match_confidence_threshold_pct: updatedTenant.invoice_match_confidence_threshold_pct,
-        vision_confidence_threshold_pct: updatedTenant.invoice_vision_confidence_threshold_pct
+        vision_confidence_threshold_pct: updatedTenant.invoice_vision_confidence_threshold_pct,
+        target_cogs_percentage_pct: updatedTenant.target_cogs_percentage_pct
       }
     })
   } catch (error) {

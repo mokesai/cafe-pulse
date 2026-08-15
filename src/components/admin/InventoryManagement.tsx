@@ -50,6 +50,7 @@ interface InventoryItem {
   supplier_name?: string
   location: string
   notes?: string
+  package_label?: string | null
   last_restocked_at?: string
   created_at: string
   updated_at: string
@@ -126,9 +127,22 @@ const InventoryManagement = () => {
     }
   })
 
+  // B3 (MOK-175): items whose supplier cost jumped recently → prompt a menu-price review.
+  const { data: priceReviewData } = useQuery({
+    queryKey: ['admin-price-review'],
+    queryFn: async () => {
+      const response = await fetch('/api/admin/inventory/price-review')
+      if (!response.ok) return { items: [], count: 0 }
+      return response.json()
+    }
+  })
+
   const inventoryItems: InventoryItem[] = inventoryData?.items || []
   const stockAlerts: StockAlert[] = alertsData?.alerts || []
   const suppliers: Supplier[] = suppliersData?.suppliers ?? []
+  const priceReviewItems: Array<{ id: string; item_name: string; pct_change: number }> =
+    priceReviewData?.items ?? []
+  const priceReviewById = new Map<string, number>(priceReviewItems.map((p) => [p.id, p.pct_change]))
 
   // Sales sync status
   const { data: salesSyncStatus, isFetching: salesSyncFetching, error: salesSyncError } = useQuery({
@@ -631,6 +645,31 @@ const InventoryManagement = () => {
             </div>
           )}
 
+          {/* Price Review (MOK-175): items whose supplier cost jumped recently */}
+          {priceReviewItems.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <TrendingUp className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <h4 className="font-medium text-amber-800">Price review</h4>
+                  <p className="text-sm text-amber-700 mt-1">
+                    {priceReviewItems.length} item{priceReviewItems.length === 1 ? '' : 's'} had a supplier cost jump in the last 30 days — consider raising the menu price.
+                  </p>
+                  <div className="mt-2 space-y-1">
+                    {priceReviewItems.slice(0, 3).map((p) => (
+                      <p key={p.id} className="text-xs text-amber-700">
+                        • {p.item_name}: cost up {p.pct_change}%
+                      </p>
+                    ))}
+                    {priceReviewItems.length > 3 && (
+                      <p className="text-xs text-amber-700">+ {priceReviewItems.length - 3} more</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Inventory Items Table */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200">
             <div className="p-4 sm:p-5 border-b border-gray-200">
@@ -729,6 +768,23 @@ const InventoryManagement = () => {
                                   {item.auto_decrement && (
                                     <span className="px-2 py-1 text-xs font-medium bg-amber-100 text-amber-700 rounded-full">
                                       Auto Sync
+                                    </span>
+                                  )}
+                                  {item.package_label && (
+                                    <span
+                                      className="px-2 py-1 text-xs font-medium bg-indigo-100 text-indigo-700 rounded-full"
+                                      title="Package label — distinguishes packagings that share a Square item ID"
+                                    >
+                                      {item.package_label}
+                                    </span>
+                                  )}
+                                  {priceReviewById.has(item.id) && (
+                                    <span
+                                      className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-amber-100 text-amber-800 rounded-full"
+                                      title={`Supplier cost up ${priceReviewById.get(item.id)}% in the last 30 days — review menu price`}
+                                    >
+                                      <TrendingUp className="w-3 h-3" />
+                                      Review price +{priceReviewById.get(item.id)}%
                                     </span>
                                   )}
                                 </div>

@@ -159,6 +159,29 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // MOK-169: per-invoice count of sub-threshold ("minor") price changes. These no longer
+    // create per-line exceptions (they flooded the queue); they're surfaced as a single FYI
+    // count computed on read from the variance-history audit table.
+    const invoiceRows = (invoices ?? []) as Array<{ id: string; [key: string]: unknown }>
+    const invoiceIds = invoiceRows.map((inv) => inv.id)
+    const minorCountById = new Map<string, number>()
+    if (invoiceIds.length > 0) {
+      const { data: minorRows } = await supabase
+        .from('invoice_variance_history')
+        .select('invoice_id')
+        .eq('tenant_id', tenantId)
+        .eq('variance_type', 'price_variance')
+        .eq('severity', 'info')
+        .in('invoice_id', invoiceIds)
+      for (const row of (minorRows ?? []) as Array<{ invoice_id: string }>) {
+        minorCountById.set(row.invoice_id, (minorCountById.get(row.invoice_id) ?? 0) + 1)
+      }
+    }
+    const invoicesWithCounts = invoiceRows.map((inv) => ({
+      ...inv,
+      minor_price_variance_count: minorCountById.get(inv.id) ?? 0,
+    }))
+
     // Gather summary stats
     const [{ count: pendingReviewCount }, { count: confirmedCount }, { count: errorCount }] = await Promise.all([
       supabase
@@ -198,7 +221,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: invoices,
+      data: invoicesWithCounts,
       stats: {
         total: queueCountResults.find(([queueId]) => queueId === 'all')?.[1] || 0,
         pending_review: pendingReviewCount || 0,

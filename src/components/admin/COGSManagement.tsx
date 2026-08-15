@@ -893,7 +893,7 @@ export default function COGSManagement() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">COGS Reporting</h1>
           <p className="text-gray-600">
-            Phase 1: periodic COGS. Phase 2: product/sellable mapping + base recipes.
+            Periodic (inventory-based) and theoretical (recipe-based) cost of goods sold.
           </p>
         </div>
         <button
