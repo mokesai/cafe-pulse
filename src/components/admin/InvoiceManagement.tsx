@@ -224,6 +224,16 @@ function InvoicesList({
                           {invoice.open_exception_count} open
                         </Link>
                       )}
+                      {/* MOK-169: sub-threshold price changes — informational FYI, applied
+                          automatically with no per-line exception to resolve. */}
+                      {(invoice.minor_price_variance_count ?? 0) > 0 && (
+                        <span
+                          className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700"
+                          title="Sub-threshold price changes applied automatically — no action needed"
+                        >
+                          {invoice.minor_price_variance_count} minor price {invoice.minor_price_variance_count === 1 ? 'change' : 'changes'}
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center mt-1 text-sm text-gray-500">
                       <span>{invoice.suppliers?.name || 'Unknown Supplier'}</span>

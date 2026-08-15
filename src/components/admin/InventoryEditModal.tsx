@@ -22,6 +22,8 @@ interface InventoryItem {
   supplier_id?: string
   location: string
   notes?: string
+  package_label?: string | null
+  package_cost?: number | null
 }
 
 interface Supplier {
@@ -73,8 +75,14 @@ export default function InventoryEditModal({ item, suppliers, isOpen, onClose }:
   useEffect(() => {
     if (item && isOpen) {
       const isPack = (item.pack_size || 1) > 1
-      // Stored unit_cost is per-unit; derive pack cost when pack size > 1
-      const initialPackPrice = isPack ? (item.unit_cost || 0) * (item.pack_size || 1) : (item.unit_cost || 0)
+      // MOK-171: prefer the stored package_cost (the exact figure the operator entered) so it
+      // doesn't drift from re-deriving unit_cost * pack_size off a 4dp-rounded unit_cost.
+      const initialPackPrice =
+        item.package_cost != null
+          ? item.package_cost
+          : isPack
+            ? (item.unit_cost || 0) * (item.pack_size || 1)
+            : (item.unit_cost || 0)
       const derivedUnitCost = item.unit_cost || 0
       setFormData({
         item_name: item.item_name,
@@ -89,7 +97,8 @@ export default function InventoryEditModal({ item, suppliers, isOpen, onClose }:
         is_ingredient: item.is_ingredient,
         item_type: item.item_type || (item.is_ingredient ? 'ingredient' : 'prepackaged'),
         auto_decrement: item.auto_decrement ?? false,
-        square_item_id: item.square_item_id || ''
+        square_item_id: item.square_item_id || '',
+        package_label: item.package_label ?? ''
       })
       setPackPrice(initialPackPrice.toString())
       loadCostHistory(item.id)
@@ -113,7 +122,10 @@ export default function InventoryEditModal({ item, suppliers, isOpen, onClose }:
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: item?.id,
-          ...data
+          ...data,
+          // MOK-171: the Pack Cost field is canonical for pack rows; send it so the entered
+          // value is persisted and unit_cost is derived server-side (no rounding drift).
+          package_cost: Number(packPrice) > 0 ? Number(parseFloat(packPrice).toFixed(4)) : undefined,
         })
       })
 
@@ -431,6 +443,23 @@ export default function InventoryEditModal({ item, suppliers, isOpen, onClose }:
               <p className="text-xs text-gray-500 mt-1">Full pack/case price; auto-derives unit cost.</p>
             </div>
           </div>
+          {/* Package label — MOK-170 discriminator */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Package Label
+            </label>
+            <input
+              type="text"
+              value={formData.package_label ?? ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, package_label: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              placeholder="Optional — e.g. Standalone 35-pack, From variety pack"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Distinguishes two products from the same supplier that share a Square item ID and pack size.
+            </p>
+          </div>
+
           {/* Supplier */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">

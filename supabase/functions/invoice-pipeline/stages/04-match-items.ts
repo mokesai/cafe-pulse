@@ -557,47 +557,63 @@ async function applyItemMatch(
   const priceThresholdPct = ctx.tenantSettings.priceVarianceThresholdPct
 
   if (priceMode.variancePct > 0 && inventoryItem.unit_cost > 0) {
-    const severity = priceMode.variancePct > priceThresholdPct ? 'block' : 'info'
-    const direction = severity === 'block'
-      ? `Exceeds the ${priceThresholdPct}% threshold.`
-      : `Below the ${priceThresholdPct}% threshold — informational only.`
-    const modeNote = priceMode.mode === 'per_pack'
-      ? ` (matched per pack of ${priceMode.packSize}: $${item.unit_price.toFixed(2)}/pack vs $${priceMode.comparatorCost.toFixed(2)}/pack)`
-      : ''
-
+    // MOK-169: only above-threshold variances create a per-line exception. Sub-threshold
+    // "minor" changes are recorded in variance history (for audit + a per-invoice FYI count)
+    // and let the cost flow through in stage 5 — they used to flood the exception queue.
+    const { severity, createsException } = classifyPriceVariance(
+      priceMode.variancePct,
+      priceThresholdPct,
+    )
     const signedVariance = (item.unit_price - priceMode.comparatorCost) / priceMode.comparatorCost * 100
 
-    const exceptionId = await createException(ctx, {
-      type: 'price_variance',
-      severity,
-      message:
-        `${priceMode.mode === 'per_pack' ? 'Pack' : 'Unit'} price for "${inventoryItem.item_name}" ` +
-        `changed ${signedVariance > 0 ? '+' : ''}${priceMode.variancePct.toFixed(1)}% ` +
-        `(from $${priceMode.comparatorCost.toFixed(2)} to $${item.unit_price.toFixed(2)})${modeNote}. ${direction}`,
-      context: {
-        item_description: item.item_description,
+    let exceptionId: string | undefined = undefined
+    if (createsException) {
+      const modeNote = priceMode.mode === 'per_pack'
+        ? ` (matched per pack of ${priceMode.packSize}: $${item.unit_price.toFixed(2)}/pack vs $${priceMode.comparatorCost.toFixed(2)}/pack)`
+        : ''
+
+      exceptionId = await createException(ctx, {
+        type: 'price_variance',
+        severity,
+        message:
+          `${priceMode.mode === 'per_pack' ? 'Pack' : 'Unit'} price for "${inventoryItem.item_name}" ` +
+          `changed ${signedVariance > 0 ? '+' : ''}${priceMode.variancePct.toFixed(1)}% ` +
+          `(from $${priceMode.comparatorCost.toFixed(2)} to $${item.unit_price.toFixed(2)})${modeNote}. ` +
+          `Exceeds the ${priceThresholdPct}% threshold.`,
+        context: {
+          item_description: item.item_description,
+          inventory_item_id: inventoryItem.id,
+          inventory_item_name: inventoryItem.item_name,
+          previous_unit_cost: inventoryItem.unit_cost,
+          invoice_unit_price: item.unit_price,
+          variance_pct: signedVariance,
+          threshold_pct: priceThresholdPct,
+          po_unit_cost: null,
+          // MOK-133: surface the mode + derived per-unit price so downstream
+          // consumers (resolve route, COGS report) don't have to re-derive.
+          price_mode: priceMode.mode,
+          pack_size: priceMode.packSize,
+          comparator_cost: priceMode.comparatorCost,
+          effective_unit_price: priceMode.effectiveUnitPrice,
+        },
+        invoiceItemId: item.id,
+        pipelineStage: STAGE,
+      })
+    } else {
+      // Sub-threshold: no per-line exception, just a structured log for observability.
+      console.log(JSON.stringify({
+        event: 'minor_price_change_suppressed',
+        invoice_id: ctx.invoiceId,
+        invoice_item_id: item.id,
         inventory_item_id: inventoryItem.id,
-        inventory_item_name: inventoryItem.item_name,
-        previous_unit_cost: inventoryItem.unit_cost,
-        invoice_unit_price: item.unit_price,
         variance_pct: signedVariance,
         threshold_pct: priceThresholdPct,
-        po_unit_cost: null,
-        // MOK-133: surface the mode + derived per-unit price so downstream
-        // consumers (resolve route, COGS report) don't have to re-derive.
-        price_mode: priceMode.mode,
-        pack_size: priceMode.packSize,
-        comparator_cost: priceMode.comparatorCost,
-        effective_unit_price: priceMode.effectiveUnitPrice,
-      },
-      invoiceItemId: item.id,
-      pipelineStage: STAGE,
-    })
+      }))
+    }
 
-    // MOK-122: persist to variance history shadow table.
-    // poUnitCost reflects the comparator (unit_cost in per-unit mode,
-    // pack_cost in per-pack mode). invoiceUnitPrice is the raw invoice
-    // value so historic queries can re-derive whichever they need.
+    // MOK-122: persist to variance history shadow table (info + block). poUnitCost reflects
+    // the comparator (unit_cost in per-unit mode, pack_cost in per-pack mode). invoiceUnitPrice
+    // is the raw invoice value so historic queries can re-derive whichever they need.
     await recordVariance(ctx, {
       varianceType: 'price_variance',
       severity,
@@ -657,6 +673,24 @@ export interface PriceModeResult {
   effectiveUnitPrice: number
   /** The pack size used in the calculation (≥ 1). */
   packSize: number
+}
+
+/**
+ * MOK-169: classify a non-zero price variance.
+ *
+ * - variancePct <= threshold → a "minor" change. Recorded in variance history for audit and
+ *   surfaced as a per-invoice FYI count, but NO per-line exception is created (sub-threshold
+ *   info exceptions flooded the queue and never gated confirmation anyway).
+ * - variancePct > threshold → a blocking exception the operator must resolve.
+ *
+ * Pure function — exported for unit tests. Callers invoke this only when variancePct > 0.
+ */
+export function classifyPriceVariance(
+  variancePct: number,
+  thresholdPct: number,
+): { severity: 'info' | 'block'; createsException: boolean } {
+  const isBlocking = variancePct > thresholdPct
+  return { severity: isBlocking ? 'block' : 'info', createsException: isBlocking }
 }
 
 /**

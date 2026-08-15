@@ -2,16 +2,16 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { 
-  DollarSign, 
-  ShoppingBag, 
-  Users, 
-  TrendingUp,
+import {
+  DollarSign,
+  ShoppingBag,
+  Users,
   Clock,
   CheckCircle,
   XCircle,
   AlertTriangle
 } from 'lucide-react'
+import { CogsStatusStrip } from './dashboard/CogsStatusStrip'
 
 interface DashboardStats {
   todayRevenue: number
@@ -94,13 +94,6 @@ export function AdminDashboardOverview() {
       icon: Users,
       color: 'bg-purple-500',
       textColor: 'text-purple-600'
-    },
-    {
-      title: 'Growth Rate',
-      value: '+12.5%',
-      icon: TrendingUp,
-      color: 'bg-amber-500',
-      textColor: 'text-amber-600'
     }
   ]
 
@@ -145,8 +138,11 @@ export function AdminDashboardOverview() {
 
   return (
     <div className="space-y-8">
+      {/* COGS-first status strip (MOK-173) */}
+      <CogsStatusStrip />
+
       {/* Revenue & Order Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {statCards.map((stat, index) => (
           <div key={index} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between">

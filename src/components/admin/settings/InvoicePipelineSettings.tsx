@@ -14,6 +14,7 @@ export interface InvoicePipelineSettingsData {
   total_variance_threshold_pct: number
   match_confidence_threshold_pct: number
   vision_confidence_threshold_pct: number
+  target_cogs_percentage_pct: number
 }
 
 const DEFAULTS: InvoicePipelineSettingsData = {
@@ -22,6 +23,7 @@ const DEFAULTS: InvoicePipelineSettingsData = {
   total_variance_threshold_pct: 5,
   match_confidence_threshold_pct: 85,
   vision_confidence_threshold_pct: 60,
+  target_cogs_percentage_pct: 30,
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -33,6 +35,7 @@ interface FieldErrors {
   total_variance_threshold_pct?: string
   match_confidence_threshold_pct?: string
   vision_confidence_threshold_pct?: string
+  target_cogs_percentage_pct?: string
 }
 
 interface FieldWarnings {
@@ -54,6 +57,9 @@ function validateSettings(settings: InvoicePipelineSettingsData): FieldErrors {
   }
   if (settings.vision_confidence_threshold_pct < 10 || settings.vision_confidence_threshold_pct > 100) {
     errors.vision_confidence_threshold_pct = 'Must be between 10 and 100'
+  }
+  if (settings.target_cogs_percentage_pct < 1 || settings.target_cogs_percentage_pct > 100) {
+    errors.target_cogs_percentage_pct = 'Must be between 1 and 100'
   }
 
   return errors
@@ -450,6 +456,26 @@ export default function InvoicePipelineSettings() {
             max={100}
             error={errors.vision_confidence_threshold_pct}
             warning={warnings.vision_confidence_threshold_pct}
+            disabled={saving}
+          />
+        </div>
+
+        {/* ── COGS Target (MOK-173) ─────────────────────────────────────────── */}
+        <SectionHeader title="COGS Target" />
+        <div className="mb-8 space-y-4">
+          <p className="text-sm text-gray-600 mb-3">
+            Drives the dashboard&apos;s good/bad signal. The week is &quot;on target&quot; when COGS as a
+            percentage of sales is at or below this value.
+          </p>
+          <ThresholdField
+            id="target_cogs_percentage_pct"
+            label="Target COGS % of sales:"
+            hint="Typical café food cost runs 28–35%. The dashboard shows green at or below this, amber within 3 points, red beyond."
+            value={settings.target_cogs_percentage_pct}
+            onChange={(val) => update('target_cogs_percentage_pct', val)}
+            min={1}
+            max={100}
+            error={errors.target_cogs_percentage_pct}
             disabled={saving}
           />
         </div>
