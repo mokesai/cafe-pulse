@@ -274,7 +274,7 @@ async function fetchSquareOrders(
   return { orders, cursor: nextCursor ?? null }
 }
 
-async function insertSalesTransaction(
+export async function insertSalesTransaction(
   supabase: SupabaseClient,
   tenantId: string,
   order: SquareOrder,
@@ -285,10 +285,16 @@ async function insertSalesTransaction(
 
   const squareOrderId = order.id
 
+  // sales_transactions.square_order_id carries a GLOBAL unique constraint that predates
+  // multi-tenancy, so an order already recorded under ANY tenant must be treated as
+  // already-synced. Square order ids are globally unique, so a row under a *different* tenant
+  // means two tenants resolve to the same Square account (a credential misconfiguration) —
+  // recording it again would double-count the sale and its inventory decrement, so we skip it
+  // either way. Checking tenant-scoped here (the old behavior) missed cross-tenant rows, and the
+  // insert below then threw 23505 and aborted the whole sync run (MOK-185). Check globally.
   const existing = await supabase
     .from('sales_transactions')
-    .select('id')
-    .eq('tenant_id', tenantId)
+    .select('id, tenant_id')
     .eq('square_order_id', squareOrderId)
     .maybeSingle()
 
@@ -297,6 +303,12 @@ async function insertSalesTransaction(
   }
 
   if (existing.data) {
+    if (existing.data.tenant_id !== tenantId) {
+      console.warn(
+        `Sales sync: Square order ${squareOrderId} is already recorded under tenant ` +
+          `${existing.data.tenant_id}; skipping for tenant ${tenantId} (likely shared Square credentials).`
+      )
+    }
     return { id: existing.data.id, wasInserted: false }
   }
 
@@ -327,8 +339,18 @@ async function insertSalesTransaction(
     .select()
     .single()
 
-  if (error || !data) {
-    throw new Error(`Failed to insert sales transaction: ${error?.message ?? 'Unknown error'}`)
+  if (error) {
+    // A concurrent run may have inserted the same order between the check above and here. The
+    // global unique constraint (Postgres 23505) means it is already recorded — skip rather than
+    // aborting the entire sync (MOK-185).
+    if ((error as { code?: string }).code === '23505') {
+      return { id: squareOrderId, wasInserted: false }
+    }
+    throw new Error(`Failed to insert sales transaction: ${error.message}`)
+  }
+
+  if (!data) {
+    throw new Error('Failed to insert sales transaction: no row returned')
   }
 
   return { id: data.id, wasInserted: true }
