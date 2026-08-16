@@ -40,6 +40,14 @@ export interface RunSalesSyncOptions {
   dryRun?: boolean
   /** User id to attribute the sync run to (null for automated/cron runs). */
   adminId?: string | null
+  /**
+   * Absolute epoch-ms deadline (MOK-186). The order loop stops processing once it is passed and
+   * finalizes what it already has, so a large backlog drains across runs instead of hitting the
+   * Vercel 504 timeout. When the cron sweeps many tenants they share one deadline. Omit = no limit.
+   */
+  deadlineMs?: number
+  /** Max Square orders to pull + process in one run (MOK-186). Default 1000. */
+  maxOrders?: number
 }
 
 export type RunSalesSyncResult =
@@ -48,6 +56,23 @@ export type RunSalesSyncResult =
   | { ok: false; error: string }
 
 const SQUARE_VERSION = '2024-12-18'
+
+/**
+ * The Square-orders lookback floor for a run (MOK-186).
+ * - With a prior successful watermark, resume 60s before it (a small overlap that the
+ *   square_order_id dedup skips) so no order is missed at the boundary.
+ * - With NO prior run, start at the beginning of *today* (UTC) instead of pulling all history:
+ *   replaying months of past orders both times out the function and retroactively over-decrements
+ *   current inventory. Sync tracks sales forward from when it is first enabled ("forward-only").
+ */
+export function computeSyncSince(lastSyncedAt: string | null | undefined, now: Date): string {
+  if (lastSyncedAt) {
+    return new Date(new Date(lastSyncedAt).getTime() - 60 * 1000).toISOString()
+  }
+  const startOfToday = new Date(now)
+  startOfToday.setUTCHours(0, 0, 0, 0)
+  return startOfToday.toISOString()
+}
 
 async function getLastSuccessfulRun(supabase: SupabaseClient, tenantId: string) {
   const { data } = await supabase
@@ -211,7 +236,8 @@ type SquareOrdersResponse = {
 
 async function fetchSquareOrders(
   config: SquareConfig,
-  since?: string | null
+  since?: string | null,
+  maxOrders = Infinity
 ): Promise<SquareOrdersResponse> {
   const baseUrl = config.environment === 'production'
     ? 'https://connect.squareup.com'
@@ -269,9 +295,11 @@ async function fetchSquareOrders(
 
     cursor = payload.cursor
     nextCursor = payload.cursor ?? nextCursor
-  } while (cursor)
+  } while (cursor && orders.length < maxOrders)
 
-  return { orders, cursor: nextCursor ?? null }
+  // Cap the batch so a single run stays bounded (MOK-186). Orders are ASC, so we keep the oldest
+  // unsynced ones and the watermark advances cleanly for the next run to continue where we left off.
+  return { orders: orders.slice(0, maxOrders), cursor: nextCursor ?? null }
 }
 
 export async function insertSalesTransaction(
@@ -497,11 +525,10 @@ export async function runSalesSync(
     const syncRun = await createSyncRun(supabase, tenantId, opts.adminId ?? null)
     currentRunId = syncRun.id
 
-    const sinceTimestamp = lastRun?.last_synced_at
-      ? new Date(new Date(lastRun.last_synced_at).getTime() - 60 * 1000).toISOString()
-      : undefined
+    const sinceTimestamp = computeSyncSince(lastRun?.last_synced_at ?? null, new Date())
+    const maxOrders = opts.maxOrders ?? 1000
 
-    const { orders, cursor } = await fetchSquareOrders(squareConfig, sinceTimestamp)
+    const { orders, cursor } = await fetchSquareOrders(squareConfig, sinceTimestamp, maxOrders)
     const inventoryMap = await fetchInventoryMap(supabase, tenantId)
 
     const metrics: SyncMetrics = {
@@ -523,6 +550,14 @@ export async function runSalesSync(
     let latestOrderedAt: string | undefined
 
     for (const order of orders) {
+      if (opts.deadlineMs && Date.now() > opts.deadlineMs) {
+        console.warn(
+          `Sales sync: time budget reached for tenant ${tenantId} after ` +
+            `${metrics.ordersProcessed} orders; persisting progress and resuming next run (MOK-186).`
+        )
+        break
+      }
+
       const orderedAt = order.created_at
       if (sinceTimestamp && orderedAt && new Date(orderedAt) <= new Date(sinceTimestamp)) {
         continue
@@ -622,7 +657,7 @@ export async function runSalesSync(
     await updateSyncRun(supabase, tenantId, syncRun.id, {
       status: 'success',
       square_cursor: cursor ?? null,
-      last_synced_at: latestOrderedAt ?? lastRun?.last_synced_at ?? null,
+      last_synced_at: latestOrderedAt ?? lastRun?.last_synced_at ?? sinceTimestamp,
       orders_processed: metrics.ordersProcessed,
       auto_decrements: Math.round(metrics.autoDecrements),
       manual_pending: Math.round(metrics.manualPending)
