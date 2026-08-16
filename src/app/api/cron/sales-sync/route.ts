@@ -3,6 +3,9 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { runSalesSync } from '@/lib/square/sales-sync'
 
 export const dynamic = 'force-dynamic'
+// Vercel Hobby caps function duration at 300s. We time-box the sync work below to well under
+// this (see deadlineMs) so a large backlog drains across runs instead of a 504 (MOK-186).
+export const maxDuration = 300
 
 /**
  * MOK-172: scheduled Square sales sync.
@@ -52,9 +55,13 @@ export async function GET(request: NextRequest) {
     error?: string
   }> = []
 
+  // Shared time budget across all swept tenants, kept under Vercel's 300s cap. Each tenant's sync
+  // stops processing once this passes and persists its progress, so the job never 504s (MOK-186).
+  const deadlineMs = Date.now() + 240_000
+
   for (const tenantId of tenantIds) {
     try {
-      const result = await runSalesSync(supabase, tenantId, { adminId: null })
+      const result = await runSalesSync(supabase, tenantId, { adminId: null, deadlineMs })
       if (result.ok) {
         results.push({ tenant_id: tenantId, status: 'synced', orders: result.metrics.ordersProcessed })
       } else if ('skipped' in result) {
